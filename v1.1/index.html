@@ -1,0 +1,229 @@
+<!doctype html>
+<html>
+
+<head>
+
+	<!-- META -->
+	<title>LOOPY (v1.2)</title>
+	<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+	<meta content="utf-8" http-equiv="encoding">
+	<meta charset="utf-8">
+	<link rel="icon" type="image/png" href="favicon.png">
+
+	<!-- Schema.org markup for Google+ -->
+	<meta itemprop="name" content="LOOPY!">
+	<meta itemprop="description" content="a tool for thinking in systems">
+	<meta itemprop="image" content="http://ncase.me/loopy/social/thumbnail.png">
+
+	<!-- Twitter Card data: SMALL -->
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:site" content="@ncasenmare" />
+	<meta name="twitter:title" content="LOOPY!" />
+	<meta name="twitter:description" content="a tool for thinking in systems" />
+	<meta name="twitter:creator" content="@ncasenmare">
+	<meta name="twitter:image" content="http://ncase.me/loopy/social/thumbnail_small.png" />
+
+	<!-- Open Graph data -->
+	<meta property="og:title" content="LOOPY!">
+	<meta property="og:type" content="website">
+	<meta property="og:url" content="http://ncase.me/loopy/">
+	<meta property="og:image" content="http://ncase.me/loopy/social/thumbnail.png">
+	<meta property="og:description" content="a tool for thinking in systems">
+
+	<!-- Styles! -->
+	<link href="css/loopy.css" rel="stylesheet" />
+	<link href="css/balloon.css" rel="stylesheet" />
+	<link href="styles.css" rel="stylesheet">
+
+	<!--Content Delivery Networks (Last part of URL is library used)-->
+	<script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body style="opacity:0">
+
+
+
+
+
+	<!-- Need to clean up this UI section to have everything in there own JS files-->
+	<div id="data-window">
+		<!-- <div>
+			<h4 style="text-align: center;">Welcome to the Loopy Output Window -- Click a menu item to get started. Some tabs may load slowly due to complex computations.</h4>
+		</div> -->
+		<div class="tabs">
+			<button class="tablink" id='canvasTab' onclick="openPage('Canvas')">Canvas</button>
+			<!-- <button class="tablink" id='amountsTab' onclick="openPage('Amounts')">Amounts</button> -->
+			<div class="dropdown">
+				<button class="tablink">Time Series</button>
+				<div class="dropdown-content">
+					<a id='timeSeriesTab' onclick="openPage('TimeSeries')">Per Tick</a>
+					<a id='timeSeriesTabSmooth' onclick="openPage('TimeSeriesSmooth')">Smoothed Out</a>
+
+				</div>
+
+			</div>
+			<button class="tablink" id='crisisAnalysisTab' onclick="openPage('CrisisAnalysis')">Crisis Analysis</button>
+			<button class="tablink" id='correlationTab' onclick="openPage('Correlation')">Correlation</button>
+
+
+
+			<div class="dropdown">
+				<button class="tablink">For Researchers</button>
+				<div class="dropdown-content">
+					<a id='cycleAnalysisTab' onclick="openPage('CycleAnalysis')">Cycle Detection</a>
+					<a id='degreeCentralityTab' onclick="openPage('DegreeCentrality')">Graph Centralities</a>
+					<a id='visualAnalysisTab' onclick="openPage('VisualAnalysis')">Visual Analysis</a>
+					<a id='simulationTab' onclick="openPage('Simulation1')">Histogram 1</a>
+					<a id='simulation2Tab' onclick="openPage('Simulation2')">Histogram 2</a>
+					<a id='boxPlotTab' onclick="openPage('BoxPlot')">Box Plot</a>
+					<a id='violinPlotTab' onclick="openPage('ViolinPlot')">Violin Plot</a>
+					<a id='randomSeedsTab' onclick="openPage('RandomSeeds')">Random Seeds</a>
+				</div>
+			</div>
+		</div>
+
+		<div id="Canvas" class="tabcontent"> 
+			<div id="canvasses"></div>
+			<div id="toolbar"></div>
+			<div id="playbar"></div>
+			<div id="sidebar"></div>
+		</div>
+
+		<!-- <div id="Amounts" class="tabcontent">
+			<div id="node-data-content"></div>
+		</div> -->
+
+		<div id="TimeSeries" class="tabcontent">
+			<div>
+				<canvas id="timeSeriesChart" style="width:95%; margin-top: 50px;"></canvas>
+			</div>
+			<div class="rebuildButtonContainer">
+				<button class="align-bottom" id="rebuildTimeSeriesChartButton">Rebuild Chart with Current Nodes</button>
+			</div>
+			
+		</div>
+
+		<div id="TimeSeriesSmooth" class="tabcontent">
+			<div>
+				<canvas id="timeSeriesChartSmooth"></canvas>
+			</div>
+			<div>
+				<form id="smoothWindowForm">
+					<label for="smoothwindow">Smoothing Window</label>
+					<input type="number" id="smoothwindow" name="smoothwindow" value=7><br><br>
+					<input type="submit" value="Submit">
+				</form>
+			</div>
+			
+			
+			
+		</div>
+
+		<!-- Have to collaborate with other researcher to have this properly working and change the python code into something that works with the loopy output-->
+		<div id="CycleAnalysis" class="tabcontent">
+			<div id="duplicateNodesWithEdgesWarning"></div>
+			<br>
+			<h4>Cycle Detection</h4>
+			<table id="cycleTable"></table>
+		</div>
+
+		<div id="DegreeCentrality" class="tabcontent">
+			<table id="centralityTable"></table>
+		</div>
+
+		<div id="VisualAnalysis" class="tabcontent">
+			<div id="visualAnalysisPlots"></div>
+		</div>
+
+		<div id="CrisisAnalysis" class="tabcontent">
+			<div id="crisisAnalysisPlots"></div>
+		</div>
+
+		<div id="Simulation1" class="tabcontent">
+			<div id="simulationPlots"></div>
+		</div>
+		<div id="Simulation2" class="tabcontent">
+			<div id="simulationPlots2"></div>
+		</div>
+		<div id="BoxPlot" class="tabcontent">
+			<div id="boxPlots"></div>
+		</div>
+		<div id="ViolinPlot" class="tabcontent">
+			<div id="violinPlots"></div>
+		</div>
+
+		<div id="RandomSeeds" class="tabcontent">
+			<div id="randomSeedsPlots"></div>
+		</div>
+
+		<div id="Correlation" class="tabcontent">
+			<div id="correlationPlot"></div>
+		</div>
+
+	</div>
+
+
+	<!-- MODAL -->
+	<div id="modal_container">
+		<div id="modal_bg"></div>
+		<div id="modal">
+			<div id="modal_close">[×] CLOSE</div>
+			<div id="modal_page"></div>
+		</div>
+	</div>
+
+
+</body>
+
+</html>
+
+
+
+
+
+<!-- Libraries -->
+<script src="js/Libraries/helpers.js"></script>
+<script src="js/Libraries/minpubsub.js"></script>
+<script src="js/Libraries/Mouse.js"></script>
+<script src="js/Libraries/Key.js"></script>
+
+<!-- Core Simulation Code -->
+<script src="js/Core/Loopy.js?v=5"></script>
+<script src="js/Core/Model.js?v=3"></script>
+<script src="js/Core/Node.js?v=3"></script>
+<script src="js/Core/NodeLabel.js"></script>
+<script src="js/Core/Edge.js?v=2"></script>
+<script src="js/Core/Label.js"></script>
+
+<!-- Tools -->
+<script src="js/Tools/PageUI.js"></script>
+<script src="js/Tools/Sidebar.js?v=2"></script>
+<script src="js/Tools/Toolbar.js"></script>
+<script src="js/Tools/PlayControls.js"></script>
+<script src="js/Tools/Modal.js?v=4"></script>
+<script src="js/Tools/Ink.js"></script>
+<script src="js/Tools/Dragger.js"></script>
+<script src="js/Tools/Eraser.js"></script>
+<script src="js/Tools/Labeller.js"></script>
+
+<!-- Output Window -->
+<script src="js/Out/Outputs.js"></script>
+
+<!-- Note to self: Put extra code after Core Simulation Code-->
+<script type="text/javascript" src="python/pyTo.js"></script>
+
+<!-- Start it -->
+<script>
+	window.onload = async function () {
+		openPage('Canvas');
+		window.loopy = new Loopy();
+		// const delay = ms => new Promise(res => setTimeout(res, ms));
+		// await delay(1000);
+
+		loadAndExecutePythonScript();
+
+
+	};
+</script>

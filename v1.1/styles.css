@@ -1,0 +1,120 @@
+body {
+    font-family: Arial, sans-serif;
+}
+
+button {
+    margin: 20px;
+    padding: 10px 20px;
+    font-size: 16px;
+}
+
+#data-window {
+    position:absolute; width:100%; height:100%; background:rgb(255, 255, 255); border:1px solid black; overflow:auto;
+}
+
+.popup-container {
+    display: none; /* Hidden by default */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1;
+}
+
+p {
+    margin: 5px;
+}
+
+h4 {
+    margin: 5px;
+}
+
+.popup-content {
+    position: relative;
+    margin: 10% auto;
+    padding: 20px;
+    width: 80%;
+    background-color: white;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.close-btn {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 24px;
+    cursor: pointer;
+    margin: 0px;
+}
+
+.tabs {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.tablink {
+    flex: 1;
+    padding: 10px;
+    background-color: #f1f1f1;
+    border: none;
+    cursor: pointer;
+    text-align: center;
+    font-size: 16px;
+    margin: 0px;
+}
+
+.tablink:hover {
+    background-color: #ddd;
+}
+
+.tabcontent {
+    display: none;
+    padding-left: 20px;
+    width: 100%;
+}
+
+.tabcontent.active {
+    display: block;
+}
+
+
+#timeSeriesChart {
+    padding-top: 10px;
+    width: 100%;
+    height: 100%;
+}
+
+.rebuildButtonContainer {
+    display: flex;
+    justify-content: center; /* Center horizontally */
+    align-items: flex-end;   /* Align to the bottom */
+    height: 100vh;          /* Full viewport height */
+}
+
+.align-bottom {
+    margin-bottom: 20px;    /* Optional: Add some space from the bottom */
+}
+
+#timeSeriesChartSmooth {
+    flex: 1; /* Allow the canvas to take up the remaining vertical space */
+    width: 95%;
+    margin: 50px auto 0 auto; /* Center the canvas horizontally with margin on top */
+}
+
+#smoothWindowForm {
+    position: fixed; /* Fix the form at the bottom of the window */
+    bottom: 0;
+    width: 100%; /* Make the form take up the full width */
+    background-color: white; /* Set a background color if needed */
+    padding: 10px; /* Add some padding for better appearance */
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1); /* Add a shadow for better separation */
+    display: flex;
+    justify-content: center; /* Center the form elements horizontally */
+}
+
+#smoothWindowForm label, #smoothWindowForm input {
+    margin: 0 10px; /* Add spacing between the label and inputs */
+}
