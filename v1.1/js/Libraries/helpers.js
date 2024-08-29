@@ -84,11 +84,11 @@ function _createInput(className, id, textarea){
 function _createCheckbox(isChecked, onclick) {
     // Create a container div for the checkbox and label
 	var checkbox = document.createElement("input");
-	checkbox.type = "checkbox";
+	// checkbox.type = "checkbox";
     checkbox.checked = isChecked;
 	checkbox.onclick = onclick;
 
-    checkbox.setAttribute("class", "component_checkbox");
+    // checkbox.setAttribute("class", "component_checkbox");
 
 	return checkbox
 }
@@ -146,12 +146,17 @@ function _getTotalOffset(target){
 	};
 }
 
-function _addMouseEvents(target, onmousedown, onmousemove, onmouseup, onmousewheel){
+function _addMouseEvents(target, onmousedown, onmousemove, onmouseup, onmousewheel, ondoubleclick){
 
 	// WRAP THEM CALLBACKS
 	var _onmousedown = function(event){
 		var _fakeEvent = _onmousemove(event);
 		onmousedown(_fakeEvent);
+	};
+
+	var _ondoubleclick = function(event){
+		var _fakeEvent = _onmousemove(event);
+		ondoubleclick(_fakeEvent);
 	};
 
 	const _onmousewheel = function(event){
@@ -187,6 +192,7 @@ function _addMouseEvents(target, onmousedown, onmousemove, onmouseup, onmousewhe
 
 	// Add events!
 	target.addEventListener("mousedown", _onmousedown);
+	target.addEventListener("dblclick", _ondoubleclick)
 	target.addEventListener("mousemove", _onmousemove);
 	document.body.addEventListener("mouseup", _onmouseup);
 	target.addEventListener("wheel", _onmousewheel);
@@ -395,47 +401,3 @@ function drawBounds(bounds, color){
 	ctx.restore()
 
 }
-
-
-
-
-
-
-
-
-// function applyInitialPropEffects(element) {
-//     const typeIndex = objTypeToTypeIndex(element);
-//     for(let i in EDIT_MODEL[typeIndex]) {
-//         if(EDIT_MODEL[typeIndex][i].oninput) EDIT_MODEL[typeIndex][i].oninput({page:{target:element}},element[i]);
-//     }
-// }
-
-// function objTypeToTypeIndex(objType) {
-//     if(typeof objType === "object") objType = objType._CLASS_;
-//     const PERSIST_TYPE = get_PERSIST_TYPE_array();
-//     for(let i in PERSIST_TYPE) if(PERSIST_TYPE.hasOwnProperty(i)){
-//         if(
-//             objType===i
-//             || objType===PERSIST_TYPE[i]
-//             || objType===PERSIST_TYPE[i].name
-//             || objType===PERSIST_TYPE[i].name+'s'
-//             || objType===PERSIST_TYPE[i].name.toLowerCase()
-//             || objType===PERSIST_TYPE[i].name.toLowerCase()+'s'
-//             || objType===PERSIST_TYPE[i]._CLASS_
-//             || objType===PERSIST_TYPE[i]._CLASS_+'s'
-//             || objType===PERSIST_TYPE[i]._CLASS_.toLowerCase()
-//             || objType===PERSIST_TYPE[i]._CLASS_.toLowerCase()+'s'
-//         ) return parseInt(i);
-//     }
-// }
-
-// function get_PERSIST_TYPE_array() {
-//     return [
-//         Node,
-//         Edge,
-//         Label,
-//         Loopy,
-//         //Group,
-//         //GroupPair,
-//     ];
-// }

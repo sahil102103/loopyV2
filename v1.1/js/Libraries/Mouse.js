@@ -9,7 +9,14 @@ Mouse.init = function(target){
 		publish("mousedown");
 	};
 
-	const _onmousewheel = function(event){
+	var _ondoubleclick = function(event){
+		Mouse.moved = false;
+		Mouse.pressed = true;
+		Mouse.startedOnTarget = true;
+		publish("dblclick");
+	};
+
+	var _onmousewheel = function(event){
 		publish("wheel",[event]);
 	};
 
@@ -63,7 +70,7 @@ Mouse.init = function(target){
 	};
 
 	// Add mouse & touch events!
-	_addMouseEvents(target, _onmousedown, _onmousemove, _onmouseup, _onmousewheel);
+	_addMouseEvents(target, _onmousedown, _onmousemove, _onmouseup, _onmousewheel, _ondoubleclick);
 
 	// Cursor & Update
 	Mouse.target = target;

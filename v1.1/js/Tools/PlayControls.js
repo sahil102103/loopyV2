@@ -20,8 +20,8 @@ function PlayControls(loopy){
 	subscribe("key/enter",function(){
 		if(Key.control){ // Ctrl-Enter or ⌘-Enter
 			loopy.setMode(Loopy.MODE_PLAY);
-			drawTimeSeriesChart();
-			drawSmoothedTimeSeriesChart();
+			// drawTimeSeriesChart();
+			// drawSmoothedTimeSeriesChart();
 
 		}
 	});
@@ -37,14 +37,7 @@ function PlayControls(loopy){
 			tooltip: isMacLike ? "⌘-Enter" : "control-enter",
 			onclick: function(){
 				loopy.setMode(Loopy.MODE_PLAY);
-				if (chart) {
-					chart.destroy()
-				}
-				if (chartSmooth) {
-					chartSmooth.destroy();
-				}
-				drawSmoothedTimeSeriesChart();
-				drawTimeSeriesChart();
+
 
 				//self.showPage("Edit");
 			}

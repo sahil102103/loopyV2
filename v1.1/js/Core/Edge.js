@@ -36,7 +36,6 @@ function Edge(model, config){
 		strengthMultiplier: Edge.defaultStrengthMultiplier,
 		confidence: Edge.defaultConfidence,
 	});
-	console.log(self.from, self.to)
 
 	// Get my NODES
 	self.from = model.getNode(self.from);
@@ -66,8 +65,17 @@ function Edge(model, config){
 		}
 
 		// Re-create signal
-		console.log(signal)
 		var delta = signal.delta;
+
+
+		if (!self.from.pass) {
+			console.log("Node: ", + self.from.label, "Cur delta: " + delta, "Cur Value: " +  self.from.value, "Next Value: " + self.to.value, "Cur Flow: " +  self.from.flow)
+			delta += (self.from.value - delta);
+			delta += self.from.flow;
+		}
+		console.log(delta)
+
+
 		var age;
 		if (signal.age===undefined) {
 			// age = 13; // cos divisible by 1,2,3,4 + 1
@@ -76,6 +84,7 @@ function Edge(model, config){
 		else {
 			age = signal.age-1;
 		}
+
 		var newSignal = {
 			delta: delta,
 			strength: strength,
@@ -121,18 +130,21 @@ function Edge(model, config){
 				return Math.random() * (max - min) + min;
 			  }
 
+			lastSignal.delta *= (self.strength) 
+			// + getRandomInt(-self.confidence, self.confidence);
+
+
 			// if (self.strength > 0) {
 			// 	lastSignal.delta *= 1
 			// } else {
 			// 	lastSignal.delta *= -1
 			// }
 			// lastSignal.delta = self.from.value
-			lastSignal.delta *= (self.strength) + getRandomInt(-self.confidence, self.confidence);
 			// lastSignal.delta += self.from.flow;
 			// lastSignal.strength *= self.strength * strengthMultiplier;
 			self.to.takeSignal(lastSignal);
 
-			console.log(lastSignal.delta)
+			// console.log(lastSignal.delta)
 			// Pop it, move on down
 			self.removeSignal(lastSignal);
 			lastSignal = self.signals[self.signals.length-1];
@@ -163,8 +175,8 @@ function Edge(model, config){
 			ctx.rotate(-a);
 
 			// Signal's direction & size
-			var size = 40; // HARD-CODED
-			ctx.scale(signal.scaleX, signal.scaleY);
+			var size = 20; // HARD-CODED
+			// ctx.scale(signal.scaleX, signal.scaleY);
 			ctx.scale(size, size);
 
 			// Signal's COLOR, BLENDING

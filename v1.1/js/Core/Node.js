@@ -35,6 +35,7 @@ Node.DEFAULT_RADIUS = 60;
 Node.DEFAULT_FLOOR = Number.NEGATIVE_INFINITY;
 Node.DEFAULT_CEIL = Number.POSITIVE_INFINITY;
 Node.DEFAULT_FLOW = 0;
+Node.DEFAULT_PASSNODE = false;
 
 var selectedNodes = [];
 
@@ -60,7 +61,8 @@ function Node(model, config){
 		radius: Node.DEFAULT_RADIUS,
 		floor: Node.DEFAULT_FLOOR,
 		ceiling: Node.DEFAULT_CEIL,
-		flow: Node.DEFAULT_FLOW
+		flow: Node.DEFAULT_FLOW,
+		pass: Node.DEFAULT_PASSNODE,
 	});
 	// Value: from 0 to 1
 	self.value = self.init;
@@ -99,8 +101,6 @@ function Node(model, config){
 
 	});
 
-
-
 	var _listenerMouseDownNotPlaying = subscribe("mousedown", function() {
 		if(_controlsPressedWhenNotInPlay) {
 			onmousedown = (event) => {
@@ -115,6 +115,18 @@ function Node(model, config){
 		}
     });
 
+	var _listenerDoubleClick = subscribe("dblclick", function(event) {
+        if(self.loopy.mode!=Loopy.MODE_PLAY) {
+			loopy.setMode(Loopy.MODE_PLAY)
+		}
+		if (self.isPointInNode(Mouse.x, Mouse.y)) {
+			self.sendSignal({
+				delta: self.value // You can modify this delta value as needed
+			});
+	
+		
+		}
+	});
 
     var _listenerMouseDown = subscribe("mousedown", function() {
 
@@ -123,9 +135,8 @@ function Node(model, config){
 
 		// IF YOU CLICKED ME...
         if(_controlsPressed) {
-			var delta = _controlsDirection * 0.33;
+			var delta = _controlsDirection * 0.1
 			self.value += delta;
-			console.log(self.value)
 			self.sendSignal({ delta: delta });
 			if (self.value > self.ceiling) {
 				self.value = Math.min(self.ceiling, self.value)
@@ -386,6 +397,7 @@ function Node(model, config){
 		unsubscribe("mousedown",_listenerMouseDownNotPlaying);
 		unsubscribe("mouseup",_listenerMouseUp);
 		unsubscribe("model/reset",_listenerReset);
+		unsubscribe("dblclick", _listenerDoubleClick);
 
 		// Remove from parent!
 		model.removeNode(self);

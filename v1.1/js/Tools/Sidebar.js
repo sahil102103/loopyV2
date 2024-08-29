@@ -86,13 +86,22 @@ function Sidebar(loopy){
 			id: 'ceiling'
 		}));
 
-		page.addComponent(new ComponentButton({
-			label: "delete node",
-			onclick: function(node){
-				node.kill();
-				self.showPage("Edit");
+		page.addComponent("pass", new ComponentCheckbox({
+			label: 'Pass Node: ',
+			id: 'pass',
+			value: Node.DEFAULT_PASSNODE,
+			onclick: function (value) {
+				Node.DEFAULT_PASSNODE = value;
 			}
-		}));		
+		}))
+
+		// page.addComponent(new ComponentButton({
+		// 	label: "delete node",
+		// 	onclick: function(node){
+		// 		node.kill();
+		// 		self.showPage("Edit");
+		// 	}
+		// }));		
 		self.addPage("Node", page);
 	})();
 	
@@ -362,6 +371,15 @@ function ComponentInput(config) {
 	var id = config.id;
     var input = _createInput(className, id, config.textarea);
 
+	input.onload = function(){
+		if (value.toLowerCase() == "infinity") {
+			value = Infinity
+		} else if (value.toLowerCase() == "-infinity") {
+			value = -Infinity
+		}
+		self.setValue(value)
+	}
+
     input.oninput = function(event) {
         var value = input.value;
 		if (value.toLowerCase() == "infinity") {
@@ -480,6 +498,44 @@ function ComponentSlider(config){
 
 }
 
+function ComponentCheckbox(config) {
+    // Inherit from Component
+    var self = this;
+    Component.apply(self);
+
+    // Create DOM: label + checkbox input
+    self.dom = document.createElement("div");
+    var label = _createLabel(config.label);
+	var id = config.id;
+    var checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "component_checkbox";
+
+    // Set initial value
+    checkbox.checked = config.value;
+
+    // Handle checkbox state change
+    checkbox.onchange = function() {
+		if(checkbox.checked == true){
+			self.setValue(!config.value);
+			checkbox.checked = !config.value;
+		}else{
+			self.setValue(config.value);
+			checkbox.checked = config.value;
+	   }
+	   
+    };
+
+    // Append elements to the component's DOM
+    self.dom.appendChild(label);
+    self.dom.appendChild(checkbox);
+
+    // Show: Sync checkbox state with the component's value
+    self.show = function() {
+        checkbox.checked = self.getValue();
+    };
+}
+
 function ComponentButton(config){
 
 	// Inherit
@@ -500,28 +556,7 @@ function ComponentButton(config){
 
 }
 
-function ComponentCheckbox(config) {
 
-    // Inherit
-    var self = this;
-    Component.apply(self);
-
-    // Create DOM elements
-    self.dom = document.createElement("div");
-
-    var checkbox = _createCheckbox(config.value, function() {
-		config.onclick(self.page.target);
-	})
-    // checkbox.type = "checkbox";
-
-    var label = document.createElement("label");
-    label.textContent = config.label;
-
-    // Append checkbox and label to the container
-    self.dom.appendChild(checkbox);
-    self.dom.appendChild(label);
-
-}
 
 
 
