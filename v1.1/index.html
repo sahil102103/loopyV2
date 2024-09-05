@@ -100,7 +100,7 @@
 				<canvas id="timeSeriesChart" style="width:95%; margin-top: 50px;"></canvas>
 			</div>
 			<div class="rebuildButtonContainer">
-				<button class="align-bottom" id="rebuildTimeSeriesChartButton">Rebuild Chart with Current Nodes</button>
+				<button class="align-bottom" id="downloadCSVButton">Download CSV</button>
 			</div>
 			
 		</div>
@@ -219,11 +219,5 @@
 	window.onload = async function () {
 		openPage('Canvas');
 		window.loopy = new Loopy();
-		// const delay = ms => new Promise(res => setTimeout(res, ms));
-		// await delay(1000);
-
-		loadAndExecutePythonScript();
-
-
 	};
 </script>
