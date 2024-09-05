@@ -32,8 +32,8 @@ Node.defaultValue = 0.4;
 Node.defaultHue = 0;
 
 Node.DEFAULT_RADIUS = 60;
-Node.DEFAULT_FLOOR = Number.NEGATIVE_INFINITY;
-Node.DEFAULT_CEIL = Number.POSITIVE_INFINITY;
+Node.DEFAULT_FLOOR = -1000;
+Node.DEFAULT_CEIL = 1000;
 Node.DEFAULT_FLOW = 0;
 Node.DEFAULT_PASSNODE = false;
 
@@ -137,6 +137,8 @@ function Node(model, config){
         if(_controlsPressed) {
 			var delta = _controlsDirection * 0.1
 			self.value += delta;
+			// delta += 
+			// delta += self.flow
 			self.sendSignal({ delta: delta });
 			if (self.value > self.ceiling) {
 				self.value = Math.min(self.ceiling, self.value)
@@ -144,7 +146,7 @@ function Node(model, config){
 				self.value = Math.max(self.floor, self.value)
 			}
 
-        } 
+		} 
 
 
 

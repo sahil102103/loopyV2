@@ -243,6 +243,7 @@ function Sidebar(loopy){
 			"<span class='mini_button' onclick='publish(\"modal\",[\"examples\"])'>see examples</span> "+
 			"<span class='mini_button' onclick='publish(\"modal\",[\"howto\"])'>how to</span> "+
 			"<span class='mini_button' onclick='publish(\"modal\",[\"credits\"])'>credits</span><br><br>"+
+			
 
 			"<hr/><br>"+
 
@@ -250,7 +251,13 @@ function Sidebar(loopy){
 			"<span class='mini_button' onclick='publish(\"export/file\")'>save as file</span> "+
 			"<span class='mini_button' onclick='publish(\"import/file\")'>load from file</span> <br><br>"+
 			"<span class='mini_button' onclick='publish(\"modal\",[\"embed\"])'>embed in your website</span> <br><br>"+
-			"<span class='mini_button' onclick='publish(\"modal\",[\"save_gif\"])'>make a GIF using LICEcap</span> <br><br>"
+			"<span class='mini_button' onclick='publish(\"modal\",[\"save_gif\"])'>make a GIF using LICEcap</span> <br><br>"+
+
+			"<hr/><br>"+
+
+			"<b>To access ALL TABS<br>" +
+			"<b style='font-size: .8em'>Will take a minute or two to load<br><br>" +
+			"<span class='mini_button' onclick=loadAndExecutePythonScript()>Load In Python Packages</span><br><br>"
 
 		}));
 		self.addPage("Edit", page);
@@ -371,14 +378,6 @@ function ComponentInput(config) {
 	var id = config.id;
     var input = _createInput(className, id, config.textarea);
 
-	input.onload = function(){
-		if (value.toLowerCase() == "infinity") {
-			value = Infinity
-		} else if (value.toLowerCase() == "-infinity") {
-			value = -Infinity
-		}
-		self.setValue(value)
-	}
 
     input.oninput = function(event) {
         var value = input.value;

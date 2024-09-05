@@ -20,34 +20,53 @@ function PlayControls(loopy){
 	subscribe("key/enter",function(){
 		if(Key.control){ // Ctrl-Enter or ⌘-Enter
 			loopy.setMode(Loopy.MODE_PLAY);
-			// drawTimeSeriesChart();
-			// drawSmoothedTimeSeriesChart();
+
+			loopy.model.nodes.forEach(node => {
+				node.sendSignal(node.value)
+			});
 
 		}
 	});
 
-	// During the Editor
 	(function(){
 		var page = new Page();
-
+	
 		// PLAY BUTTON
 		var buttonDOM = page.addComponent(new PlayButton({
 			icon: 0,
 			label: "Play",
 			tooltip: isMacLike ? "⌘-Enter" : "control-enter",
-			onclick: function(){
+			onclick: async function() {
 				loopy.setMode(Loopy.MODE_PLAY);
-
-
-				//self.showPage("Edit");
+	
+				// Function to send signals to all nodes every 10 seconds
+				const sendSignals = async () => {
+					while (loopy.mode === Loopy.MODE_PLAY) {
+						loopy.model.nodes.forEach(node => {
+							node.sendSignal({ delta: node.init });
+						});
+						await delay(2000); // Wait for 10 seconds
+					}
+				};
+	
+				// Start sending signals
+				await sendSignals();
+	
+				// When finished, show the editor page again
+				self.showPage("Edit");
 			}
 		})).dom;
-		buttonDOM.setAttribute("big","yes");
+		
+		buttonDOM.setAttribute("big", "yes");
 		buttonDOM.style.fontSize = "28px";
 		buttonDOM.style.height = "35px";
-
+	
 		self.addPage("Editor", page);
 	})();
+	
+	// Utility function to delay execution for a given number of milliseconds
+	const delay = ms => new Promise(res => setTimeout(res, ms));
+	
 
 	// During the Player
 	(function(){

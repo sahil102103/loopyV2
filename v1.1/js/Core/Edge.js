@@ -6,7 +6,7 @@ EDGE!
 
 Edge.allSignals = [];
 Edge.MAX_SIGNALS = 100;
-Edge.MAX_SIGNALS_PER_EDGE = 10;
+Edge.MAX_SIGNALS_PER_EDGE = 10; // Do we really want this : Ask Dr. Oet
 Edge.defaultStrength = 1;
 Edge.defaultStrengthMultiplier = 1
 Edge.defaultConfidence = 0
@@ -69,7 +69,7 @@ function Edge(model, config){
 
 
 		if (!self.from.pass) {
-			console.log("Node: ", + self.from.label, "Cur delta: " + delta, "Cur Value: " +  self.from.value, "Next Value: " + self.to.value, "Cur Flow: " +  self.from.flow)
+			// console.log("Node: ", + self.from.label, "Cur delta: " + delta, "Cur Value: " +  self.from.value, "Next Value: " + self.to.value, "Cur Flow: " +  self.from.flow)
 			delta += (self.from.value - delta);
 			delta += self.from.flow;
 		}
@@ -144,7 +144,6 @@ function Edge(model, config){
 			// lastSignal.strength *= self.strength * strengthMultiplier;
 			self.to.takeSignal(lastSignal);
 
-			// console.log(lastSignal.delta)
 			// Pop it, move on down
 			self.removeSignal(lastSignal);
 			lastSignal = self.signals[self.signals.length-1];
@@ -176,7 +175,7 @@ function Edge(model, config){
 
 			// Signal's direction & size
 			var size = 20; // HARD-CODED
-			// ctx.scale(signal.scaleX, signal.scaleY);
+			ctx.scale(signal.scaleX, signal.scaleY);
 			ctx.scale(size, size);
 
 			// Signal's COLOR, BLENDING
