@@ -90,7 +90,7 @@ function Model(loopy){
 		publish("model/changed");
 
 		// Remove from array
-		self.nodes.splice(self.nodes.indexOf(node),1);
+		self.nodes.splice(self.nodes.indexOf(node), 1);
 		// self.nodeLabels.splice(self.nodeLabels.indexOf(node),1);
 
 		// Remove from object
