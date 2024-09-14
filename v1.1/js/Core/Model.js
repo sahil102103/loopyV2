@@ -64,7 +64,7 @@ function Model(loopy){
 	};
 	// self.nodeLabels = [];
 
-	// Remove Node
+	// Add Node
 	self.addNode = function(config){
 
 		// Model's been changed!
@@ -124,13 +124,21 @@ function Model(loopy){
 
 		// Model's been changed!
 		publish("model/changed");
-
+	
 		// Add Edge
 		var edge = new Edge(self, config);
+		console.log(edge)
 		self.edgeByID[edge.id] = edge;
 		self.edges.push(edge);
+	
+		// var ghostNode = new GhostNode(self, {}, edge);
+		// console.log(ghostNode.edge)
+		// console.log(ghostNode.x)
+		// edge.ghostNode = ghostNode;
+		// self.addNode(ghostNode);
+	
 		self.update();
-
+	
 		return edge;
 	};
 
@@ -303,6 +311,8 @@ function Model(loopy){
 			// 2 - arc
 			// 3 - strength
 			// 4 - lag
+			// 5 - labelX
+			// 6 - labelY
 			// 5 - rotation (optional)
 			var dataEdge = [
 				edge.from.id,
@@ -310,6 +320,8 @@ function Model(loopy){
 				Math.round(edge.arc),
 				edge.strength,
 				edge.lag,
+				edge.edgeLabelX,
+				edge.edgeLabelY
 			];
 			if(dataEdge.f==dataEdge.t){
 				dataEdge.push(Math.round(edge.rotation));

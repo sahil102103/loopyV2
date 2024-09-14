@@ -123,8 +123,6 @@ function Node(model, config){
 			self.sendSignal({
 				delta: self.value // You can modify this delta value as needed
 			});
-	
-		
 		}
 	});
 
@@ -147,9 +145,6 @@ function Node(model, config){
 			}
 
 		} 
-
-
-
     });
 
 	var _listenerMouseUp = subscribe("mouseup",function(){
@@ -169,7 +164,7 @@ function Node(model, config){
 		var myEdges = self.model.getEdgesByStartNode(self);
 		myEdges = _shiftArray(myEdges, shiftIndex);
 		shiftIndex = (shiftIndex+1)%myEdges.length;
-		for(var i=0; i<myEdges.length; i++){
+		for (var i=0; i<myEdges.length; i++) {
 			myEdges[i].addSignal(signal);
 		}
 	};
@@ -258,6 +253,7 @@ function Node(model, config){
 	// Draw
 	var _circleRadius = 0;
 	self.draw = function(ctx){
+		// console.log(self)
 
 		// Retina
 		var x = self.x*2;
@@ -421,6 +417,7 @@ function Node(model, config){
 		return _isPointInCircle(x, y, self.x, self.y, self.radius+buffer);
 	};
 
+	// For centering and scaling
 	self.getBoundingBox = function(){
 		return {
 			left: self.x - self.radius,

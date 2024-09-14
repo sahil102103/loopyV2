@@ -60,7 +60,7 @@ function drawTimeSeriesChart() {
         loopy.model.nodes.forEach(node => {
             timeSeriesNodeData.push({
             label: node.label,
-            data: [],
+            data: [node.value],
             borderColor: `${convertNumToColor(node.hue)[1]}`,
             backgroundColor: `${convertNumToColor(node.hue)[1]}`,
             borderWidth: 1,
@@ -71,7 +71,7 @@ function drawTimeSeriesChart() {
         selectedNodes.forEach(node => {
             timeSeriesNodeData.push({
             label: node.label,
-            data: [],
+            data: [node.value],
             borderColor: `${convertNumToColor(node.hue)[0]}`,
             backgroundColor: `${convertNumToColor(node.hue)[1]}`,
             borderWidth: 1,

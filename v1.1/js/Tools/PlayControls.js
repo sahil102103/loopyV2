@@ -22,7 +22,9 @@ function PlayControls(loopy){
 			loopy.setMode(Loopy.MODE_PLAY);
 
 			loopy.model.nodes.forEach(node => {
-				node.sendSignal(node.value)
+				node.sendSignal({
+					delta: node.value
+			});
 			});
 
 		}
@@ -41,19 +43,23 @@ function PlayControls(loopy){
 	
 				// Function to send signals to all nodes every 10 seconds
 				const sendSignals = async () => {
-					while (loopy.mode === Loopy.MODE_PLAY) {
+					// while (loopy.mode === Loopy.MODE_PLAY) {
 						loopy.model.nodes.forEach(node => {
-							node.sendSignal({ delta: node.init });
+							console.log(node.value)
+							console.log(node.init)
+							node.sendSignal({
+								delta: node.value
 						});
-						await delay(2000); // Wait for 10 seconds
-					}
+						});
+						// await delay(2000); // Wait for 2 seconds
+					// }
 				};
 	
 				// Start sending signals
 				await sendSignals();
 	
 				// When finished, show the editor page again
-				self.showPage("Edit");
+				// self.showPage("Edit");
 			}
 		})).dom;
 		

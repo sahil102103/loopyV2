@@ -92,17 +92,26 @@ function Ink(loopy){
 		1a. If ended near/in a node, it's an EDGE.
 		2. If not, it's a NODE. // TODO: actual circle detection?
 
+		TODO: If ended near/in the center of another edge, its an edge (guessing if it started in a node)
+
 		*************************/
 
-		// Started in a node?
+		// Start in a node or edge?
 		var startPoint = self.strokeData[0];
 		var startNode = loopy.model.getNodeByPoint(startPoint[0], startPoint[1]);
-		if(!startNode) startNode=loopy.model.getNodeByPoint(startPoint[0], startPoint[1], 20); // try again with buffer
+		if (!startNode) startNode = loopy.model.getNodeByPoint(startPoint[0], startPoint[1], 20); // try again with buffer
 
-		// Ended in a node?
-		var endPoint = self.strokeData[self.strokeData.length-1];
+		// var startEdge = loopy.model.getEdgeByPoint(startPoint[0], startPoint[1]);
+		// if (!startEdge) startEdge = loopy.model.getEdgeByPoint(startPoint[0], startPoint[1], 20); // try again with buffer
+
+		// End in a node or edge?
+		var endPoint = self.strokeData[self.strokeData.length - 1];
 		var endNode = loopy.model.getNodeByPoint(endPoint[0], endPoint[1]);
-		if(!endNode) endNode=loopy.model.getNodeByPoint(endPoint[0], endPoint[1], 40); // try again with buffer
+		if (!endNode) endNode = loopy.model.getNodeByPoint(endPoint[0], endPoint[1], 40); // try again with buffer
+
+		// var endEdge = loopy.model.getEdgeByPoint(endPoint[0], endPoint[1]);
+		// if (!endEdge) endEdge = loopy.model.getEdgeByPoint(endPoint[0], endPoint[1], 40); // try again with buffer
+
 
 		// EDGE: started AND ended in nodes
 		if(startNode && endNode){
@@ -170,6 +179,45 @@ function Ink(loopy){
 
 		}
 
+		// // NODE TO EDGE: started in a node and ended on an edge
+		// if (startNode && endEdge) {
+		// 	var edgeConfig = {
+		// 		from: startNode.id,
+		// 		to: endEdge.id,
+		// 		arc: calculateArc(self.strokeData, startNode, endEdge),
+		// 		rotation: calculateRotation(startNode, self.strokeData)
+		// 	};
+		// 	// Add the edge!
+		// 	var newEdge = loopy.model.addEdge(edgeConfig);
+		// 	loopy.sidebar.edit(newEdge);
+		// }
+
+		// // EDGE TO NODE: started on an edge and ended in a node
+		// if (startEdge && endNode) {
+		// 	var edgeConfig = {
+		// 		from: startEdge.id,
+		// 		to: endNode.id,
+		// 		arc: calculateArc(self.strokeData, startEdge, endNode),
+		// 		rotation: calculateRotation(startEdge, self.strokeData)
+		// 	};
+		// 	// Add the edge!
+		// 	var newEdge = loopy.model.addEdge(edgeConfig);
+		// 	loopy.sidebar.edit(newEdge);
+		// }
+
+		// // EDGE TO EDGE: started and ended on edges
+		// if (startEdge && endEdge) {
+		// 	var edgeConfig = {
+		// 		from: startEdge.id,
+		// 		to: endEdge.id,
+		// 		arc: calculateArc(self.strokeData, startEdge, endEdge),
+		// 		rotation: calculateRotation(startEdge, self.strokeData)
+		// 	};
+		// 	// Add the edge!
+		// 	var newEdge = loopy.model.addEdge(edgeConfig);
+		// 	loopy.sidebar.edit(newEdge);
+		// }
+
 		// NODE: did NOT start in a node.
 		if(!startNode){
 
@@ -207,6 +255,35 @@ function Ink(loopy){
 		self.reset();
 
 	});
+
+
+	// // HELPER FUNCTIONS
+	// function calculateArc(strokeData, startObject, endObject) {
+	// 	// Calculate the angle based on start and end objects (either node or edge)
+	// 	var dx = endObject.x - startObject.x;
+	// 	var dy = endObject.y - startObject.y;
+	// 	var angle = Math.atan2(dy, dx);
+	
+	// 	// Translate and rotate points
+	// 	var translated = _translatePoints(strokeData, -startObject.x, -startObject.y);
+	// 	var rotated = _rotatePoints(translated, -angle);
+	// 	var bounds = _getBounds(rotated);
+		
+	// 	// Return arc based on the calculated bounds
+	// 	return Math.max(bounds.top, bounds.bottom); // Example logic to decide arc value
+	// }
+	
+	
+	// function calculateRotation(startObject, strokeData) {
+	// 	// Custom logic for rotation calculation
+	// 	var dx = strokeData[0][0] - startObject.x;
+	// 	var dy = strokeData[0][1] - startObject.y;
+	// 	var angle = Math.atan2(dy, dx);
+	// 	return angle * (360 / Math.TAU) + 90; // Example return value
+	// }
+	
+
+
 	subscribe("mouseclick",function(){
 
 		// ONLY WHEN EDITING w INK

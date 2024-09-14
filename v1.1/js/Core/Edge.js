@@ -10,6 +10,10 @@ Edge.MAX_SIGNALS_PER_EDGE = 10; // Do we really want this : Ask Dr. Oet
 Edge.defaultStrength = 1;
 Edge.defaultStrengthMultiplier = 1
 Edge.defaultConfidence = 0
+Edge.radius = 60;
+// Edge.labelX = 0;
+// Edge.labelY = 0;
+Edge.DEFAULT_SIGNAL = false;
 
 Edge.defaultLag = 0;
 
@@ -31,6 +35,7 @@ function Edge(model, config){
 		to: _makeErrorFunc("CAN'T LEAVE 'TO' BLANK"),
 		arc: 100,
 		rotation: 0,
+		radius: Edge.DEFAULT_RADIUS,
 		lag: Edge.defaultLag,
 		strength: Edge.defaultStrength,
 		strengthMultiplier: Edge.defaultStrengthMultiplier,
@@ -39,13 +44,32 @@ function Edge(model, config){
 
 	// Get my NODES
 	self.from = model.getNode(self.from);
-	self.to = model.getNode(self.to) || model.getEdge(self.to); // TODO: Make it easy to go from node to edge
+	self.to = model.getNode(self.to);
 
+	self.updatePosition = function(fx, fy, a) {
+		var labelPosition = self.getPositionAlongArrow(0.5);
+
+		// console.log(labelPosition)
+		lx = labelPosition.x;
+		ly = labelPosition.y;
+
+		// ACTUAL label position, for grabbing purposes
+
+		self.edgeLabelX = (fx + Math.cos(a)*lx - Math.sin(a)*ly)/2; // un-retina
+		self.edgeLabelY = (fy + Math.sin(a)*lx + Math.cos(a)*ly)/2; // un-retina
+
+		if (self.ghostNode) {
+			// console.log(self.ghostNode)
+			self.ghostNode.updatePosition(self.edgeLabelX, self.edgeLabelY);
+		}
+
+	};
 
 	// Each edge has its own lag and its own strength, initalized from the sidebar.js file
 	var lag = self.lag;
 	var strength = self.strength;
-
+	var strengthMultiplier = self.strengthMultiplier
+	console.log(strengthMultiplier)
 
 	// We have signals!
 	self.signals = [];
@@ -73,7 +97,7 @@ function Edge(model, config){
 			delta += (self.from.value - delta);
 			delta += self.from.flow;
 		}
-		console.log(delta)
+		// console.log(delta)
 
 
 		var age;
@@ -83,6 +107,10 @@ function Edge(model, config){
 		} 
 		else {
 			age = signal.age-1;
+		}
+
+		if (delta == 0) {
+			delta = .00001
 		}
 
 		var newSignal = {
@@ -104,7 +132,6 @@ function Edge(model, config){
 
 	};
 	self.updateSignals = function() {
-
 		// Speed?
 		var speed = Math.pow(2,self.loopy.signalSpeed);
 		lag = self.lag;
@@ -141,7 +168,7 @@ function Edge(model, config){
 			// }
 			// lastSignal.delta = self.from.value
 			// lastSignal.delta += self.from.flow;
-			// lastSignal.strength *= self.strength * strengthMultiplier;
+			lastSignal.strength *= self.strength * self.strengthMultiplier;
 			self.to.takeSignal(lastSignal);
 
 			// Pop it, move on down
@@ -151,6 +178,16 @@ function Edge(model, config){
 		}
 
 	};
+
+	// self.takeSignal = function(signal) {
+	// 	// Change value
+	
+	// 	// Propagate signal
+	// 	self.sendSignal(signal);
+
+	// 	_offsetVel -= 6 * (signal.delta/Math.abs(signal.delta));
+
+	// }
 
 	self.removeSignal = function(signal){
 		self.signals.splice( self.signals.indexOf(signal), 1 );
@@ -236,8 +273,6 @@ function Edge(model, config){
 	//////////////////////////////////////
 
 	// Update!
-	self.labelX = 0;
-	self.labelY = 0;
 	var fx, fy, tx, ty,
 		r, dx, dy, w, a, h,
 		y, a2,
@@ -247,9 +282,9 @@ function Edge(model, config){
 		arrowLength, ax, ay, aa,
 		labelAngle, lx, ly, labelBuffer,
 		tX, tY, tX2, tY2,
+		alx, aly,
 		lineLength; // BECAUSE I'VE LOST CONTROL OF MY LIFE.
 	self.update = function(speed){
-
 		////////////////////////////////////////////////
 		// PRE-CALCULATE THE MATH (for retina canvas) //
 		////////////////////////////////////////////////
@@ -262,6 +297,8 @@ function Edge(model, config){
 		fy=self.from.y*2;
 		tx=self.to.x*2;
 		ty=self.to.y*2;	
+
+		// console.log(fx, fy, tx, ty)
 		if(self.from==self.to){
 			var rotation = self.rotation;
 			rotation *= Math.TAU/360;
@@ -303,8 +340,7 @@ function Edge(model, config){
 			end = -endAngle+arrowAngle;
 		}
 
-
-
+		// Draw a potential lag!
 		var tangent1 = self.getPositionAlongArrow(0.49);
 		var tangent2 = self.getPositionAlongArrow(0.51);
 
@@ -323,26 +359,30 @@ function Edge(model, config){
 		aa = end + Math.TAU/4;
 
 		// My label is...
-		var s = self.strengthMultiplier * self.strength;
+		var s = self.strength;
 		var l;
 		if(s>0) l="+";
 		else if(s==0) l="?";
 		else if(s<0) l="–";
 		self.label = l;
 
-		// Label position
-		var labelPosition = self.getPositionAlongArrow(0.5);
-		lx = labelPosition.x;
-		ly = labelPosition.y;
+		self.updatePosition(fx, fy, a);
 
-		// ACTUAL label position, for grabbing purposes
-		self.labelX = (fx + Math.cos(a)*lx - Math.sin(a)*ly)/2; // un-retina
-		self.labelY = (fy + Math.sin(a)*lx + Math.cos(a)*ly)/2; // un-retina
+
+		// console.log(self.edgeLabelX, self.edgeLabelY)
+
+		
+
+		// console.log("These are the node positions: ", self.labelX, self.labelY)
+
+		// self.x = Math.floor(self.labelX);
+		// self.y = Math.floor(self.labelY);
 
 		// ...add offset to label
 		labelBuffer = 18*2; // retina
 		if(self.arc<0) labelBuffer*=-1;
 		ly += labelBuffer;
+	
 
 
 
@@ -368,13 +408,9 @@ function Edge(model, config){
 
 
 
-
 		//////////////////////////////////////
 		// Track Edge Pairs //////////////////
 		//////////////////////////////////////
-
-		// Get edge pairs for use in pyTo.js
-
 
 	// Get position along arrow, on what parameter?
 	self.getArrowLength = function(){
@@ -508,8 +544,13 @@ function Edge(model, config){
 		ctx.fillText(self.label, 0, 0);
 		ctx.restore();
 
+ 
+    	// self.ghostNode.draw(ctx);
+
 		// DRAW SIGNALS
-		self.drawSignals(ctx);
+		if (Edge.DEFAULT_SIGNAL) {
+			self.drawSignals(ctx);
+		}
 
 		// Restore
 		ctx.restore();
@@ -538,15 +579,53 @@ function Edge(model, config){
 	// HELPER METHODS ////////////////////
 	//////////////////////////////////////
 
+	// self.addGhostNode = function() {
+	// 	// Calculate the midpoint of the edge
+	// 	var midX = (self.from.x + self.to.x) / 2;
+	// 	var midY = (self.from.y + self.to.y) / 2;
+	
+	// 	// Create the ghost node
+	// 	var ghostNode = new Node(model, {
+	// 		id: Node._getUID,
+	// 		x: midX,
+	// 		y: midY,
+	// 		init: 0, // Passnode behavior
+	// 		label: '', // No label (invisible)
+	// 		hue: 1, // Default color
+	// 		radius: 3, // Invisible size
+	// 		floor: -1000,
+	// 		ceiling: 1000,
+	// 		flow: 0,
+	// 		pass: true,
+	// 	});
+	
+	// 	// Set ghost node properties
+	// 	// ghostNode.isGhost = true; // Mark it as a ghost
+	// 	// ghostNode.isPointInNode = function(x, y) {
+	// 	// 	// Prevent any interaction with the ghost node
+	// 	// 	return false;
+	// 	// };
+		
+	// 	// Add it to the model without drawing it
+	// 	model.addNode(ghostNode);
+	
+	// 	// Attach edges to the ghost node as needed
+	// 	// edge.addGhostNode(ghostNode);
+	
+	// 	// return ghostNode;
+	// }
+
+
 	self.isPointOnLabel = function(x, y){
 		// TOTAL HACK: radius based on TOOL BEING USED.
 		var radius;
 		if(self.loopy.tool==Loopy.TOOL_DRAG || self.loopy.tool==Loopy.TOOL_INK) radius=40; // selecting, wide radius!
 		else if(self.loopy.tool==Loopy.TOOL_ERASE) radius=25; // no accidental erase
 		else radius = 15; // you wanna label close to edges
-		return _isPointInCircle(x, y, self.labelX, self.labelY, radius);
+		return _isPointInCircle(x, y, self.edgeLabelX, self.edgeLabelY, radius);
 	};
 
+	// For centering and scaling
 	self.getBoundingBox = function(){
 
 		// SPECIAL CASE: SELF-ARC
