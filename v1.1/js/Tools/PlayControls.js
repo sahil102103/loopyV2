@@ -5,6 +5,8 @@ PLAY CONTROLS CODE:
 - pause/reset/speed
 
 **********************************/
+var tick = 1
+
 
 function PlayControls(loopy){
 
@@ -12,6 +14,7 @@ function PlayControls(loopy){
 	PageUI.call(self, document.getElementById("playbar"));
 
 	self.loopy = loopy;
+	
 
 	// PAGES & BUTTONS
 
@@ -40,38 +43,70 @@ function PlayControls(loopy){
 			tooltip: isMacLike ? "⌘-Enter" : "control-enter",
 			onclick: async function() {
 				loopy.setMode(Loopy.MODE_PLAY);
+				tick = 0
 	
 				// Function to send signals to all nodes every 10 seconds
 				const sendSignals = async () => {
-					// while (loopy.mode === Loopy.MODE_PLAY) {
 						loopy.model.nodes.forEach(node => {
-							console.log(node.value)
-							console.log(node.init)
 							node.sendSignal({
 								delta: node.value
 						});
 						});
-						// await delay(2000); // Wait for 2 seconds
-					// }
 				};
+
+				// const newTimeSeriesData = async () => {
+				// 	if (chart && selectedNodes.length == 0) {
+				// 		chart.data.labels.push(tick);
+				// 		tick++;
+				// 		for (let i = 0; i < loopy.model.nodes.length; i++) {
+				// 			updateTimeSeriesChart(loopy.model.nodes[i].value, i);
+				// 		}
+				// 	} else if (chart && selectedNodes.length > 0) {
+				// 		chart.data.labels.push(tick);
+				// 		tick++;
+				// 		for (let i = 0; i < selectedNodes.length; i++) {
+				// 			updateTimeSeriesChart(selectedNodes[i].value, i);
+				// 		}
+				// 	}
+				// };
+				
+				// // Run the function every second
+				// setInterval(newTimeSeriesData, 500);
+				
 	
 				// Start sending signals
-				await sendSignals();
+				sendSignals();
 	
 				// When finished, show the editor page again
 				// self.showPage("Edit");
 			}
 		})).dom;
-		
+
 		buttonDOM.setAttribute("big", "yes");
 		buttonDOM.style.fontSize = "28px";
 		buttonDOM.style.height = "35px";
+
+		// var buttonDOM = page.addComponent(new PlayButton({
+		// 	icon: 0,
+		// 	label: "Time Slider",
+		// 	tooltip: isMacLike ? "⌘-Enter" : "control-enter",
+		// 	onclick: async function() {
+		// 		loopy.setMode(Loopy.MODE_PLAY);
+
+		// 	}
+		// })).dom;
+
+		// buttonDOM.setAttribute("big", "yes");
+		// buttonDOM.style.fontSize = "28px";
+		// buttonDOM.style.height = "35px";
+		
+
 	
 		self.addPage("Editor", page);
 	})();
 	
 	// Utility function to delay execution for a given number of milliseconds
-	const delay = ms => new Promise(res => setTimeout(res, ms));
+	// const delay = ms => new Promise(res => setTimeout(res, ms));
 	
 
 	// During the Player

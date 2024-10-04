@@ -277,45 +277,44 @@ function openPage(pageName) {
 
 function updateTimeSeriesChart(currentAmount, iter) {
     chart.data.datasets[iter].data.push(currentAmount);
-
 }
 
 
-function captureNodeData() {
-    let csvContent = "data:text/csv;charset=utf-8,";
+// function captureNodeData() {
+//     let csvContent = "data:text/csv;charset=utf-8,";
 
-    // Add the headers for the CSV
-    csvContent += "Node Label,Node Value\n";
+//     // Add the headers for the CSV
+//     csvContent += "Node Label,Node Value\n";
 
-    // Iterate over the node data and create CSV rows
-    timeSeriesNodeData.forEach(dataset => {
-        const label = dataset.label;
-        const values = dataset.data.join(","); // Join values with commas
+//     // Iterate over the node data and create CSV rows
+//     timeSeriesNodeData.forEach(dataset => {
+//         const label = dataset.label;
+//         const values = dataset.data.join(","); // Join values with commas
 
-        // Add each node's data as a new row
-        csvContent += `${label},${values}\n`;
-    });
+//         // Add each node's data as a new row
+//         csvContent += `${label},${values}\n`;
+//     });
 
-    return csvContent;
-}
+//     return csvContent;
+// }
 
-function downloadCSV() {
-    const csvContent = captureNodeData();
+// function downloadCSV() {
+//     const csvContent = captureNodeData();
 
-    // Create a temporary link element
-    const link = document.createElement("a");
-    link.href = encodeURI(csvContent);
+//     // Create a temporary link element
+//     const link = document.createElement("a");
+//     link.href = encodeURI(csvContent);
 
-    // Set the file name for the download
-    link.download = "node_data.csv";
+//     // Set the file name for the download
+//     link.download = "node_data.csv";
 
-    // Trigger the download by simulating a click
-    document.body.appendChild(link);
-    link.click();
+//     // Trigger the download by simulating a click
+//     document.body.appendChild(link);
+//     link.click();
 
-    // Clean up by removing the link after the download
-    document.body.removeChild(link);
-}
+//     // Clean up by removing the link after the download
+//     document.body.removeChild(link);
+// }
 
-// Add an event listener to a button for downloading the CSV
-document.getElementById("downloadCSVButton").addEventListener("click", downloadCSV);
+// // Add an event listener to a button for downloading the CSV
+// document.getElementById("downloadCSVButton").addEventListener("click", downloadCSV);

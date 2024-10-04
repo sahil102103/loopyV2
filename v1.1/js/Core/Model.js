@@ -127,7 +127,6 @@ function Model(loopy){
 	
 		// Add Edge
 		var edge = new Edge(self, config);
-		console.log(edge)
 		self.edgeByID[edge.id] = edge;
 		self.edges.push(edge);
 	
@@ -319,6 +318,7 @@ function Model(loopy){
 				edge.to.id,
 				Math.round(edge.arc),
 				edge.strength,
+				edge.damper,
 				edge.lag,
 				edge.edgeLabelX,
 				edge.edgeLabelY
@@ -392,10 +392,11 @@ function Model(loopy){
 				from: edge[0],
 				to: edge[1],
 				arc: edge[2],
-				strength: edge[3]
+				strength: edge[3],
+				damper: edge[4]
 			};
-			if(edge[4]) edgeConfig.lag = edge[4];
-			if(edge[5]) edgeConfig.rotation=edge[5];
+			if(edge[4]) edgeConfig.lag = edge[5];
+			if(edge[5]) edgeConfig.rotation=edge[6];
 			self.addEdge(edgeConfig);
 		}
 

@@ -71,20 +71,20 @@ function Sidebar(loopy){
 
 		};
 
-		page.addComponent("flow", new ComponentInput({
-			label: "Additional Amount:",
-			id: 'flow'
-		}));
+		// page.addComponent("flow", new ComponentInput({
+		// 	label: "Additional Amount:",
+		// 	id: 'flow'
+		// }));
 
 		page.addComponent("floor", new ComponentInput({
 			label: "Floor:",
 			id: 'floor'
 		}));
 
-		page.addComponent("ceiling", new ComponentInput({
-			label: "Ceiling:",
-			id: 'ceiling'
-		}));
+		// page.addComponent("ceiling", new ComponentInput({
+		// 	label: "Ceiling:",
+		// 	id: 'ceiling'
+		// }));
 
 		page.addComponent("pass", new ComponentCheckbox({
 			label: 'Pass Node: ',
@@ -94,6 +94,7 @@ function Sidebar(loopy){
 				Node.DEFAULT_PASSNODE = value;
 			}
 		}))
+
 
 		// page.addComponent(new ComponentButton({
 		// 	label: "delete node",
@@ -126,12 +127,12 @@ function Sidebar(loopy){
 				Edge.defaultStrength = value;
 			}
 		}));
-		page.addComponent("strengthMultiplier", new ComponentSlider({
+		page.addComponent("damper", new ComponentSlider({
 			bg: "lag",
-			label: "Multiplier:",
-			options:[1, 1.5, 2, 2.5, 3],
+			label: "Dampener:",
+			options:[1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0],
 			oninput: function(value){
-				Edge.defaultStrengthMultiplier = value;
+				Edge.damper = value;
 			}
 		}));
 
@@ -147,7 +148,7 @@ function Sidebar(loopy){
 
 		page.addComponent("lag", new ComponentSlider({
 			bg: "lag",
-			label: "Lag:",
+			label: "Propogation Delay:",
 			options: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, .6, .7, .8, .9, 1],
 			oninput: function (value) {
 				Edge.defaultLag = value;
@@ -433,9 +434,16 @@ function ComponentSlider(config){
 	self.dom = document.createElement("div");
 	var label = _createLabel(config.label);
 	self.dom.appendChild(label);
+
+
+	var value = _createLabel(`${config.options[Math.floor(event.x/250*config.options.length)]}`);
+	self.dom.appendChild(value);
+
+
 	var sliderDOM = document.createElement("div");
 	sliderDOM.setAttribute("class","component_slider");
 	self.dom.appendChild(sliderDOM);
+	
 
 	// Slider DOM: graphic + pointer
 	var slider = new Image();
@@ -475,11 +483,13 @@ function ComponentSlider(config){
 		var option = config.options[optionIndex];
 		if(option===undefined) return;
 		self.setValue(option);
-
+		
 		// Callback! (if any)
 		if(config.oninput){
 			config.oninput(option);
+			value.innerHTML = `${option}`;
 		}
+		
 
 		// Move pointer there.
 		movePointer();

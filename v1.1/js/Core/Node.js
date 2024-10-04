@@ -32,10 +32,11 @@ Node.defaultValue = 0.4;
 Node.defaultHue = 0;
 
 Node.DEFAULT_RADIUS = 60;
-Node.DEFAULT_FLOOR = -1000;
-Node.DEFAULT_CEIL = 1000;
+Node.DEFAULT_FLOOR = -Infinity;
+Node.DEFAULT_CEIL = Infinity;
 Node.DEFAULT_FLOW = 0;
 Node.DEFAULT_PASSNODE = false;
+
 
 var selectedNodes = [];
 
@@ -115,11 +116,12 @@ function Node(model, config){
 		}
     });
 
-	var _listenerDoubleClick = subscribe("dblclick", function(event) {
-        if(self.loopy.mode!=Loopy.MODE_PLAY) {
-			loopy.setMode(Loopy.MODE_PLAY)
-		}
+	var _listenerDoubleClick = subscribe("dblclick", function() {
 		if (self.isPointInNode(Mouse.x, Mouse.y)) {
+			if (self.loopy.mode!=Loopy.MODE_PLAY) {
+				tick = 1
+				loopy.setMode(Loopy.MODE_PLAY)
+			}
 			self.sendSignal({
 				delta: self.value // You can modify this delta value as needed
 			});
@@ -138,11 +140,11 @@ function Node(model, config){
 			// delta += 
 			// delta += self.flow
 			self.sendSignal({ delta: delta });
-			if (self.value > self.ceiling) {
-				self.value = Math.min(self.ceiling, self.value)
-			} else if (self.value < self.floor) {
-				self.value = Math.max(self.floor, self.value)
-			}
+			// if (self.value > self.ceiling) {
+			// 	self.value = Math.min(self.ceiling, self.value)
+			// } else if (self.value < self.floor) {
+			// 	self.value = Math.max(self.floor, self.value)
+			// }
 
 		} 
     });
@@ -169,16 +171,18 @@ function Node(model, config){
 		}
 	};
 
-	var tick = 1
 
 	self.takeSignal = function(signal) {
 		// Change value
 		// self.value += self.flow
-		self.value += signal.delta;
 
-		if (self.value > self.ceiling) {
-			self.value = Math.min(self.ceiling, self.value)
-		} else if (self.value < self.floor) {
+
+		// do not know if this is bad i commented it out
+		// self.value += signal.delta;
+
+		// if (self.value > self.ceiling) {
+		// 	self.value = Math.min(self.ceiling, self.value)
+		if (self.value < self.floor) {
 			self.value = Math.max(self.floor, self.value)
 		}
 	
@@ -199,6 +203,7 @@ function Node(model, config){
 				updateTimeSeriesChart(selectedNodes[i].value, i);
 			}
 		}
+
 		_offsetVel -= 6 * (signal.delta/Math.abs(signal.delta));
 
 	}

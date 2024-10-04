@@ -6,13 +6,12 @@ EDGE!
 
 Edge.allSignals = [];
 Edge.MAX_SIGNALS = 100;
-Edge.MAX_SIGNALS_PER_EDGE = 10; // Do we really want this : Ask Dr. Oet
+Edge.MAX_SIGNALS_PER_EDGE = 1; // Do we really want this : Ask Dr. Oet
 Edge.defaultStrength = 1;
 Edge.defaultStrengthMultiplier = 1
 Edge.defaultConfidence = 0
 Edge.radius = 60;
-// Edge.labelX = 0;
-// Edge.labelY = 0;
+Edge.damper = 1;
 Edge.DEFAULT_SIGNAL = false;
 
 Edge.defaultLag = 0;
@@ -40,6 +39,7 @@ function Edge(model, config){
 		strength: Edge.defaultStrength,
 		strengthMultiplier: Edge.defaultStrengthMultiplier,
 		confidence: Edge.defaultConfidence,
+		damper: Edge.damper
 	});
 
 	// Get my NODES
@@ -65,11 +65,11 @@ function Edge(model, config){
 
 	};
 
-	// Each edge has its own lag and its own strength, initalized from the sidebar.js file
+	// Each edge has its own lag and its own strength, and its own damper, initalized from the sidebar.js file
 	var lag = self.lag;
+	var damper = self.damper;
 	var strength = self.strength;
-	var strengthMultiplier = self.strengthMultiplier
-	console.log(strengthMultiplier)
+	// var strengthMultiplier = self.strengthMultiplier
 
 	// We have signals!
 	self.signals = [];
@@ -78,6 +78,7 @@ function Edge(model, config){
 
 	self.addSignal = function(signal) {
 
+
 		// IF ALREADY TOO MANY, FORGET IT
 		if (Edge.allSignals.length>Edge.MAX_SIGNALS) {
 			return;
@@ -85,6 +86,7 @@ function Edge(model, config){
 
 		// IF TOO MANY *ON THIS EDGE*, FORGET IT
 		if (self.signals.length>Edge.MAX_SIGNALS_PER_EDGE) {
+			console.log(self.signals.length, Edge.MAX_SIGNALS_PER_EDGE)
 			return;
 		}
 
@@ -93,7 +95,6 @@ function Edge(model, config){
 
 
 		if (!self.from.pass) {
-			// console.log("Node: ", + self.from.label, "Cur delta: " + delta, "Cur Value: " +  self.from.value, "Next Value: " + self.to.value, "Cur Flow: " +  self.from.flow)
 			delta += (self.from.value - delta);
 			delta += self.from.flow;
 		}
@@ -135,6 +136,7 @@ function Edge(model, config){
 		// Speed?
 		var speed = Math.pow(2,self.loopy.signalSpeed);
 		lag = self.lag;
+		damper = (1-self.damper);
 		
 		self.signalSpeed = (lag==0) ? speed/300 : (speed/(3000 * lag));
 
@@ -153,23 +155,52 @@ function Edge(model, config){
 		while(lastSignal && lastSignal.position>=1){
 
 			// Actually pass it along
-			function getRandomInt(min, max) {
-				return Math.random() * (max - min) + min;
+			function getRandomInt(val, min, max) {
+				return (Math.random() * (max - min) + min) * val;
 			  }
 
 			lastSignal.delta *= (self.strength) 
-			// + getRandomInt(-self.confidence, self.confidence);
 
 
-			// if (self.strength > 0) {
-			// 	lastSignal.delta *= 1
-			// } else {
-			// 	lastSignal.delta *= -1
-			// }
-			// lastSignal.delta = self.from.value
-			// lastSignal.delta += self.from.flow;
-			lastSignal.strength *= self.strength * self.strengthMultiplier;
 			self.to.takeSignal(lastSignal);
+
+			// Map to store accumulated signals for each node
+			let signalMap = new Map();  
+
+			console.log(self.loopy.model.nodes.length)
+
+			self.model.edges.forEach(edge => {
+				// Calculate the incoming signal from the edge
+				let incomingSignal = edge.from.value * edge.damper * edge.strength;
+
+				// Check if this is a pass node
+				if (edge.to.pass) {
+					// If it's a pass node, accumulate the incoming signal
+					if (!signalMap.has(edge.to)) {
+						signalMap.set(edge.to, 0);
+					}
+					signalMap.set(edge.to, signalMap.get(edge.to) + incomingSignal);
+				} else {
+					// For regular nodes, accumulate both the incoming signal and the current value of the node
+					if (!signalMap.has(edge.to)) {
+						signalMap.set(edge.to, edge.to.value);  // Start with the node's current value
+					}
+					signalMap.set(edge.to, signalMap.get(edge.to) + incomingSignal);
+				}
+			});
+
+			// After processing all edges, assign the accumulated signal sum to each node
+			signalMap.forEach((signalSum, node) => {
+				// Ensure the value doesn't go below the node's floor
+				// if (node.value < node.floor) {
+					node.value = Math.max(node.floor, signalSum);
+				// } else {
+				// 	node.value = signalSum;
+				// }
+			});
+
+			
+		
 
 			// Pop it, move on down
 			self.removeSignal(lastSignal);
@@ -179,15 +210,17 @@ function Edge(model, config){
 
 	};
 
-	// self.takeSignal = function(signal) {
-	// 	// Change value
+	self.takeSignal = function(signal) {
+		// Change value
+
+		
 	
-	// 	// Propagate signal
-	// 	self.sendSignal(signal);
+		// Propagate signal
+		self.sendSignal(signal);
 
-	// 	_offsetVel -= 6 * (signal.delta/Math.abs(signal.delta));
+		_offsetVel -= 6 * (signal.delta/Math.abs(signal.delta));
 
-	// }
+	}
 
 	self.removeSignal = function(signal){
 		self.signals.splice( self.signals.indexOf(signal), 1 );
@@ -212,7 +245,7 @@ function Edge(model, config){
 
 			// Signal's direction & size
 			var size = 20; // HARD-CODED
-			ctx.scale(signal.scaleX, signal.scaleY);
+			// ctx.scale(signal.scaleX, signal.scaleY);
 			ctx.scale(size, size);
 
 			// Signal's COLOR, BLENDING
@@ -369,12 +402,6 @@ function Edge(model, config){
 		self.updatePosition(fx, fy, a);
 
 
-		// console.log(self.edgeLabelX, self.edgeLabelY)
-
-		
-
-		// console.log("These are the node positions: ", self.labelX, self.labelY)
-
 		// self.x = Math.floor(self.labelX);
 		// self.y = Math.floor(self.labelY);
 
@@ -383,8 +410,6 @@ function Edge(model, config){
 		if(self.arc<0) labelBuffer*=-1;
 		ly += labelBuffer;
 	
-
-
 
 
 
@@ -466,6 +491,7 @@ function Edge(model, config){
 		// Width & Color for the arc
 		ctx.lineWidth = 13 * Math.abs(self.strength);
 		ctx.strokeStyle = "#666";
+		ctx.setLineDash([20, lag * 10]);
 
 		// Translate & Rotate!
 		ctx.save();
@@ -515,17 +541,17 @@ function Edge(model, config){
 		ctx.save();
 		ctx.translate(tX, tY);
 		ctx.rotate(Math.PI / 2);
-		ctx.moveTo(lag * 25, 0);
+		ctx.moveTo(damper * 25, 0);
 		ctx.lineTo(0, 0);
-		ctx.lineTo(-lag * 25, 0);
+		ctx.lineTo(-damper * 25, 0);
 		ctx.restore();
 
 		ctx.save();
 		ctx.translate(tX2, tY2);
 		ctx.rotate(Math.PI / 2);
-		ctx.moveTo(lag * 25, 0);
+		ctx.moveTo(damper * 25, 0);
 		ctx.lineTo(0, 0);
-		ctx.lineTo(-lag * 25, 0);
+		ctx.lineTo(-damper * 25, 0);
 		ctx.restore();
 
 		// Stroke the perpendicular lines separately
@@ -578,43 +604,6 @@ function Edge(model, config){
 	//////////////////////////////////////
 	// HELPER METHODS ////////////////////
 	//////////////////////////////////////
-
-	// self.addGhostNode = function() {
-	// 	// Calculate the midpoint of the edge
-	// 	var midX = (self.from.x + self.to.x) / 2;
-	// 	var midY = (self.from.y + self.to.y) / 2;
-	
-	// 	// Create the ghost node
-	// 	var ghostNode = new Node(model, {
-	// 		id: Node._getUID,
-	// 		x: midX,
-	// 		y: midY,
-	// 		init: 0, // Passnode behavior
-	// 		label: '', // No label (invisible)
-	// 		hue: 1, // Default color
-	// 		radius: 3, // Invisible size
-	// 		floor: -1000,
-	// 		ceiling: 1000,
-	// 		flow: 0,
-	// 		pass: true,
-	// 	});
-	
-	// 	// Set ghost node properties
-	// 	// ghostNode.isGhost = true; // Mark it as a ghost
-	// 	// ghostNode.isPointInNode = function(x, y) {
-	// 	// 	// Prevent any interaction with the ghost node
-	// 	// 	return false;
-	// 	// };
-		
-	// 	// Add it to the model without drawing it
-	// 	model.addNode(ghostNode);
-	
-	// 	// Attach edges to the ghost node as needed
-	// 	// edge.addGhostNode(ghostNode);
-	
-	// 	// return ghostNode;
-	// }
-
 
 	self.isPointOnLabel = function(x, y){
 		// TOTAL HACK: radius based on TOOL BEING USED.
