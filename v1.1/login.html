@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+    <title>Login - Flow</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/login.css"> <!-- Include your CSS file -->
+</head>
+<body>
+    <div class="login-container">
+        <h1>Login to FLOW</h1>
+        <form id="loginForm">
+            <label for="username">Username</label>
+            <input type="text" id="email" name="username" required>
+
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+
+            <button type="submit">Login</button>
+        </form>
+        <div id="loginError" style="display: none; color: red;">Invalid credentials, please try again.</div>
+    </div>
+
+    <script src="js/login.js"></script> <!-- Link to the login script -->
+</body>
+</html>

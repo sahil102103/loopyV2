@@ -117,10 +117,15 @@ function Sidebar(loopy){
 				self.showPage("Edit");
 			}
 		}));
+
+		page.addComponent("lineBreak", new ComponentHTML({
+			html: "linebreak"
+		}));
+
 		page.addComponent("strength", new ComponentSlider({
 			bg: "strength",
-			label: "<br><br>Correlation:",
-			options: [1.00, 0.90, 0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 
+			label: "Correlation:",
+			options:[1.00, 0.90, 0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 
 				0.20, 0.10, -0.10, -0.20, -0.30, -0.40, -0.50, -0.60, 
 				-0.70, -0.80, -0.90, -1.00],
 			oninput: function(value){
@@ -424,88 +429,123 @@ function ComponentInput(config) {
 
 function ComponentSlider(config){
 
-	// Inherit
-	var self = this;
-	Component.apply(self);
+    // Inherit properties and methods from Component
+    var self = this;
+    Component.apply(self);
 
-	// TODO: control with + / -, alt keys??
+    // TODO: control with + / -, alt keys?? (potential future feature for keyboard control)
 
-	// DOM: label + slider
-	self.dom = document.createElement("div");
-	var label = _createLabel(config.label);
-	self.dom.appendChild(label);
+    // Create DOM: label and slider container
+    self.dom = document.createElement("div");
+    var labelContainer = document.createElement("div");  // Container to hold label and value side by side
+    labelContainer.style.display = "flex";  // Use flex to align label and value in a row
+    labelContainer.style.gap = "10px";  // Add some spacing between label and value
 
+    var label = _createLabel(config.label);  // Create a label for the slider component
+    labelContainer.appendChild(label);
 
-	var value = _createLabel(`${config.options[Math.floor(event.x/250*config.options.length)]}`);
-	self.dom.appendChild(value);
+    // Create value label to display the current value (default to the first option on load)
+	var value = _createLabel(`${config.label === "Color:" ? getColor(config.options[0]) : config.options[0]}`);
+    labelContainer.appendChild(value);
 
+    self.dom.appendChild(labelContainer);
 
-	var sliderDOM = document.createElement("div");
-	sliderDOM.setAttribute("class","component_slider");
-	self.dom.appendChild(sliderDOM);
-	
+    // Create the slider container DOM
+    var sliderDOM = document.createElement("div");
+    sliderDOM.setAttribute("class","component_slider");  // Add class for styling
+    self.dom.appendChild(sliderDOM);
 
-	// Slider DOM: graphic + pointer
-	var slider = new Image();
-	slider.draggable = false;
-	slider.src = "css/sliders/"+config.bg+".png";
-	slider.setAttribute("class","component_slider_graphic");
-	var pointer = new Image();
-	pointer.draggable = false;
-	pointer.src = "css/sliders/slider_pointer.png";
-	pointer.setAttribute("class","component_slider_pointer");
-	sliderDOM.appendChild(slider);
-	sliderDOM.appendChild(pointer);
-	var movePointer = function(){
-		var value = self.getValue();
-		var optionIndex = config.options.indexOf(value);
-		var x = (optionIndex+0.5) * (250/config.options.length);
-		pointer.style.left = (x-7.5)+"px";
-	};
+    // Slider DOM: add graphic and pointer elements
+    var slider = new Image();
+    slider.draggable = false;  // Prevent dragging of the slider image
+    slider.src = "css/sliders/" + config.bg + ".png";  // Set the background image for the slider
+    slider.setAttribute("class","component_slider_graphic");
+    var pointer = new Image();
+    pointer.draggable = false;  // Prevent dragging of the pointer image
+    pointer.src = "css/sliders/slider_pointer.png";  // Set the pointer image
+    pointer.setAttribute("class","component_slider_pointer");
+    sliderDOM.appendChild(slider);
+    sliderDOM.appendChild(pointer);
 
-	// On click... (or on drag)
-	var isDragging = false;
-	var onmousedown = function(event){
-		isDragging = true;
-		sliderInput(event);
-	};
-	var onmouseup = function(){
-		isDragging = false;
-	};
-	var onmousemove = function(event){
-		if(isDragging) sliderInput(event);
-	};
-	var sliderInput = function(event){
+    // Function to move the pointer to the correct position based on the current value
+    var movePointer = function(){
+        var value = self.getValue();  // Get the current value of the slider
+        var optionIndex = config.options.indexOf(value);  // Find the index of the current value
+        var x = (optionIndex + 0.5) * (250 / config.options.length);  // Calculate the position of the pointer
+        pointer.style.left = (x - 7.5) + "px";  // Adjust pointer position (7.5px is half of the pointer width)
+    };
 
-		// What's the option?
-		var index = event.x/250;
-		var optionIndex = Math.floor(index*config.options.length);
-		var option = config.options[optionIndex];
-		if(option===undefined) return;
-		self.setValue(option);
-		
-		// Callback! (if any)
-		if(config.oninput){
-			config.oninput(option);
-			value.innerHTML = `${option}`;
-		}
-		
+    // Event handlers for slider interaction
+    var isDragging = false;  // Track whether the user is dragging the pointer
+    var onmousedown = function(event){
+        isDragging = true;  // Set dragging to true on mouse down
+        sliderInput(event);  // Update the slider value
+    };
+    var onmouseup = function(){
+        isDragging = false;  // Stop dragging on mouse up
+    };
+    var onmousemove = function(event){
+        if(isDragging) sliderInput(event);  // If dragging, update the slider value on mouse move
+    };
 
-		// Move pointer there.
-		movePointer();
+    // Function to handle slider input (mouse events)
+    var sliderInput = function(event){
+        // Calculate the option index based on mouse position
+        var index = event.x / 250;
+        var optionIndex = Math.floor(index * config.options.length);
+        var option = config.options[optionIndex];
+        if(option === undefined) return;  // Exit if the calculated option is invalid
+        self.setValue(option);  // Set the slider value to the calculated option
 
-	};
-	_addMouseEvents(slider, onmousedown, onmousemove, onmouseup);
+        // Trigger the oninput callback if provided
+        if(config.oninput){
+            config.oninput(option);
+			value.innerHTML = config.label === "Color:" ? getColor(self.getValue()) : self.getValue(); // Update the value label to show the current option
+        }
 
-	// Show
-	self.show = function(){
-		movePointer();
-	};
+        // Move the pointer to the new position
+        movePointer();
+    };
 
-	// BG Color!
-	self.setBGColor = function(color){
-		slider.style.background = color;
-	};
+    // Add mouse events to the slider for interaction
+    _addMouseEvents(slider, onmousedown, onmousemove, onmouseup);
+
+	function getColor(value) {
+		const colorMap = {
+			0: 'Crimson',
+			1: 'Red',
+			2: 'Red-Orange',
+			3: 'Orange',
+			4: 'Light Orange',
+			5: 'Light Yellow-Orange',
+			6: 'Yellow-Orange',
+			7: 'Yellow',
+			8: 'Light Green',
+			9: 'Green',
+			10: 'Dark Green',
+			11: 'Teal',
+			12: 'Blue',
+			13: 'Brigh Blue',
+			14: 'Indigo',
+			15: 'Dark Indigo',
+			16: 'Dark Violet',
+			17: 'Violet',
+			18: 'Light Violet',
+			19: 'Magenta'
+		};
+		return colorMap[value] || value;
+	}
+
+    // Show function to initialize the slider position and value label
+    self.show = function(){
+        movePointer();  // Move the pointer to the correct position
+		value.innerHTML = config.label === "Color:" ? getColor(self.getValue()) : self.getValue(); // Update the value label to show the current option
+    };
+
+    // Function to set the background color of the slider
+    self.setBGColor = function(color){
+        slider.style.background = color;  // Update the background color of the slider graphic
+    };
 
 }
 

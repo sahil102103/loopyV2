@@ -52,41 +52,31 @@ function convertNumToColor(color) {
 }
 
 var timeSeriesNodeData = [];
-
+var fullNodeData = []; // Store the full data separately
 
 function drawTimeSeriesChart() {
     timeSeriesNodeData = [];
-    if (selectedNodes.length == 0) {
-        loopy.model.nodes.forEach(node => {
-            timeSeriesNodeData.push({
-            label: node.label,
-            data: [node.value],
-            borderColor: `${convertNumToColor(node.hue)[1]}`,
-            backgroundColor: `${convertNumToColor(node.hue)[1]}`,
-            borderWidth: 1,
-            fill: false
-            })
-        })
-    } else {
-        selectedNodes.forEach(node => {
-            timeSeriesNodeData.push({
-            label: node.label,
-            data: [node.value],
-            borderColor: `${convertNumToColor(node.hue)[0]}`,
-            backgroundColor: `${convertNumToColor(node.hue)[1]}`,
-            borderWidth: 1,
-            fill: false
-            })
-        })
-    }
+    fullNodeData = []; // Initialize full data storage
 
-    
+    const nodes = selectedNodes.length === 0 ? loopy.model.nodes : selectedNodes;
+    nodes.forEach(node => {
+        const nodeData = {
+            label: node.label,
+            data: [node.value],
+            borderColor: convertNumToColor(node.hue)[1],
+            backgroundColor: convertNumToColor(node.hue)[1],
+            borderWidth: 1,
+            fill: false
+        };
+        timeSeriesNodeData.push(nodeData);
+        fullNodeData.push({ ...nodeData }); // Store the full data for reference
+    });
 
     const ctx = document.getElementById('timeSeriesChart').getContext('2d');
     chart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ['0'],
+            labels: Array.from({ length: timeSeriesNodeData[0].data.length }, (_, i) => i.toString()),
             datasets: timeSeriesNodeData
         },
         options: {
@@ -107,18 +97,43 @@ function drawTimeSeriesChart() {
             }
         }
     });
+
+    addForwardDataSlider();
+}
+
+function addForwardDataSlider() {
+
+    if (!document.getElementById('forwardDataSlider')) {
+        const sliderContainer = document.createElement('div');
+        sliderContainer.id = 'sliderContainer';
+        sliderContainer.innerHTML = '<input type="range" id="forwardDataSlider" min="0" max="100" value="100" style="width: 95%; height: 8px; background: #d3d3d3; border-radius: 5px;">';
+        
+        document.getElementById('TimeSeries').appendChild(sliderContainer);
+
+        document.getElementById('forwardDataSlider').addEventListener('input', function(event) {
+            updateChartForwardData(parseInt(event.target.value));
+        });
+    }
+    
+}
+
+function updateChartForwardData(percentage) {
+    const newLength = Math.ceil(fullNodeData[0].data.length * (percentage / 100));
+
+    chart.data.labels = Array.from({ length: newLength }, (_, i) => i.toString());
+    chart.data.datasets.forEach((dataset, index) => {
+        dataset.data = fullNodeData[index].data.slice(0, newLength);
+    });
+    chart.update();
 }
 
 function smoothData(data, windowSize) {
-    const smoothed = [];
-    for (let i = 0; i < data.length; i++) {
+    return data.map((_, i) => {
         const windowStart = Math.max(0, i - Math.floor(windowSize / 2));
         const windowEnd = Math.min(data.length, i + Math.floor(windowSize / 2) + 1);
         const windowData = data.slice(windowStart, windowEnd);
-        const windowAverage = windowData.reduce((sum, value) => sum + value, 0) / windowData.length;
-        smoothed.push(windowAverage);
-    }
-    return smoothed;
+        return windowData.reduce((sum, value) => sum + value, 0) / windowData.length;
+    });
 }
 
 document.getElementById('smoothWindowForm').addEventListener('submit', function(event) {
@@ -130,9 +145,8 @@ document.getElementById('smoothWindowForm').addEventListener('submit', function(
         return;
     }
 
-    chartSmooth.destroy()
-
-    drawSmoothedTimeSeriesChart()
+    chartSmooth?.destroy();
+    drawSmoothedTimeSeriesChart();
 });
 
 function drawSmoothedTimeSeriesChart() {
@@ -141,10 +155,9 @@ function drawSmoothedTimeSeriesChart() {
             console.warn(`Dataset ${dataset.label} has no data to smooth.`);
             return null;
         }
-        
         return {
             label: `${dataset.label} (Smoothed)`,
-            data: smoothData(dataset.data, smoothWindowValue), // Use the input window size
+            data: smoothData(dataset.data, smoothWindowValue),
             borderColor: dataset.borderColor,
             backgroundColor: dataset.backgroundColor,
             borderWidth: 1,

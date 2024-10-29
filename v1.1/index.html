@@ -64,6 +64,7 @@
 				</div>
 
 			</div>
+			<button class="tablink" id='generateTab' onclick="openPage('Generate')">Generate</button>
 			<button class="tablink" id='crisisAnalysisTab' onclick="openPage('CrisisAnalysis')">Crisis Analysis</button>
 			<button class="tablink" id='correlationTab' onclick="openPage('Correlation')">Correlation</button>
 
@@ -84,7 +85,7 @@
 			</div>
 		</div>
 
-		<div id="Canvas" class="tabcontent"> 
+		<div id="Canvas" class="tabcontent">
 			<div id="canvasses"></div>
 			<div id="toolbar"></div>
 			<div id="playbar"></div>
@@ -100,9 +101,9 @@
 				<canvas id="timeSeriesChart" style="width:95%; margin-top: 50px;"></canvas>
 			</div>
 			<div class="rebuildButtonContainer">
-				<button class="align-bottom" id="downloadCSVButton">Download CSV</button>
+				<!-- <button class="align-bottom" id="downloadCSVButton">Download CSV</button> -->
 			</div>
-			
+
 		</div>
 
 		<div id="TimeSeriesSmooth" class="tabcontent">
@@ -116,9 +117,9 @@
 					<input type="submit" value="Submit">
 				</form>
 			</div>
-			
-			
-			
+
+
+
 		</div>
 
 		<!-- Have to collaborate with other researcher to have this properly working and change the python code into something that works with the loopy output-->
@@ -160,6 +161,14 @@
 
 		<div id="Correlation" class="tabcontent">
 			<div id="correlationPlot"></div>
+		</div>
+
+		<!-- New Diagram Generation Section -->
+		<div id="Generate" class="tabcontent">
+			<h2>Diagram Generator</h2>
+			<textarea id="description" rows="4" cols="50" placeholder="Enter your description here..."></textarea><br>
+			<button id="generateButton">Generate Diagram</button>
+			<pre id="output"></pre>
 		</div>
 
 	</div>
@@ -214,11 +223,20 @@
 
 <!-- Note to self: Put extra code after Core Simulation Code-->
 <script type="text/javascript" src="python/pyTo.js"></script>
+<script src="python/generateDiagram.js"></script>
+
 
 <!-- Start it -->
 <script>
+	    if (localStorage.getItem('loggedIn') !== 'true') {
+        window.location.href = 'login.html';
+    }
 	window.onload = async function () {
+		// if (localStorage.getItem('loggedIn') !== 'true') {
+		// 	window.location.href = 'login.html';
+		// }
 		openPage('Canvas');
 		window.loopy = new Loopy();
+		document.body.style.opacity = '1'; // Make the body visible
 	};
 </script>

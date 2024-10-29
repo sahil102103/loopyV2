@@ -36,7 +36,7 @@ function Model(loopy){
 
 	// Handle zoom with scroll
 	canvas.addEventListener('wheel', function(event) {
-		event.preventDefault();
+		// event.preventDefault();
 		const zoomSpeed = 0.1;
 		const scaleDelta = event.deltaY > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
 
@@ -275,7 +275,7 @@ function Model(loopy){
 		var nodes = [];
 		for(var i=0;i<self.nodes.length;i++){
 			var node = self.nodes[i];
-			console.log(node)
+
 			// 0 - id
 			// 1 - x
 			// 2 - y
@@ -295,7 +295,7 @@ function Model(loopy){
 				node.hue,
 				node.flow,
 				node.pass ? 1 : 0,
-				node.floor,
+				encodeURIComponent(node.floor),
 				node.ceiling
 			]);
 		}
@@ -371,6 +371,8 @@ function Model(loopy){
 		// Nodes
 		for(var i=0;i<nodes.length;i++){
 			var node = nodes[i];
+			console.log(node[8])
+
 			self.addNode({
 				id: node[0],
 				x: node[1],
@@ -380,7 +382,7 @@ function Model(loopy){
 				hue: node[5],
 				flow: node[6],
 				pass: node[7] === 1,
-				floor: node[8],
+				floor: Number(node[8]),
 				ceiling: node[9],
 			});
 		}

@@ -91,7 +91,7 @@ h4 {
     display: flex;
     justify-content: center; /* Center horizontally */
     align-items: flex-end;   /* Align to the bottom */
-    height: 100vh;          /* Full viewport height */
+    height: 800px;          /* Full viewport height */
 }
 
 .align-bottom {

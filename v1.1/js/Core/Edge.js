@@ -159,52 +159,46 @@ function Edge(model, config){
 				return (Math.random() * (max - min) + min) * val;
 			  }
 
-			lastSignal.delta *= (self.strength) 
-
-
+			lastSignal.delta *= (self.strength);
 			self.to.takeSignal(lastSignal);
-
+	  
 			// Map to store accumulated signals for each node
-			let signalMap = new Map();  
-
-			console.log(self.loopy.model.nodes.length)
-
-			self.model.edges.forEach(edge => {
-				// Calculate the incoming signal from the edge
-				let incomingSignal = edge.from.value * edge.damper * edge.strength;
-
-				// Check if this is a pass node
-				if (edge.to.pass) {
-					// If it's a pass node, accumulate the incoming signal
-					if (!signalMap.has(edge.to)) {
-						signalMap.set(edge.to, 0);
-					}
-					signalMap.set(edge.to, signalMap.get(edge.to) + incomingSignal);
-				} else {
-					// For regular nodes, accumulate both the incoming signal and the current value of the node
-					if (!signalMap.has(edge.to)) {
-						signalMap.set(edge.to, edge.to.value);  // Start with the node's current value
-					}
-					signalMap.set(edge.to, signalMap.get(edge.to) + incomingSignal);
-				}
-			});
-
+			let signalMap = new Map();
+	  
+			// Refactored for better readability - separated into a helper function
+			const accumulateSignals = () => {
+			  self.model.edges.forEach(edge => {
+				  // Calculate the incoming signal from the edge
+				  let incomingSignal = edge.from.value * edge.damper * edge.strength;
+	  
+				  // Check if this is a pass node
+				  if (edge.to.pass) {
+					  // If it's a pass node, accumulate the incoming signal
+					  if (!signalMap.has(edge.to)) {
+						  signalMap.set(edge.to, 0);
+					  }
+					  signalMap.set(edge.to, signalMap.get(edge.to) + incomingSignal);
+				  } else {
+					  // For regular nodes, accumulate both the incoming signal and the current value of the node
+					  if (!signalMap.has(edge.to)) {
+						  signalMap.set(edge.to, edge.to.value);  // Start with the node's current value
+					  }
+					  signalMap.set(edge.to, signalMap.get(edge.to) + incomingSignal);
+				  }
+			  });
+			};
+	  
+			accumulateSignals(); // Calling the helper function to accumulate signals
+	  
 			// After processing all edges, assign the accumulated signal sum to each node
 			signalMap.forEach((signalSum, node) => {
-				// Ensure the value doesn't go below the node's floor
-				// if (node.value < node.floor) {
-					node.value = Math.max(node.floor, signalSum);
-				// } else {
-				// 	node.value = signalSum;
-				// }
+			  // Ensure the value doesn't go below the node's floor
+			  node.value = Math.max(node.floor, signalSum);
 			});
-
-			
-		
-
+	  
 			// Pop it, move on down
 			self.removeSignal(lastSignal);
-			lastSignal = self.signals[self.signals.length-1];
+			lastSignal = self.signals[self.signals.length - 1];
 
 		}
 
