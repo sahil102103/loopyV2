@@ -228,15 +228,26 @@
 
 <!-- Start it -->
 <script>
-	    if (localStorage.getItem('loggedIn') !== 'true') {
-        window.location.href = 'login.html';
-    }
-	window.onload = async function () {
-		// if (localStorage.getItem('loggedIn') !== 'true') {
-		// 	window.location.href = 'login.html';
-		// }
-		openPage('Canvas');
-		window.loopy = new Loopy();
-		document.body.style.opacity = '1'; // Make the body visible
+
+	window.onload = function () {
+		if (getCookie('loggedIn') !== 'trufe') {
+			window.location.href = 'login.html'; // Redirect if not logged in
+		} else {
+			openPage('Canvas');
+			window.loopy = new Loopy();
+			document.body.style.opacity = '1'; // Make the body visible
+		}
 	};
+	// Function to get a cookie by name
+	function getCookie(name) {
+		const decodedCookies = decodeURIComponent(document.cookie);
+		const cookiesArray = decodedCookies.split('; ');
+		for (let cookie of cookiesArray) {
+			const [cookieName, cookieValue] = cookie.split('=');
+			if (cookieName === name) {
+				return cookieValue;
+			}
+		}
+		return null;
+	}
 </script>
