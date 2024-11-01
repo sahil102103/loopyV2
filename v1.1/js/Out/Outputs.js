@@ -65,7 +65,7 @@ function drawTimeSeriesChart() {
             data: [node.value],
             borderColor: convertNumToColor(node.hue)[1],
             backgroundColor: convertNumToColor(node.hue)[1],
-            borderWidth: 1,
+            borderWidth: 5,
             fill: false
         };
         timeSeriesNodeData.push(nodeData);
