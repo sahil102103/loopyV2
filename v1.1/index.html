@@ -230,13 +230,13 @@
 <script>
 
 	window.onload = function () {
-		if (getCookie('loggedIn') !== 'true') {
-			window.location.href = 'login.html'; // Redirect if not logged in
-		} else {
+		// if (getCookie('loggedIn') !== 'true') {
+		// 	window.location.href = 'login.html'; // Redirect if not logged in
+		// } else {
 			openPage('Canvas');
 			window.loopy = new Loopy();
 			document.body.style.opacity = '1'; // Make the body visible
-		}
+		// }
 	};
 	// Function to get a cookie by name
 	function getCookie(name) {
