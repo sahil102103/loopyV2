@@ -144,7 +144,7 @@ function Sidebar(loopy){
 		page.addComponent("confidence", new ComponentSlider({
 			bg: "lag",
 			label: "Confidence:",
-			options:[0.5, 0.4, 0.3, 0.2, 0.1, 0],
+			options:[1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0],
 			oninput: function(value){
 				Edge.defaultStrengthMultiplier = value;
 			}

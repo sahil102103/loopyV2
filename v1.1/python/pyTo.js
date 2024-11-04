@@ -18,7 +18,6 @@ async function loadAndExecutePythonScript(){
 	)
 
 	pyodide.runPython(`
-	# import igraph as ig
 	import numpy as np
 	import pandas as pd
 	import networkx as nx
@@ -57,27 +56,28 @@ async function loadAndExecutePythonScript(){
 	warnings.filterwarnings("ignore")
 	`);
 
-	// if (selectedNodes.length == 0) {
-    //     loopy.model.nodes.forEach(node => {
- 
-    //     })
-    // } else {
-    //     selectedNodes.forEach(node => {
-
-    //     })
-    // }
 
 pyodide.runPython(`
-    edges = []
-    edge_polarities = []
-    variables = []
-    G = nx.DiGraph()
+edges = []
+edge_polarities = []
+edge_weights = []
+edge_delays = []
+edge_certainties = []
+time_series_data = {}
+variables = []
+G = nx.DiGraph()
 `);
 
+// We will use these dataset arrays along with time series data from other files
 let edgePairs = [];
 let edgePolarities = [];
+let edgeWeights = [];
+let edgeDelays = [];
+let edgeCertainties = [];
 let duplicateLabels = [];
 let variables = [];
+let timeSeriesData = {}
+
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
@@ -117,6 +117,11 @@ const findDuplicateLabels = () => {
 const loadInitialData = async () => {
     variables = [];
 
+	timeSeriesData = chart.data.datasets.reduce((acc, dataset) => {
+		acc[dataset.label] = [...dataset.data];
+		return acc
+	}, {})
+
     // Filter nodes and edges based on whether selectedNodes is populated
     const nodesToInclude = selectedNodes.length > 0 ? 
         loopy.model.nodes.filter(node => selectedNodes.includes(node.label)) : 
@@ -136,8 +141,12 @@ const loadInitialData = async () => {
         const node1 = edge.from;
         const node2 = edge.to;
 
-        // Add the nodes connected by this edge to the edgeNodesPairs array
+        // Add the nodes connected by this edge to the edgeNodesPairs array, along with all of the attributes
         addEdgeNodePair(node1, node2);
+		edgeWeights.push(edge.damper);
+		edgeDelays.push(edge.lag);
+		edgeCertainties.push(edge.confidence);
+
 
         // Perform the 'something' logic for each edge
         delayNodeAdding(node1, node2, edge.label);
@@ -156,6 +165,15 @@ const loadInitialData = async () => {
     pyodide.globals.set("edges", edgePairs);
     pyodide.globals.set("edge_polarities", edgePolarities);
     pyodide.globals.set("variables", variables);
+	pyodide.globals.set("edge_weights", edgeWeights);
+	pyodide.globals.set("edge_delays", edgeDelays);
+	pyodide.globals.set("edge_certainties", edgeCertainties);
+	pyodide.globals.set("time_series_data", timeSeriesData);
+
+	console.log(timeSeriesData)
+
+	
+	
 };
 
 
@@ -163,127 +181,87 @@ const loadInitialData = async () => {
 
 
 
-	document.getElementById('crisisAnalysisTab').onclick = async () => {
-		await loadInitialData();
+document.getElementById('crisisAnalysisTab').onclick = async () => {
+    await loadInitialData();
+    await pyodide.loadPackage(['numpy', 'matplotlib']); // Ensure necessary packages are loaded
 
-		pyodide.runPython(`
-overall_results = {node: [] for node in G.nodes()}
+    // Define and execute Python code asynchronously
+    await pyodide.runPythonAsync(`
+# Convert JavaScript time_series_data to Python object
+time_series_data_py = time_series_data.to_py()
 
-crisisAnalysisPlots = []
-
-G = nx.DiGraph()
-for (node1, node2), polarity in zip(edges, edge_polarities):
-	G.add_edge(node1, node2, polarity=polarity)
-
-# Find all simple cycles in the graph
-cycles = list(nx.simple_cycles(G))
-
-baseline_value = 0
-# Dictionary to hold the results
-overall_results = {node: [] for node in G.nodes()}
-
-# Number of outer loops and inner simulations
-num_outer_loops = 300
-num_simulations = 10
-
-initial_node_values = {node: random.uniform(-1, 1) for node in G.nodes()}
-
-# Start with initial values
-current_values = initial_node_values.copy()
-
-def apply_changes_with_reversion(node_values, cycle):
-	for i in range(len(cycle)):
-		node1 = cycle[i]
-		node2 = cycle[(i + 1) % len(cycle)]
-		polarity = G.edges[node1, node2]['polarity']
-		
-		# Compute the random influence
-		if polarity == '+':
-			influence = random.normalvariate(0.1, 0.05)  # Positive influence
-		else:
-			influence = random.normalvariate(-0.1, 0.05)  # Negative influence
-		
-		# Calculate the difference from the baseline
-		difference = baseline_value - node_values[node2]
-		
-		# Apply the mean reversion component
-		reversion = 0.05 * difference
-		
-		# Apply the total change
-		node_values[node2] += influence + reversion
-
-# Run multiple outer loops
-for outer_loop in range(num_outer_loops):
-	results = {node: [] for node in G.nodes()}
-	# Run the simulation loops
-	for _ in range(num_simulations):
-		node_values = current_values.copy()  # Start with current values
-		random.shuffle(cycles)  # Shuffle cycles randomly each time
-		for cycle in cycles:
-			apply_changes_with_reversion(node_values, cycle)
-		for node in node_values:
-			results[node].append(node_values[node])  # Store results after each simulation
-	# Calculate the mean values for each node
-	mean_values = {node: np.mean(values) for node, values in results.items()}
-	# Use the mean values as the starting point for the next outer loop
-	current_values = mean_values.copy()
-	# Append the results of the current outer loop to the overall results
-	for node in overall_results:
-		overall_results[node].extend(results[node])
-
-
-# Function to calculate rolling standardized z-score
 def calculate_rolling_z_scores(values):
-	rolling_mean = np.array([np.mean(values[:i + 1]) for i in range(len(values))])
-	rolling_std = np.array([np.std(values[:i + 1]) for i in range(len(values))])
-	z_scores = (values - rolling_mean) / rolling_std
-	return z_scores
+    n = len(values)
+    mean_t = np.zeros(n)
+    var_t = np.zeros(n)
+    z_scores = np.zeros(n)
+    for t in range(n):
+        if t == 0:
+            mean_t[t] = values[t]
+            var_t[t] = 0
+            z_scores[t] = 0  # Z-score is undefined for the first value
+        else:
+            delta = values[t] - mean_t[t - 1]
+            mean_t[t] = mean_t[t - 1] + delta / (t + 1)
+            var_t[t] = var_t[t - 1] + delta * (values[t] - mean_t[t])
+            if var_t[t] > 0 and t > 1:  # Avoid division by zero
+                std_t = np.sqrt(var_t[t] / (t - 1))
+                z_scores[t] = (values[t] - mean_t[t]) / std_t
+            else:
+                std_t = 0
+                z_scores[t] = 0  # Variance is zero; Z-score is undefined
+    return z_scores
 
-# Function to detrend data for linear time
-def detrend(values):
-	x = np.arange(len(values))
-	coeffs = np.polyfit(x, values, 1)
-	trend = np.polyval(coeffs, x)
-	detrended_values = values - trend
-	return detrended_values
+def plot_rolling_z_scores_grid(results, start_iteration=0):
+    num_nodes = len(results)
+    num_cols = 3
+    num_rows = (num_nodes + num_cols - 1) // num_cols
 
-def plot_rolling_z_scores(node, results, num_outer_loops, num_simulations, start_iteration=10):
-	node_results = np.array(results[node])
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 5 * num_rows), sharex=True, sharey=True)
+    axes = axes.flatten()
 
-	# Calculate percentiles for each outer loop
-	percentiles = np.percentile(node_results.reshape(num_outer_loops, num_simulations), [5, 25, 50, 75, 95], axis=1)
+    for idx, node in enumerate(results):
+        node_results = np.array(results[node])
+        z_scores = calculate_rolling_z_scores(node_results)
+        z_scores_to_plot = z_scores[start_iteration:]
+        x = range(start_iteration, len(z_scores))
 
-	# Calculate rolling z-scores
-	mean_values = percentiles[2]
-	detrended_values = detrend(mean_values)
-	z_scores = calculate_rolling_z_scores(detrended_values)
+        # Plot rolling z-scores for each node in its respective subplot
+        axes[idx].plot(x, z_scores_to_plot, label='Rolling Z-Score', color='red')
+        axes[idx].set_title(f'Node {node} (after iteration {start_iteration})')
+        axes[idx].set_xlabel('Iteration (Quarter per tick)')
+        axes[idx].set_ylabel('Z-Score')
+        axes[idx].grid(True)
 
-	# Plot only after the start_iteration
-	z_scores_to_plot = z_scores[start_iteration:]
-	x = range(start_iteration, len(z_scores))
-	plt.figure(figsize=(12, 6))
+    for ax in axes[num_nodes:]:
+        ax.axis('off')
 
-	# Plot the rolling z-scores
-	plt.plot(x, z_scores_to_plot, label='Rolling Z-Score', color='red')
+    plt.tight_layout()
+    filename = "/tmp/crisis_analysis_plot.png"
+    plt.savefig(filename)
 
-	# Customize the plot
-	plt.xlabel('Outer Loop Iteration')
-	plt.ylabel('Z-Score')
-	plt.title(f'Rolling Z-Scores for {node} Node (after iteration {start_iteration})')
-	legend = plt.legend()
-	plt.grid(True)
-	plt.savefig(f"{node}_crisisAnalysisPlot.png")
-	crisisAnalysisPlots.append(f"{node}_crisisAnalysisPlot.png")
+    return filename
 
+# Call the plot function and return the saved filename
+crisisAnalysisPlot = plot_rolling_z_scores_grid(time_series_data_py)
+    `);
 
-# Compute the average results across all seeds
-# average_results = compute_average_results(results_list, num_outer_loops)
+    // Retrieve and display the generated plot
+    const crisisAnalysisPlot = pyodide.globals.get('crisisAnalysisPlot');
+    const crisisAnalysisPlotsContainer = document.getElementById('crisisAnalysisPlots');
+    crisisAnalysisPlotsContainer.innerHTML = ''; // Clear any previous plots
 
-# Create the average fan chart for each node
-for node in G.nodes():
-    plot_rolling_z_scores(node, overall_results, num_outer_loops, num_simulations)
+    // Read the saved image and display it
+    let file = pyodide.FS.readFile(crisisAnalysisPlot, { encoding: 'binary' });
+    let blob = new Blob([file], { type: 'image/png' });
+    let url = URL.createObjectURL(blob);
 
-		`);
+    const img = document.createElement('img');
+    img.src = url;
+    crisisAnalysisPlotsContainer.appendChild(img);
+
+    openPage('CrisisAnalysis');
+};
 
 
 	document.getElementById('cycleAnalysisTab').onclick = async() => {
@@ -475,21 +453,6 @@ for node in G.nodes():
 		openPage('VisualAnalysis');
 	}
 	
-		const crisisAnalysisPlots = pyodide.globals.get('crisisAnalysisPlots').toJs();
-		const crisisAnalysisPlotsContainer = document.getElementById('crisisAnalysisPlots');
-		crisisAnalysisPlotsContainer.innerHTML = '';
-		crisisAnalysisPlots.forEach(plot => {
-			let file = pyodide.FS.readFile(plot, { encoding: 'binary' });
-			let blob = new Blob([file], { type: 'image/png' });
-			let url = URL.createObjectURL(blob);
-			
-			const img = document.createElement('img');
-			img.src = url;
-			crisisAnalysisPlotsContainer.appendChild(img);
-		});
-	
-		openPage('CrisisAnalysis');
-	}
 
 	
 	document.getElementById('simulationTab').onclick = async() => {
