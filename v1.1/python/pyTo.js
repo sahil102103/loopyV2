@@ -555,6 +555,9 @@ simulationPlot = "simulation.png"
     openPage('Simulation1');
 }
 
+
+
+
 document.getElementById('simulation2Tab').onclick = async() => {
 	await loadInitialData();
 	pyodide.runPython(`
