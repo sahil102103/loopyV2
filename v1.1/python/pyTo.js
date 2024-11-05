@@ -903,7 +903,7 @@ for node in G.nodes():
 	document.getElementById('correlationTab').onclick = async() => {
 		await loadInitialData();
 		pyodide.runPython(`
-plt.figure()
+plt.figure(figsize=(12, 8))
 
 G = nx.DiGraph(edges)
 correlationPlot = ''
