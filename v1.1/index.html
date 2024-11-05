@@ -231,7 +231,8 @@
 
 	window.onload = function () {
 		if (getCookie('loggedIn') !== 'true') {
-			window.location.href = 'login.html'; // Redirect if not logged in
+			console.log("hello, you are not logged in :)")
+			window.location.href = 'https://loopy-v2.vercel.app/v1.1/login.html'; // Redirect if not logged in
 		} else {
 			openPage('Canvas');
 			window.loopy = new Loopy();
