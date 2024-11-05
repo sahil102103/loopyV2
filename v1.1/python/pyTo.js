@@ -458,20 +458,12 @@ crisisAnalysisPlot = plot_rolling_z_scores_grid(time_series_data_py)
 	document.getElementById('simulationTab').onclick = async() => {
 		await loadInitialData();
 		pyodide.runPython(`
+df = pd.DataFrame(time_series_data)
 simulationPlot = ''
 # Generate example data for each variable
 np.random.seed(42)
-data = pd.DataFrame({var: np.random.rand(100) for var in variables})
-
-def initialize_gmms(data, n_components=2):
-    gmms = {}
-    for col in data.columns:
-        gmm = GaussianMixture(n_components=n_components, random_state=42)
-        gmm.fit(data[[col]])
-        gmms[col] = gmm
-    return gmms
-
-gmms = initialize_gmms(data)
+# data = pd.DataFrame({var: np.random.rand(100) for var in variables})
+data = df
 
 
 # Initialize GMM Parameters for each variable
