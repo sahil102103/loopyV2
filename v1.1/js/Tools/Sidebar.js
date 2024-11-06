@@ -246,7 +246,7 @@ function Sidebar(loopy){
 		page.addComponent(new ComponentHTML({
 			html: ""+
 			
-			"<b style='font-size:1.4em'>FlowCLD</b><br>A tool for thinking in systems<br><br>"+
+			"<b style='font-size:1.4em'>FlowCLD (V1.1)</b><br>A tool for thinking in systems<br><br>"+
 	
 			"<span class='mini_button' onclick='publish(\"modal\",[\"examples\"])'>see examples</span> "+
 			"<span class='mini_button' onclick='publish(\"modal\",[\"howto\"])'>how to</span> "+
