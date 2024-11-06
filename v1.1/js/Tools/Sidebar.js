@@ -134,8 +134,8 @@ function Sidebar(loopy){
 		}));
 		page.addComponent("damper", new ComponentSlider({
 			bg: "lag",
-			label: "Dampener:",
-			options:[1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0],
+			label: "Weight:",
+			options:[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
 			oninput: function(value){
 				Edge.damper = value;
 			}
@@ -241,35 +241,100 @@ function Sidebar(loopy){
 
 	// Edit
 	(function(){
+		// Add the Set Global Parameters Button in the Edit page
 		var page = new SidebarPage();
 		page.addComponent(new ComponentHTML({
 			html: ""+
 			
 			"<b style='font-size:1.4em'>FlowCLD</b><br>A tool for thinking in systems<br><br>"+
-
+	
 			"<span class='mini_button' onclick='publish(\"modal\",[\"examples\"])'>see examples</span> "+
 			"<span class='mini_button' onclick='publish(\"modal\",[\"howto\"])'>how to</span> "+
 			"<span class='mini_button' onclick='publish(\"modal\",[\"credits\"])'>credits</span><br><br>"+
 			
-
 			"<hr/><br>"+
-
+	
 			"<span class='mini_button' onclick='publish(\"modal\",[\"save_link\"])'>save as link</span> <br><br>"+
 			"<span class='mini_button' onclick='publish(\"export/file\")'>save as file</span> "+
 			"<span class='mini_button' onclick='publish(\"import/file\")'>load from file</span> <br><br>"+
 			"<span class='mini_button' onclick='publish(\"modal\",[\"embed\"])'>embed in your website</span> <br><br>"+
 			"<span class='mini_button' onclick='publish(\"modal\",[\"save_gif\"])'>make a GIF using LICEcap</span> <br><br>"+
-
+	
 			"<hr/><br>"+
-
+	
 			"<b>To access ALL TABS<br>" +
 			"<b style='font-size: .8em'>Will take a minute or two to load<br><br>" +
-			"<span class='mini_button' onclick=loadAndExecutePythonScript()>Load In Python Packages</span><br><br>"
-
+			"<span class='mini_button' onclick='loadAndExecutePythonScript()'>Load In Python Packages</span><br><br>" +
+	
+			"<hr/><br>"
 		}));
-		page.a
+	
+		// Add the Set Global Parameters button correctly using ComponentButton
+		page.addComponent(new ComponentButton({
+			label: "Set Global Parameters",
+			onclick: function(){
+				self.showPage("GlobalParameters");
+			}
+		}));
+	
 		self.addPage("Edit", page);
+	
+		// Global Parameters Page
+		var globalPage = new SidebarPage();
+		
+		// Add Sliders for setting global parameters for edges
+		globalPage.addComponent("strength", new ComponentSliderGlobal({
+			bg: "strength",
+			label: "Global Correlation:",
+			options: [1.00, 0.90, 0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 0.20, 0.10, -0.10, -0.20, -0.30, -0.40, -0.50, -0.60, -0.70, -0.80, -0.90, -1.00],
+			globalProp: "strength",  // The property to apply globally
+			oninput: function(value) {
+				Edge.defaultStrength = value;
+			}
+		}));
+
+		globalPage.addComponent("damper", new ComponentSliderGlobal({
+			bg: "lag",
+			label: "Global Weight:",
+			options: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+			globalProp: "damper",  // The property to apply globally
+			oninput: function(value) {
+				Edge.damper = value;
+			}
+		}));
+
+		globalPage.addComponent("confidence", new ComponentSliderGlobal({
+			bg: "lag",
+			label: "Global Confidence:",
+			options: [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0],
+			globalProp: "confidence",  // The property to apply globally
+			oninput: function(value) {
+				Edge.defaultStrengthMultiplier = value; // Update the default for new edges
+			}
+		}));
+
+		globalPage.addComponent("lag", new ComponentSliderGlobal({
+			bg: "lag",
+			label: "Global Propagation Delay:",
+			options: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+			globalProp: "lag",  // The property to apply globally
+			oninput: function(value) {
+				Edge.defaultLag = value;
+			}
+		}));
+
+	
+		globalPage.addComponent(new ComponentButton({
+			label: "Back to Edit",
+			onclick: function(){
+				self.showPage("Edit");
+			}
+		}));
+	
+		self.addPage("GlobalParameters", globalPage);
 	})();
+	
+	
 
 	// Ctrl-S to SAVE
 	subscribe("key/save",function(){
@@ -548,6 +613,130 @@ function ComponentSlider(config){
     };
 
 }
+
+function ComponentSliderGlobal(config) {
+    var self = this;
+    Component.apply(self);
+
+    // Create DOM: label and slider container
+    self.dom = document.createElement("div");
+    var labelContainer = document.createElement("div");  
+    labelContainer.style.display = "flex";
+    labelContainer.style.gap = "10px";  
+
+    var label = _createLabel(config.label);
+    labelContainer.appendChild(label);
+
+    // Create value label to display the current value (default to the first option on load)
+    var valueLabel = _createLabel(config.label === "Color:" ? getColor(config.options[0]) : config.options[0]);
+    labelContainer.appendChild(valueLabel);
+
+    self.dom.appendChild(labelContainer);
+
+    // Create the slider container DOM
+    var sliderDOM = document.createElement("div");
+    sliderDOM.setAttribute("class", "component_slider");  
+    self.dom.appendChild(sliderDOM);
+
+    // Slider DOM: add graphic and pointer elements
+    var slider = new Image();
+    slider.draggable = false;  
+    slider.src = "css/sliders/" + config.bg + ".png";  
+    slider.setAttribute("class", "component_slider_graphic");
+    var pointer = new Image();
+    pointer.draggable = false;  
+    pointer.src = "css/sliders/slider_pointer.png";  
+    pointer.setAttribute("class", "component_slider_pointer");
+    sliderDOM.appendChild(slider);
+    sliderDOM.appendChild(pointer);
+
+    // Function to move the pointer to the correct position based on the current value
+    var movePointer = function () {
+        var value = self.getValue();  
+        var optionIndex = config.options.indexOf(value);
+		console.log(optionIndex)
+        var x = (optionIndex + 0.5) * (250 / config.options.length);  
+        pointer.style.left = (x - 7.5) + "px";  
+    };
+
+    // Event handlers for slider interaction
+    var isDragging = false;  
+    var onmousedown = function (event) {
+        isDragging = true;  
+        sliderInput(event);  
+    };
+    var onmouseup = function () {
+        isDragging = false;  
+    };
+    var onmousemove = function (event) {
+        if (isDragging) sliderInput(event);  
+    };
+
+    // Function to handle slider input (mouse events)
+    var sliderInput = function (event) {
+        var index = event.x / 250;
+        var optionIndex = Math.floor(index * config.options.length);
+        var option = config.options[optionIndex];
+        if (option === undefined) return;  
+
+        self.setValue(option);  
+
+        if (config.oninput) {
+            config.oninput(option);
+            valueLabel.innerHTML = config.label === "Color:" ? getColor(option) : option; 
+        }
+
+        movePointer();
+    };
+
+    _addMouseEvents(slider, onmousedown, onmousemove, onmouseup);
+
+    function getColor(value) {
+        const colorMap = {
+            0: 'Crimson',
+            1: 'Red',
+            2: 'Red-Orange',
+            3: 'Orange',
+            4: 'Light Orange',
+            5: 'Light Yellow-Orange',
+            6: 'Yellow-Orange',
+            7: 'Yellow',
+            8: 'Light Green',
+            9: 'Green',
+            10: 'Dark Green',
+            11: 'Teal',
+            12: 'Blue',
+            13: 'Bright Blue',
+            14: 'Indigo',
+            15: 'Dark Indigo',
+            16: 'Dark Violet',
+            17: 'Violet',
+            18: 'Light Violet',
+            19: 'Magenta'
+        };
+        return colorMap[value] || value;
+    }
+
+    // Show function to initialize the slider position and value label
+    self.show = function () {
+        movePointer();  
+        valueLabel.innerHTML = config.label === "Color:" ? getColor(self.getValue()) : self.getValue();
+    };
+
+    // New setValue function that applies to all edges
+    self.setValue = function (value) {
+        loopy.model.edges.forEach(edge => {
+            edge[config.globalProp] = value;  
+        });
+        publish("model/changed");  
+    };
+
+    // Function to set the background color of the slider
+    self.setBGColor = function (color) {
+        slider.style.background = color;  
+    };
+}
+
 
 function ComponentCheckbox(config) {
     // Inherit from Component

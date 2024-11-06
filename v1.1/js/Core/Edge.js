@@ -9,7 +9,7 @@ Edge.MAX_SIGNALS = 100;
 Edge.MAX_SIGNALS_PER_EDGE = 1; // Do we really want this : Ask Dr. Oet
 Edge.defaultStrength = 1;
 Edge.defaultStrengthMultiplier = 1
-Edge.defaultConfidence = 0
+Edge.defaultConfidence = 0.5
 Edge.radius = 60;
 Edge.damper = 1;
 Edge.DEFAULT_SIGNAL = false;
@@ -46,24 +46,24 @@ function Edge(model, config){
 	self.from = model.getNode(self.from);
 	self.to = model.getNode(self.to);
 
-	self.updatePosition = function(fx, fy, a) {
-		var labelPosition = self.getPositionAlongArrow(0.5);
+	// self.updatePosition = function(fx, fy, a) {
+	// 	var labelPosition = self.getPositionAlongArrow(0.5);
 
-		// console.log(labelPosition)
-		lx = labelPosition.x;
-		ly = labelPosition.y;
+	// 	// console.log(labelPosition)
+	// 	lx = labelPosition.x;
+	// 	ly = labelPosition.y;
 
-		// ACTUAL label position, for grabbing purposes
+	// 	// ACTUAL label position, for grabbing purposes
 
-		self.edgeLabelX = (fx + Math.cos(a)*lx - Math.sin(a)*ly)/2; // un-retina
-		self.edgeLabelY = (fy + Math.sin(a)*lx + Math.cos(a)*ly)/2; // un-retina
+	// 	self.edgeLabelX = (fx + Math.cos(a)*lx - Math.sin(a)*ly)/2; // un-retina
+	// 	self.edgeLabelY = (fy + Math.sin(a)*lx + Math.cos(a)*ly)/2; // un-retina
 
-		if (self.ghostNode) {
-			// console.log(self.ghostNode)
-			self.ghostNode.updatePosition(self.edgeLabelX, self.edgeLabelY);
-		}
+	// 	// if (self.ghostNode) {
+	// 	// 	// console.log(self.ghostNode)
+	// 	// 	self.ghostNode.updatePosition(self.edgeLabelX, self.edgeLabelY);
+	// 	// }
 
-	};
+	// };
 
 	// Each edge has its own lag and its own strength, and its own damper, initalized from the sidebar.js file
 	var lag = self.lag;
@@ -155,9 +155,9 @@ function Edge(model, config){
 		while(lastSignal && lastSignal.position>=1){
 
 			// Actually pass it along
-			function getRandomInt(val, min, max) {
-				return (Math.random() * (max - min) + min) * val;
-			  }
+			// function getRandomInt(val, min, max) {
+			// 	return (Math.random() * (max - min) + min) * val;
+			//   }
 
 			lastSignal.delta *= (self.strength);
 			self.to.takeSignal(lastSignal);
@@ -169,7 +169,8 @@ function Edge(model, config){
 			const accumulateSignals = () => {
 			  self.model.edges.forEach(edge => {
 				  // Calculate the incoming signal from the edge
-				  let incomingSignal = edge.from.value * edge.damper * edge.strength;
+				  console.log(edge.strength)
+				  let incomingSignal = edge.from.value * edge.damper * stochasticValueSelection(edge.strength, -1, 1, edge.confidence);
 	  
 				  // Check if this is a pass node
 				  if (edge.to.pass) {
@@ -393,7 +394,16 @@ function Edge(model, config){
 		else if(s<0) l="–";
 		self.label = l;
 
-		self.updatePosition(fx, fy, a);
+		var labelPosition = self.getPositionAlongArrow(0.5);
+
+		// console.log(labelPosition)
+		lx = labelPosition.x;
+		ly = labelPosition.y;
+
+		// ACTUAL label position, for grabbing purposes
+
+		self.edgeLabelX = (fx + Math.cos(a)*lx - Math.sin(a)*ly)/2; // un-retina
+		self.edgeLabelY = (fy + Math.sin(a)*lx + Math.cos(a)*ly)/2; // un-retina
 
 
 		// self.x = Math.floor(self.labelX);
@@ -598,6 +608,68 @@ function Edge(model, config){
 	//////////////////////////////////////
 	// HELPER METHODS ////////////////////
 	//////////////////////////////////////
+
+	function blendedUniformNormal(mean, low, high, certainty, size = 1000) {
+		/**
+		 * Generate samples from a blend of a uniform and normal distribution, where certainty controls the spread.
+		 *
+		 * Parameters:
+		 * - mean: Mean of the normal distribution (in this case the correlation value)
+		 * - low: Lower bound for the uniform distribution
+		 * - high: Upper bound for the uniform distribution
+		 * - certainty: Certainty parameter (0 = uniform, 1 = normal with minimal variance)
+		 * - size: Number of samples to generate
+		 *
+		 * Returns:
+		 * - Samples drawn from the blended distribution
+		 */
+		const maxVariance = 1; // Set maximum variance for when certainty is 0
+		const variance = (1 - certainty) * maxVariance; // Variance decreases as certainty increases
+	  
+		const samples = [];
+	  
+		// Continue generating until we get the required number of valid samples
+		while (samples.length < size) {
+		  // Generate a mixture of uniform and normal samples
+		  const uniformSample = Math.random() * (high - low) + low;
+		  const normalSample = mean + Math.sqrt(variance) * gaussianRandom();
+	  
+		  // Blend the two samples based on certainty
+		  const blendedSample = (1 - certainty) * uniformSample + certainty * normalSample;
+	  
+		  // Accept the sample only if it is within the specified range
+		  if (low <= blendedSample && blendedSample <= high) {
+			samples.push(blendedSample);
+		  }
+		}
+	  
+		return samples;
+	  }
+	  
+	  function stochasticValueSelection(mean, low, high, certainty) {
+		/**
+		 * Stochastically selects a value from the blended distribution.
+		 *
+		 * Args:
+		 *   mean: Mean of the normal distribution.
+		 *   low: Lower bound of the uniform distribution.
+		 *   high: Upper bound of the uniform distribution.
+		 *   certainty: Certainty parameter (0 = uniform, 1 = normal).
+		 *
+		 * Returns:
+		 *   A stochastically selected value from the blended distribution.
+		 */
+		return blendedUniformNormal(mean, low, high, certainty, 1)[0];
+	  }
+	  
+	  function gaussianRandom() {
+		// Generates a random number with a normal distribution using the Box-Muller transform
+		let u = 0, v = 0;
+		while (u === 0) u = Math.random(); // Converting [0,1) to (0,1)
+		while (v === 0) v = Math.random();
+		return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+	  }
+	  
 
 	self.isPointOnLabel = function(x, y){
 		// TOTAL HACK: radius based on TOOL BEING USED.
