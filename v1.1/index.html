@@ -42,10 +42,9 @@
 </head>
 
 <body style="opacity:0">
-
-
-
-
+	<div id="loading-spinner" style="display: none;">
+		<h6>Loading...</h6>
+	</div>	
 
 	<!-- Need to clean up this UI section to have everything in there own JS files-->
 	<div id="data-window">
@@ -65,14 +64,16 @@
 
 			</div>
 			<button class="tablink" id='generateTab' onclick="openPage('Generate')">Generate</button>
-			<button class="tablink" id='crisisAnalysisTab' onclick="openPage('CrisisAnalysis')">Crisis Analysis</button>
-			<button class="tablink" id='correlationTab' onclick="openPage('Correlation')">Correlation</button>
+			<button class="tablink hidden" id='crisisAnalysisTab' onclick="openPage('CrisisAnalysis')">Crisis Analysis</button>
+			<button class="tablink hidden" id='correlationTab' onclick="openPage('Correlation')">Correlation</button>
+			<!-- <button class="tablink hidden" id='stabilityMapTab' onclick="openPage('StabilityMap')">Stability Map</button> -->
 
 
 
-			<div class="dropdown">
-				<button class="tablink">For Researchers</button>
-				<div class="dropdown-content">
+
+			<div class="dropdown hidden">
+				<button class="tablink hidden">For Researchers</button>
+				<div class="dropdown-content hidden">
 					<a id='cycleAnalysisTab' onclick="openPage('CycleAnalysis')">Cycle Detection</a>
 					<a id='degreeCentralityTab' onclick="openPage('DegreeCentrality')">Graph Centralities</a>
 					<a id='visualAnalysisTab' onclick="openPage('VisualAnalysis')">Visual Analysis</a>
@@ -88,13 +89,13 @@
 		<div id="Canvas" class="tabcontent">
 			<div id="canvasses"></div>
 			<div id="toolbar"></div>
+			<button id="toolbar-toggle" class="toolbar-toggle-button">☰</button>
 			<div id="playbar"></div>
-			<div id="sidebar"></div>
+			<div id="sidebar">
+				<button id="sidebar-toggle" class="sidebar-toggle-button">☰</button>
+			</div>
 		</div>
 
-		<!-- <div id="Amounts" class="tabcontent">
-			<div id="node-data-content"></div>
-		</div> -->
 
 		<div id="TimeSeries" class="tabcontent">
 			<div>
@@ -163,6 +164,11 @@
 			<div id="correlationPlot"></div>
 		</div>
 
+		<div id="StabilityMap" class='tabcontent'>
+			<div id="stabilityMapPlot"></div>
+		</div>
+
+
 		<!-- New Diagram Generation Section -->
 		<div id="Generate" class="tabcontent">
 			<h2>Diagram Generator</h2>
@@ -197,6 +203,8 @@
 <script src="js/Libraries/minpubsub.js"></script>
 <script src="js/Libraries/Mouse.js"></script>
 <script src="js/Libraries/Key.js"></script>
+<script src="js/Libraries/undo.js"></script>
+
 
 <!-- Core Simulation Code -->
 <script src="js/Core/Loopy.js?v=5"></script>

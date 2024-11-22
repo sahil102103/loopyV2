@@ -40,6 +40,23 @@ Node.DEFAULT_PASSNODE = false;
 
 var selectedNodes = [];
 
+// // Initialize an empty array to store action history
+// let actionHistory = [];
+
+// // Function to add a node
+// function addNode(nodeConfig) {
+//     // Create the node
+//     let newNode = new Node(model, nodeConfig);
+//     model.addNode(newNode);
+
+//     // Record the action in history
+//     actionHistory.push({
+//         action: 'add',
+//         node: newNode
+//     });
+// }
+
+
 function Node(model, config){
 	
 
@@ -335,7 +352,7 @@ function Node(model, config){
 
 		// Colored bubble
 		ctx.beginPath();
-		var _circleRadiusGoto = r*_value; // radius
+		var _circleRadiusGoto = r * _value; // radius
 		_circleRadius = _circleRadius*0.8 + _circleRadiusGoto*0.2;
 		ctx.arc(0, 0, _circleRadius, 0, Math.TAU, false);
 		ctx.fillStyle = color;
@@ -393,6 +410,8 @@ function Node(model, config){
 	//////////////////////////////////////
 
 	self.kill = function(){
+
+		undoManager.saveState(loopy.model);
 
 		// Kill Listeners!
 		unsubscribe("mousemove",_listenerMouseMove);

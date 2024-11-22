@@ -46,24 +46,6 @@ function Edge(model, config){
 	self.from = model.getNode(self.from);
 	self.to = model.getNode(self.to);
 
-	// self.updatePosition = function(fx, fy, a) {
-	// 	var labelPosition = self.getPositionAlongArrow(0.5);
-
-	// 	// console.log(labelPosition)
-	// 	lx = labelPosition.x;
-	// 	ly = labelPosition.y;
-
-	// 	// ACTUAL label position, for grabbing purposes
-
-	// 	self.edgeLabelX = (fx + Math.cos(a)*lx - Math.sin(a)*ly)/2; // un-retina
-	// 	self.edgeLabelY = (fy + Math.sin(a)*lx + Math.cos(a)*ly)/2; // un-retina
-
-	// 	// if (self.ghostNode) {
-	// 	// 	// console.log(self.ghostNode)
-	// 	// 	self.ghostNode.updatePosition(self.edgeLabelX, self.edgeLabelY);
-	// 	// }
-
-	// };
 
 	// Each edge has its own lag and its own strength, and its own damper, initalized from the sidebar.js file
 	var lag = self.lag;
@@ -74,64 +56,106 @@ function Edge(model, config){
 	// We have signals!
 	self.signals = [];
 	self.signalSpeed = 0;
+    self.delayBuffer = Array(lag).fill(null); // Initialize delay buffer based on lag
 
+    self.addSignal = function(signal) {
+        // Skip if too many signals are present
+        if (Edge.allSignals.length > Edge.MAX_SIGNALS) return;
+        if (self.signals.length > Edge.MAX_SIGNALS_PER_EDGE) return;
 
-	self.addSignal = function(signal) {
+        // Prepare signal
+        var delta = signal.delta;
+        if (!self.from.pass) {
+            delta += (self.from.value - delta);
+            delta += self.from.flow;
+        }
+        var age = signal.age !== undefined ? signal.age - 1 : 1000000;
+        if (delta === 0) delta = 0.00001;
+        if (age <= 0) return;
 
+        var newSignal = { delta, strength, position: 0, scaleX: Math.abs(delta), scaleY: delta, age };
 
-		// IF ALREADY TOO MANY, FORGET IT
-		if (Edge.allSignals.length>Edge.MAX_SIGNALS) {
-			return;
-		}
+        // Place the signal in the delay buffer
+        self.delayBuffer.push(newSignal);
 
-		// IF TOO MANY *ON THIS EDGE*, FORGET IT
-		if (self.signals.length>Edge.MAX_SIGNALS_PER_EDGE) {
-			console.log(self.signals.length, Edge.MAX_SIGNALS_PER_EDGE)
-			return;
-		}
+        if (self.delayBuffer.length > lag) {
+            let delayedSignal = self.delayBuffer.shift(); // Release the signal after delay
+            if (delayedSignal) {
+				console.log(delayedSignal)
+                self.signals.unshift(delayedSignal);
+                Edge.allSignals.push(delayedSignal);
+            }
+        }
+    };
 
-		// Re-create signal
-		var delta = signal.delta;
+    // self.updateSignals = function() {
+    //     // Calculate speed based on lag
+    //     var speed = Math.pow(2, self.loopy.signalSpeed);
+    //     self.signalSpeed = lag === 0 ? speed / 300 : speed / (3000 * lag);
 
+    //     // Move signals in main queue along edge
+    //     for (var i = 0; i < self.signals.length; i++) {
+    //         var signal = self.signals[i];
+    //         signal.position += self.signalSpeed;
 
-		if (!self.from.pass) {
-			delta += (self.from.value - delta);
-			delta += self.from.flow;
-		}
-		// console.log(delta)
+    //         // Debugging: Print signal position for tracking
+    //         console.log("Signal Position:", signal.position);
+    //     }
 
+    //     // Pass signals to target node when they reach the end
+    //     var lastSignal = self.signals[self.signals.length - 1];
+    //     while (lastSignal && lastSignal.position >= 1) {
+    //         lastSignal.delta *= strength; // Apply edge strength to signal
+    //         self.to.takeSignal(lastSignal); // Pass signal to target node
+    //         self.removeSignal(lastSignal); // Remove after passing
+    //         lastSignal = self.signals[self.signals.length - 1];
+    //     }
+    // };
 
-		var age;
-		if (signal.age===undefined) {
-			// age = 13; // cos divisible by 1,2,3,4 + 1
-			age = 1000000; // actually just make signals last "forever".
-		} 
-		else {
-			age = signal.age-1;
-		}
+    self.takeSignal = function(signal) {
+        self.sendSignal(signal); // Immediately pass signal to outgoing edges
+    };
 
-		if (delta == 0) {
-			delta = .00001
-		}
+    self.removeSignal = function(signal) {
+        self.signals.splice(self.signals.indexOf(signal), 1);
+        Edge.allSignals.splice(Edge.allSignals.indexOf(signal), 1);
+    };
 
-		var newSignal = {
-			delta: delta,
-			strength: strength,
-			position: 0,
-			scaleX: Math.abs(delta),
-			scaleY: delta,
-			age: age
-		};
+	// self.addSignal = function(signal) {
+    //     // If too many signals overall or on this edge, skip
+    //     if (Edge.allSignals.length > Edge.MAX_SIGNALS) return;
+    //     if (self.signals.length > Edge.MAX_SIGNALS_PER_EDGE) return;
 
-		// If it's expired, forget it.
-		if(age<=0) return;
+	// 	// Re-create signal
+	// 	var delta = signal.delta;
+	// 	if (!self.from.pass) {
+	// 		delta += (self.from.value - delta);
+	// 		delta += self.from.flow;
+	// 	}
 
-		self.signals.unshift(newSignal); // it's a queue!
+    //     var age = signal.age !== undefined ? signal.age - 1 : 1000000;
+    //     if (delta === 0) delta = 0.00001;
+    //     if (age <= 0) return;
 
-		// ALL signals.
-		Edge.allSignals.push(newSignal);
+	// 	var newSignal = {
+	// 		delta: delta,
+	// 		strength: strength,
+	// 		position: 0,
+	// 		scaleX: Math.abs(delta),
+	// 		scaleY: delta,
+	// 		age: age
+	// 	};
 
-	};
+	// 	// If it's expired, forget it.
+	// 	if(age<=0) return;
+
+	// 	self.signals.unshift(newSignal); // it's a queue!
+
+	// 	// ALL signals.
+	// 	Edge.allSignals.push(newSignal);
+
+	// };
+
 	self.updateSignals = function() {
 		// Speed?
 		var speed = Math.pow(2,self.loopy.signalSpeed);
@@ -154,10 +178,6 @@ function Edge(model, config){
 		// self.to.init;
 		while(lastSignal && lastSignal.position>=1){
 
-			// Actually pass it along
-			// function getRandomInt(val, min, max) {
-			// 	return (Math.random() * (max - min) + min) * val;
-			//   }
 
 			lastSignal.delta *= (self.strength);
 			self.to.takeSignal(lastSignal);
@@ -205,22 +225,18 @@ function Edge(model, config){
 
 	};
 
-	self.takeSignal = function(signal) {
-		// Change value
+	// self.takeSignal = function(signal) {
+	// 	// Propagate signal
+	// 	self.sendSignal(signal);
 
-		
-	
-		// Propagate signal
-		self.sendSignal(signal);
+	// 	_offsetVel -= 6 * (signal.delta/Math.abs(signal.delta));
 
-		_offsetVel -= 6 * (signal.delta/Math.abs(signal.delta));
+	// }
 
-	}
-
-	self.removeSignal = function(signal){
-		self.signals.splice( self.signals.indexOf(signal), 1 );
-		Edge.allSignals.splice( Edge.allSignals.indexOf(signal), 1 );
-	};
+	// self.removeSignal = function(signal){
+	// 	self.signals.splice( self.signals.indexOf(signal), 1 );
+	// 	Edge.allSignals.splice( Edge.allSignals.indexOf(signal), 1 );
+	// };
 
 	self.drawSignals = function(ctx){
 	
@@ -596,6 +612,8 @@ function Edge(model, config){
 
 		// Kill Listeners!
 		unsubscribe("model/reset",_listenerReset);
+		undoManager.saveState(loopy.model);
+
 
 		// Remove from parent!
 		model.removeEdge(self);

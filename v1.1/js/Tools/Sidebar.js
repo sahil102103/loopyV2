@@ -3,6 +3,15 @@
 SIDEBAR CODE
 
 **********************************/
+document.getElementById('sidebar-toggle').addEventListener('click', function() {
+    var sidebar = document.getElementById('sidebar');
+    if (sidebar.style.right === '0px') {
+        sidebar.style.right = '-300px'; // Hide sidebar
+    } else {
+        sidebar.style.right = '0px'; // Show sidebar
+    }
+});
+
 
 function Sidebar(loopy){
 
@@ -21,6 +30,43 @@ function Sidebar(loopy){
 			self.showPage("Edit");
 		}
 	});
+
+	////////////////////////////////////////////////////////////////////////////////////////////
+	// SHOW AND HIDE ///////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////////////
+
+	// Add a toggle button within the sidebar
+	// var toggleButton = document.createElement("button");
+	// toggleButton.innerHTML = "|||";
+	// toggleButton.className = "sidebar-toggle-button";
+	// self.dom.appendChild(toggleButton);
+
+	// // Method to show the sidebar
+	// self.showSidebar = function() {
+	// 	self.dom.style.display = "block";
+	// };
+
+	// // Method to hide the sidebar
+	// self.hideSidebar = function() {
+	// 	self.dom.style.display = "none";
+	// };
+
+	// // Method to toggle the sidebar's visibility
+	// self.toggleSidebar = function() {
+	// 	if (self.dom.style.display === "none") {
+	// 		self.showSidebar();
+	// 	} else {
+	// 		self.hideSidebar();
+	// 	}
+	// };
+
+	// // Event listener for the toggle button
+	// toggleButton.addEventListener("click", function() {
+	// 	self.toggleSidebar();
+	// });
+
+	// // Ensure the sidebar is visible by default
+	// self.showSidebar();
 
 	////////////////////////////////////////////////////////////////////////////////////////////
 	// ACTUAL PAGES ////////////////////////////////////////////////////////////////////////////
@@ -56,6 +102,15 @@ function Sidebar(loopy){
 			//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
 			oninput: function(value){
 				Node.defaultValue = value;
+			}
+		}));
+		page.addComponent("radius", new ComponentSlider({
+			bg: "initial",
+			label: "Border Radius:",
+			options: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+			//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
+			oninput: function(value){
+				Node.DEFAULT_RADIUS = value;
 			}
 		}));
 		page.onedit = function(){
@@ -154,7 +209,7 @@ function Sidebar(loopy){
 		page.addComponent("lag", new ComponentSlider({
 			bg: "lag",
 			label: "Propogation Delay:",
-			options: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, .6, .7, .8, .9, 1],
+			options: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
 			oninput: function (value) {
 				Edge.defaultLag = value;
 			}
@@ -244,36 +299,46 @@ function Sidebar(loopy){
 		// Add the Set Global Parameters Button in the Edit page
 		var page = new SidebarPage();
 		page.addComponent(new ComponentHTML({
-			html: ""+
-			
-			"<b style='font-size:1.4em'>FlowCLD (V1.1)</b><br>A tool for thinking in systems<br><br>"+
-	
-			"<span class='mini_button' onclick='publish(\"modal\",[\"examples\"])'>see examples</span> "+
-			"<span class='mini_button' onclick='publish(\"modal\",[\"howto\"])'>how to</span> "+
-			"<span class='mini_button' onclick='publish(\"modal\",[\"credits\"])'>credits</span><br><br>"+
-			
-			"<hr/><br>"+
-	
-			"<span class='mini_button' onclick='publish(\"modal\",[\"save_link\"])'>save as link</span> <br><br>"+
-			"<span class='mini_button' onclick='publish(\"export/file\")'>save as file</span> "+
-			"<span class='mini_button' onclick='publish(\"import/file\")'>load from file</span> <br><br>"+
-			"<span class='mini_button' onclick='publish(\"modal\",[\"embed\"])'>embed in your website</span> <br><br>"+
-			"<span class='mini_button' onclick='publish(\"modal\",[\"save_gif\"])'>make a GIF using LICEcap</span> <br><br>"+
-	
-			"<hr/><br>"+
-	
-			"<b>To access ALL TABS<br>" +
-			"<b style='font-size: .8em'>Will take a minute or two to load<br><br>" +
-			"<span class='mini_button' onclick='loadAndExecutePythonScript()'>Load In Python Packages</span><br><br>" +
-	
-			"<hr/><br>"
+		html: "" +
+			"<b style='font-size:1.4em'>FlowCLD (V1.1)</b><br>A tool for thinking in systems<br><br>" +
+
+			"<span class='mini_button' onclick='publish(\"modal\",[\"examples\"])'>see examples</span> " +
+			"<span class='mini_button' onclick='publish(\"modal\",[\"howto\"])'>how to</span> " +
+			"<span class='mini_button' onclick='publish(\"modal\",[\"credits\"])'>credits</span><br><br>" +
+
+			"<hr/><br>" +
+
+			"<span class='mini_button' onclick='publish(\"modal\",[\"save_link\"])'>save as link</span> <br><br>" +
+			"<span class='mini_button' onclick='publish(\"export/file\")'>save as file</span> " +
+			"<span class='mini_button' onclick='publish(\"import/file\")'>load from file</span> <br><br>" +
+			"<span class='mini_button' onclick='publish(\"modal\",[\"embed\"])'>embed in your website</span> <br><br>" +
+			"<span class='mini_button' onclick='publish(\"modal\",[\"save_gif\"])'>make a GIF using LICEcap</span> <br><br>" +
+
+			"<hr/><br>" +
+
+			"<div id='loadPythonPackages'>" +
+				"<b>To access ALL TABS<br>" +
+				"<b style='font-size: .8em'>Will take a minute or two to load<br>" +
+				"<b style='font-size: .8em'>PS: Make sure all names are different<br><br>" +
+				"<div id='loadingIndicator' style='display: none;'> <div class='spinner'></div> </div>" +
+				"<span class='mini_button' onclick='loadAndExecutePythonScript()'>Load In Python Packages</span><br><br>" +
+			"<hr/><br>" +
+
+			"</div>"
 		}));
 	
 		// Add the Set Global Parameters button correctly using ComponentButton
 		page.addComponent(new ComponentButton({
-			label: "Set Global Parameters",
+			label: "Set Edge Parameters",
 			onclick: function(){
 				self.showPage("GlobalParameters");
+			}
+		}));
+
+		page.addComponent(new ComponentButton({
+			label: "Set Node Parameters",
+			onclick: function(){
+				self.showPage("GlobalNodeParameters");
 			}
 		}));
 	
@@ -282,19 +347,10 @@ function Sidebar(loopy){
 		// Global Parameters Page
 		var globalPage = new SidebarPage();
 		
-		// Add Sliders for setting global parameters for edges
-		globalPage.addComponent("strength", new ComponentSliderGlobal({
-			bg: "strength",
-			label: "Global Correlation:",
-			options: [1.00, 0.90, 0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 0.20, 0.10, -0.10, -0.20, -0.30, -0.40, -0.50, -0.60, -0.70, -0.80, -0.90, -1.00],
-			globalProp: "strength",  // The property to apply globally
-			oninput: function(value) {
-				Edge.defaultStrength = value;
-			}
-		}));
 
 		globalPage.addComponent("damper", new ComponentSliderGlobal({
 			bg: "lag",
+			item: "Edge",
 			label: "Global Weight:",
 			options: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
 			globalProp: "damper",  // The property to apply globally
@@ -305,6 +361,7 @@ function Sidebar(loopy){
 
 		globalPage.addComponent("confidence", new ComponentSliderGlobal({
 			bg: "lag",
+			item: "Edge",
 			label: "Global Confidence:",
 			options: [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0],
 			globalProp: "confidence",  // The property to apply globally
@@ -315,8 +372,9 @@ function Sidebar(loopy){
 
 		globalPage.addComponent("lag", new ComponentSliderGlobal({
 			bg: "lag",
+			item: "Edge",
 			label: "Global Propagation Delay:",
-			options: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+			options: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
 			globalProp: "lag",  // The property to apply globally
 			oninput: function(value) {
 				Edge.defaultLag = value;
@@ -332,7 +390,91 @@ function Sidebar(loopy){
 		}));
 	
 		self.addPage("GlobalParameters", globalPage);
+
+		// Global Parameters Page
+		var globalNodePage = new SidebarPage();
+
+		function getRandomLightColor() {
+			const hue = Math.floor(Math.random() * 360); // Random hue between 0 and 360
+			const saturation = Math.floor(Math.random() * 100) + 1; // Saturation between 1% and 100%
+			const lightness = 75; // Fixed lightness at 75%
+		  
+			return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+		  }
+		  
+		  // Example usage:
+		  const randomColor = getRandomLightColor();
+		  document.body.style.backgroundColor = randomColor;
+		  
+
+		globalNodePage.addComponent("randomize", new ComponentButton({
+			label: "Randomize Colors",
+			onclick: function(value){
+				const numOfNodes = loopy.model.nodes.length
+				for (let i = 0; i <= numOfNodes; i++ ) {
+					let color = i % 20
+					loopy.model.nodes[i].hue = color
+				}
+			}
+		}));
+
+		globalNodePage.addComponent("pictureReady", new ComponentButton({
+			label: "Make Uniform Color",
+			onclick: function(value){
+				const numOfNodes = loopy.model.nodes.length
+				for (let i = 0; i <= numOfNodes; i++ ) {
+					let color = 8
+					loopy.model.nodes[i].hue = color
+				}
+			}
+		}));
+
+		// globalNodePage.addComponent("System Loss", new ComponentSliderGlobal({
+		// 	bg: "lag",
+		// 	item: "Node",
+		// 	label: "System Loss",
+		// 	options: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+		// 	globalProp: 'systemLoss',
+		// 	oninput: function(value){
+		// 		Node.defaultHue = value;
+		// 	}
+		// }));
+
+		// page.addComponent("radius", new ComponentSlider({
+		// 	bg: "initial",
+		// 	label: "Border Radius:",
+		// 	options: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+		// 	//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
+		// 	oninput: function(value){
+		// 		Node.DEFAULT_RADIUS = value;
+		// 	}
+		// }));
+		globalNodePage.addComponent("radius", new ComponentSliderGlobal({
+			bg: "initial",
+			item: "Node",
+			label: "Border Radius:",
+			globalProp: 'radius',
+			options: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+			//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
+			oninput: function(value){
+				Node.DEFAULT_RADIUS = value;
+			}
+		}));
+
+
+
+	
+		globalNodePage.addComponent(new ComponentButton({
+			label: "Back to Edit",
+			onclick: function(){
+				self.showPage("Edit");
+			}
+		}));
+	
+		self.addPage("GlobalNodeParameters", globalNodePage);
+
 	})();
+	
 	
 	
 
@@ -724,12 +866,24 @@ function ComponentSliderGlobal(config) {
     };
 
     // New setValue function that applies to all edges
-    self.setValue = function (value) {
-        loopy.model.edges.forEach(edge => {
-            edge[config.globalProp] = value;  
-        });
-        publish("model/changed");  
-    };
+	if (config.item == "Edge"){
+		self.setValue = function (value) {
+			loopy.model.edges.forEach(edge => {
+				edge[config.globalProp] = value;  
+			});
+			publish("model/changed");  
+		};
+	
+	} else if (config.item == "Node"){
+		self.setValue = function (value) {
+			loopy.model.nodes.forEach(node => {
+				node[config.globalProp] = value;  
+			});
+			publish("model/changed");  
+		};
+	}
+
+
 
     // Function to set the background color of the slider
     self.setBGColor = function (color) {

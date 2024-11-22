@@ -1,4 +1,22 @@
 async function loadAndExecutePythonScript(){
+	const spinner = document.getElementById('loadingIndicator');
+	const loadPythonPackages = document.getElementById('loadPythonPackages');
+	const toDisplayWhenPyPackagesLoaded = document.getElementsByClassName('hidden');
+	// Select all elements within the dropdown that have the 'hidden' class
+	const hiddenElements = document.querySelectorAll('.dropdown.hidden, .dropdown.hidden *');
+
+
+	function showLoadingSpinner() {
+		document.getElementById('loading-spinner').style.display = 'block';
+	}
+	
+	// Function to hide the loading spinner
+	function hideLoadingSpinner() {
+		document.getElementById('loading-spinner').style.display = 'none';
+	}
+
+	// Show spinner
+	spinner.style.display = 'block';
 	let pyodide = await loadPyodide();
 	await pyodide.loadPackage("micropip");
 	const micropip = pyodide.pyimport("micropip");
@@ -17,56 +35,78 @@ async function loadAndExecutePythonScript(){
 		]
 	)
 
-	pyodide.runPython(`
-	import numpy as np
-	import pandas as pd
-	import networkx as nx
-	from scipy.optimize import minimize
-	import random
-	# from collections import Counter
-	# from itertools import combinations
-	# from scipy.stats import multivariate_normal
-	from sklearn.mixture import GaussianMixture
-	# from sklearn.cluster import KMeans
-	# from sklearn.metrics import silhouette_score
-	import seaborn as sns
-	import matplotlib.pyplot as plt
-	# from sklearn.decomposition import PCA
-	# from scipy.cluster.hierarchy import dendrogram, linkage
-	# from sklearn.cluster import DBSCAN
-	# from sklearn.ensemble import RandomForestRegressor
-	# from sklearn.metrics import mean_squared_error
-	# from sklearn.linear_model import Lasso
-	# from sklearn.svm import SVC
-	# from sklearn.model_selection import train_test_split
-	# from scipy.spatial.distance import pdist
-	# from scipy.cluster.hierarchy import cophenet
-	# from sklearn.preprocessing import StandardScaler
-	# from sklearn.model_selection import GridSearchCV
-	# from sklearn.pipeline import Pipeline
-	# from sklearn.metrics import roc_curve, auc
-	# from scipy.signal import find_peaks
-	from scipy.stats import norm
-	# import statsmodels.api as sm
-	from pathlib import Path
-	import warnings
-	import math
-	# import matplotlib.colors as mcolors
-	# from scipy.stats import zscore
-	warnings.filterwarnings("ignore")
-	`);
+	try {
+		pyodide.runPython(`
+			import numpy as np
+			import pandas as pd
+			import networkx as nx
+			from scipy.optimize import minimize
+			import random
+			# from collections import Counter
+			# from itertools import combinations
+			# from scipy.stats import multivariate_normal
+			from sklearn.mixture import GaussianMixture
+			# from sklearn.cluster import KMeans
+			# from sklearn.metrics import silhouette_score
+			import seaborn as sns
+			import matplotlib.pyplot as plt
+			# from sklearn.decomposition import PCA
+			# from scipy.cluster.hierarchy import dendrogram, linkage
+			# from sklearn.cluster import DBSCAN
+			# from sklearn.ensemble import RandomForestRegressor
+			# from sklearn.metrics import mean_squared_error
+			# from sklearn.linear_model import Lasso
+			# from sklearn.svm import SVC
+			# from sklearn.model_selection import train_test_split
+			# from scipy.spatial.distance import pdist
+			# from scipy.cluster.hierarchy import cophenet
+			# from sklearn.preprocessing import StandardScaler
+			# from sklearn.model_selection import GridSearchCV
+			# from sklearn.pipeline import Pipeline
+			# from sklearn.metrics import roc_curve, auc
+			# from scipy.signal import find_peaks
+			from scipy.stats import norm
+			# import statsmodels.api as sm
+			from pathlib import Path
+			import warnings
+			import math
+			# import matplotlib.colors as mcolors
+			# from scipy.stats import zscore
+			warnings.filterwarnings("ignore")
+			`);
+		
+		
+		pyodide.runPython(`
+		edges = []
+		edge_polarities = []
+		edge_weights = []
+		edge_delays = []
+		edge_certainties = []
+		time_series_data = {}
+		variables = []
+		G = nx.DiGraph()
+		`);
 
 
-pyodide.runPython(`
-edges = []
-edge_polarities = []
-edge_weights = []
-edge_delays = []
-edge_certainties = []
-time_series_data = {}
-variables = []
-G = nx.DiGraph()
-`);
+		for (let i = 0; i < toDisplayWhenPyPackagesLoaded.length; i++) {
+        	toDisplayWhenPyPackagesLoaded[i].classList.remove('hidden');
+    	}
+		// Remove the 'hidden' class from each selected element
+		hiddenElements.forEach(element => {
+			element.classList.remove('hidden');
+		});
+
+	} catch (error){
+		console.error(error)
+	}
+	finally {
+        // Hide spinner when the process completes or fails
+		// researchTabs.classList.remove('hidden');
+        spinner.style.display = 'none';
+		loadPythonPackages.style.display = 'none';
+	}
+
+
 
 // We will use these dataset arrays along with time series data from other files
 let edgePairs = [];
@@ -169,9 +209,6 @@ const loadInitialData = async () => {
 	pyodide.globals.set("edge_delays", edgeDelays);
 	pyodide.globals.set("edge_certainties", edgeCertainties);
 	pyodide.globals.set("time_series_data", timeSeriesData);
-
-	console.log(timeSeriesData)
-
 	
 	
 };
@@ -182,6 +219,7 @@ const loadInitialData = async () => {
 
 
 document.getElementById('crisisAnalysisTab').onclick = async () => {
+	showLoadingSpinner();
     await loadInitialData();
     await pyodide.loadPackage(['numpy', 'matplotlib']); // Ensure necessary packages are loaded
 
@@ -259,12 +297,13 @@ crisisAnalysisPlot = plot_rolling_z_scores_grid(time_series_data_py)
     const img = document.createElement('img');
     img.src = url;
     crisisAnalysisPlotsContainer.appendChild(img);
-
+	hideLoadingSpinner();
     openPage('CrisisAnalysis');
 };
 
 
 	document.getElementById('cycleAnalysisTab').onclick = async() => {
+		showLoadingSpinner();
 		await loadInitialData();
 		pyodide.runPython(`
 			edge_polarities = edge_polarities.to_py()
@@ -313,11 +352,12 @@ crisisAnalysisPlot = plot_rolling_z_scores_grid(time_series_data_py)
 		duplicateLabels.forEach(label => {
 			duplicateNodesWithEdgesWarningId.innerHTML += `<span>${label}; </span>`;
 		});
-	
+		hideLoadingSpinner();
 		openPage('CycleAnalysis');
 	};
 
 	document.getElementById('degreeCentralityTab').onclick = async() => {
+		showLoadingSpinner();
 		await loadInitialData();
 	
 		pyodide.runPython(`
@@ -363,11 +403,12 @@ crisisAnalysisPlot = plot_rolling_z_scores_grid(time_series_data_py)
 			centrality_output = main(G)
 		`);
 		document.getElementById("centralityTable").innerHTML = pyodide.globals.get('centrality_output');
-	
+		hideLoadingSpinner();
 		openPage('DegreeCentrality');
 	};
 
 	document.getElementById('visualAnalysisTab').onclick = async() => {
+		showLoadingSpinner();
 		await loadInitialData();
 		pyodide.runPython(`
 			def initialize_graph_and_simulate():
@@ -449,13 +490,14 @@ crisisAnalysisPlot = plot_rolling_z_scores_grid(time_series_data_py)
 			img.src = url;
 			plotsContainer.appendChild(img);
 		});
-	
+		hideLoadingSpinner();
 		openPage('VisualAnalysis');
 	}
 	
 
 	
 	document.getElementById('simulationTab').onclick = async() => {
+		showLoadingSpinner();
 		await loadInitialData();
 		pyodide.runPython(`
 df = pd.DataFrame(time_series_data)
@@ -543,14 +585,16 @@ simulationPlot = "simulation.png"
 	plotsContainer.appendChild(img);
 	
 
-
+	hideLoadingSpinner();
     openPage('Simulation1');
 }
 
 
 
 
+
 document.getElementById('simulation2Tab').onclick = async() => {
+	showLoadingSpinner();
 	await loadInitialData();
 	pyodide.runPython(`
 np.random.seed(42)
@@ -618,6 +662,7 @@ openPage('Simulation2');
 
 
 document.getElementById('boxPlotTab').onclick = async() => {
+	showLoadingSpinner();
 	await loadInitialData();
 	pyodide.runPython(`
 boxplots = []
@@ -701,7 +746,7 @@ boxPlots.forEach(node => {
 })
 
 
-
+hideLoadingSpinner();
 openPage('BoxPlot');
 }
 
@@ -709,6 +754,7 @@ openPage('BoxPlot');
 
 
 document.getElementById('violinPlotTab').onclick = async() => {
+	showLoadingSpinner();
 	await loadInitialData();
 	pyodide.runPython(`
 
@@ -774,13 +820,14 @@ violinPlots.forEach(node => {
 	plotsContainer.appendChild(img);
 })
 
-
+hideLoadingSpinner();
 openPage('ViolinPlot');
 }
 
 
 
 	document.getElementById('randomSeedsTab').onclick = async() => {
+		showLoadingSpinner();
 		await loadInitialData();
 		pyodide.runPython(`
 G = nx.DiGraph()
@@ -887,12 +934,13 @@ for node in G.nodes():
         img.src = url;
         plotsContainer.appendChild(img);
     });
-
+	hideLoadingSpinner();
     openPage('RandomSeeds');
 }
 
 
 	document.getElementById('correlationTab').onclick = async() => {
+		showLoadingSpinner();
 		await loadInitialData();
 		pyodide.runPython(`
 plt.figure(figsize=(12, 8))
@@ -931,8 +979,299 @@ correlationPlot = "corr.png"
     const img = document.createElement('img');
     img.src = url;
     plotsContainer.appendChild(img);
-
+	hideLoadingSpinner();
     openPage('Correlation');
 }
+
+// document.getElementById('stabilityMapTab').onclick = async () => {
+// 	showLoadingSpinner();
+//     await loadInitialData();
+//     pyodide.runPython(`
+// # Import required libraries
+// import matplotlib.pyplot as plt
+// import matplotlib.colors as mcolors
+
+// stabilityMapPlot = ''
+
+// # Create a directed graph
+// G = nx.DiGraph()
+// for (node1, node2), weight, polarity, delay, certainty in zip(edges, edge_weights, edge_polarities, edge_delays, edge_certainties):
+//     G.add_edge(node1, node2, weight=weight, polarity=polarity, delay=delay, certainty=certainty)
+
+// # Function to classify node behavior
+// def classify_behavior(time_series_data):
+//     """Classify the behavior of each node's time series into 'Over-damped', 'Optimal', or 'Unconstrained'."""
+//     classifications = {}
+//     for node, series in time_series_data.items():
+//         # Convert the series to a DataFrame for ease of processing
+//         df = pd.DataFrame(series, columns=[node])
+
+//         # Calculate rolling z-score
+//         rolling_z_score = calculate_rolling_z_score(df[node])
+
+//         # Calculate average rolling z-score
+//         avg_z_score = rolling_z_score.abs().mean()
+
+
+//         # Classification logic with refined criteria
+//         if avg_z_score > 1.2:
+//             classifications[node] = "Unconstrained"
+//         elif 0.5 < avg_z_score < 1.2:
+//             classifications[node] = "Optimal"
+//         else:
+//             classifications[node] = "Over-damped"
+
+
+//     return classifications
+
+// # Parameters for the stability map
+// decay_factors = np.linspace(0.1, 1.0, 20)
+// delays = np.linspace(1, 50, 20)
+// stability_matrix = np.zeros((len(delays), len(decay_factors)))
+
+// # Simulate signal transfer and build stability matrix
+// for i, delay in enumerate(delays):
+//     for j, decay in enumerate(decay_factors):
+//         node_values = {node: 0 for node in G.nodes()}
+//         for _ in range(100):  # Reduced iterations for performance
+//             for edge in G.edges(data=True):
+//                 source, target, data = edge
+//                 signal = node_values[source] * decay * data["weight"]
+//                 node_values[target] += signal
+//         classifications = [classify_behavior([node_values[node] for _ in range(100)]) for node in G.nodes()]
+//         if "Unconstrained" in classifications:
+//             stability_matrix[i, j] = 1.0
+//         elif "Optimal" in classifications:
+//             stability_matrix[i, j] = 0.6
+//         else:
+//             stability_matrix[i, j] = 0.2
+
+// # Plot the stability map
+// fig, ax = plt.subplots(figsize=(10, 6))
+// cmap = plt.cm.coolwarm
+// norm = mcolors.Normalize(vmin=0, vmax=1)
+// cax = ax.imshow(stability_matrix, cmap=cmap, norm=norm, extent=[0.1, 1.5, 1, 50], origin="lower", aspect="auto")
+// ax.set_xlabel("Decay Parameter")
+// ax.set_ylabel("Delay Parameter")
+// ax.set_title("Parameter Space Stability Map")
+// cbar = fig.colorbar(cax, ax=ax)
+// cbar.set_label("Stability Measure")
+// cbar.ax.set_yticklabels(["Over-damped", "Optimal", "Unconstrained"])
+// plt.tight_layout()
+
+// # Save the plot as an image
+// plt.savefig("stability_map.png")
+// stabilityMapPlot = "stability_map.png"
+//     `);
+
+//     const stabilityMapPlot = pyodide.globals.get('stabilityMapPlot');
+//     const plotsContainer = document.getElementById('stabilityMapPlot');
+//     plotsContainer.innerHTML = '';
+
+//     // Retrieve and display the image
+//     let file = pyodide.FS.readFile(stabilityMapPlot, { encoding: 'binary' });
+//     let blob = new Blob([file], { type: 'image/png' });
+//     let url = URL.createObjectURL(blob);
+
+//     const img = document.createElement('img');
+//     img.src = url;
+//     plotsContainer.appendChild(img);
+// 	hideLoadingSpinner();
+//     openPage('StabilityMap');
+// };
+
+document.getElementById('stabilityMapTab').onclick = async () => {
+    showLoadingSpinner();
+    await loadInitialData();
+
+    // Generate Decay vs Delay plot
+    pyodide.runPython(`
+# Import required libraries
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+
+stabilityMapPlot = ''
+
+# Create a directed graph
+G = nx.DiGraph()
+for (node1, node2), weight, polarity, delay, certainty in zip(edges, edge_weights, edge_polarities, edge_delays, edge_certainties):
+    G.add_edge(node1, node2, weight=weight, polarity=polarity, delay=delay, certainty=certainty)
+
+# Function to classify node behavior
+def classify_behavior(time_series_data):
+    """Classify the behavior of each node's time series into 'Over-damped', 'Optimal', or 'Unconstrained'."""
+    classifications = {}
+    for node, series in time_series_data.items():
+        # Convert the series to a DataFrame for ease of processing
+        df = pd.DataFrame(series, columns=[node])
+
+        # Calculate rolling z-score
+        rolling_z_score = calculate_rolling_z_score(df[node])
+
+        # Calculate average rolling z-score
+        avg_z_score = rolling_z_score.abs().mean()
+
+
+        # Classification logic with refined criteria
+        if avg_z_score > 1.2:
+            classifications[node] = "Unconstrained"
+        elif 0.5 < avg_z_score < 1.2:
+            classifications[node] = "Optimal"
+        else:
+            classifications[node] = "Over-damped"
+
+
+    return classifications
+	
+def generate_decay_vs_delay():
+    decay_factors = np.linspace(0.1, 1.0, 20)
+    delays = np.linspace(1, 50, 20)
+    stability_matrix = np.zeros((len(delays), len(decay_factors)))
+
+    for i, delay in enumerate(delays):
+        for j, decay in enumerate(decay_factors):
+            # Reset the signal_map and time_series_data for each simulation
+            signal_map = {}
+            time_series_data = {node: [] for node in graph.nodes}
+            delay_buffers = {(edge[0], edge[1]): [0] * graph.edges[edge]['delay'] for edge in graph.edges}  # Reset delay buffers
+            
+            # Run the simulation with the current parameters
+            time_series_data = simulate_signal_transfer(iterations=200, decay_factor=decay, delay=int(delay), use_delay=True, node_retention=None)
+            
+            # Classify the behavior of each node in the graph
+            classification = classify_behavior(time_series_data)
+            
+            # Determine overall classification based on node classifications
+            if 'Unconstrained' in classification.values():
+                stability_matrix[i, j] = 1.0  # Unconstrained
+            elif 'Optimal' in classification.values():
+                stability_matrix[i, j] = 0.6  # Optimal
+            else:
+                stability_matrix[i, j] = 0.2  # Over-damped
+
+    plt.figure()
+    cmap = plt.cm.coolwarm
+    norm = mcolors.Normalize(vmin=0, vmax=1)
+    plt.imshow(stability_matrix, cmap=cmap, norm=norm, extent=[0.1, 1.0, 1, 50], origin="lower", aspect="auto")
+    plt.xlabel("Decay Parameter")
+    plt.ylabel("Delay Parameter")
+    plt.title("Decay vs Delay")
+    plt.colorbar(label="Stability Measure")
+    plt.savefig("decay_vs_delay.png")
+    return "decay_vs_delay.png"
+
+decay_vs_delay_plot = generate_decay_vs_delay()
+    `);
+
+    const decayVsDelayPlot = pyodide.globals.get('decay_vs_delay_plot');
+    const plotsContainer = document.getElementById('stabilityMapPlot');
+    plotsContainer.innerHTML = '';
+
+    let file = pyodide.FS.readFile(decayVsDelayPlot, { encoding: 'binary' });
+    let blob = new Blob([file], { type: 'image/png' });
+    let url = URL.createObjectURL(blob);
+
+    const img1 = document.createElement('img');
+    img1.src = url;
+    plotsContainer.appendChild(img1);
+
+    // Generate Decay vs Node Retention plot
+    pyodide.runPython(`
+def generate_decay_vs_retention():
+    decay_factors = np.linspace(0.1, 1.0, 20)
+    node_retentions = np.linspace(0.1, 0.5, 20)
+    stability_matrix = np.zeros((len(node_retentions), len(decay_factors)))
+
+    for i, retention in enumerate(node_retentions):
+        for j, decay in enumerate(decay_factors):
+            node_values = {node: 0 for node in G.nodes()}
+            for _ in range(100):
+                for edge in G.edges(data=True):
+                    source, target, data = edge
+                    signal = node_values[source
+                    ] * decay * retention * data["weight"]
+                    node_values[target] += signal
+            classifications = [classify_behavior([node_values[node] for _ in range(100)]) for node in G.nodes()]
+            if "Unconstrained" in classifications:
+                stability_matrix[i, j] = 1.0
+            elif "Optimal" in classifications:
+                stability_matrix[i, j] = 0.6
+            else:
+                stability_matrix[i, j] = 0.2
+
+    plt.figure()
+    cmap = plt.cm.coolwarm
+    norm = mcolors.Normalize(vmin=0, vmax=1)
+    plt.imshow(stability_matrix, cmap=cmap, norm=norm, extent=[0.1, 1.0, 0.1, 0.5], origin="lower", aspect="auto")
+    plt.xlabel("Decay Parameter")
+    plt.ylabel("Node Retention Parameter")
+    plt.title("Decay vs Node Retention")
+    plt.colorbar(label="Stability Measure")
+    plt.savefig("decay_vs_retention.png")
+    return "decay_vs_retention.png"
+
+decay_vs_retention_plot = generate_decay_vs_retention()
+    `);
+
+    const decayVsRetentionPlot = pyodide.globals.get('decay_vs_retention_plot');
+    file = pyodide.FS.readFile(decayVsRetentionPlot, { encoding: 'binary' });
+    blob = new Blob([file], { type: 'image/png' });
+    url = URL.createObjectURL(blob);
+
+    const img2 = document.createElement('img');
+    img2.src = url;
+    plotsContainer.appendChild(img2);
+
+    // Generate Delay vs Node Retention plot
+    pyodide.runPython(`
+def generate_delay_vs_retention():
+    delays = np.linspace(1, 50, 20)
+    node_retentions = np.linspace(0.1, 0.5, 20)
+    stability_matrix = np.zeros((len(node_retentions), len(delays)))
+
+    for i, retention in enumerate(node_retentions):
+        for j, delay in enumerate(delays):
+            node_values = {node: 0 for node in G.nodes()}
+            for _ in range(100):
+                for edge in G.edges(data=True):
+                    source, target, data = edge
+                    signal = node_values[source] * retention * data["weight"]
+                    node_values[target] += signal
+            classifications = [classify_behavior([node_values[node] for _ in range(100)]) for node in G.nodes()]
+            if "Unconstrained" in classifications:
+                stability_matrix[i, j] = 1.0
+            elif "Optimal" in classifications:
+                stability_matrix[i, j] = 0.6
+            else:
+                stability_matrix[i, j] = 0.2
+
+    plt.figure()
+    cmap = plt.cm.coolwarm
+    norm = mcolors.Normalize(vmin=0, vmax=1)
+    plt.imshow(stability_matrix, cmap=cmap, norm=norm, extent=[1, 50, 0.1, 0.5], origin="lower", aspect="auto")
+    plt.xlabel("Delay Parameter")
+    plt.ylabel("Node Retention Parameter")
+    plt.title("Delay vs Node Retention")
+    plt.colorbar(label="Stability Measure")
+    plt.savefig("delay_vs_retention.png")
+    return "delay_vs_retention.png"
+
+delay_vs_retention_plot = generate_delay_vs_retention()
+    `);
+
+    const delayVsRetentionPlot = pyodide.globals.get('delay_vs_retention_plot');
+    file = pyodide.FS.readFile(delayVsRetentionPlot, { encoding: 'binary' });
+    blob = new Blob([file], { type: 'image/png' });
+    url = URL.createObjectURL(blob);
+
+    const img3 = document.createElement('img');
+    img3.src = url;
+    plotsContainer.appendChild(img3);
+
+    hideLoadingSpinner();
+    openPage('StabilityMap');
+};
+
+
 
 }

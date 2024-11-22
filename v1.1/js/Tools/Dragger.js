@@ -30,6 +30,8 @@ function Dragger(loopy){
 		// Any node under here? If so, start dragging!
 		var dragNode = loopy.model.getNodeByPoint(Mouse.x, Mouse.y);
 		if(dragNode){
+			// undoManager.saveState(loopy.model);
+
 			self.dragging = dragNode;
 			self.offsetX = Mouse.x - dragNode.x;
 			self.offsetY = Mouse.y - dragNode.y;
@@ -40,6 +42,8 @@ function Dragger(loopy){
 		// Any label under here? If so, start dragging!
 		var dragLabel = loopy.model.getLabelByPoint(Mouse.x, Mouse.y);
 		if(dragLabel){
+			// undoManager.saveState(loopy.model);
+
 			self.dragging = dragLabel;
 			self.offsetX = Mouse.x - dragLabel.x;
 			self.offsetY = Mouse.y - dragLabel.y;
@@ -50,6 +54,8 @@ function Dragger(loopy){
 		// Any edge under here? If so, start dragging!
 		var dragEdge = loopy.model.getEdgeByPoint(Mouse.x, Mouse.y);
 		if(dragEdge){
+			// undoManager.saveState(loopy.model);
+
 			self.dragging = dragEdge;
 			self.offsetX = Mouse.x - dragEdge.labelX;
 			self.offsetY = Mouse.y - dragEdge.labelY;
@@ -69,6 +75,7 @@ function Dragger(loopy){
 
 			// Model's been changed!
 			publish("model/changed");
+			// undoManager.saveState(loopy.model);
 			
 			var node = self.dragging;
 			node.x = Mouse.x - self.offsetX;
@@ -84,6 +91,8 @@ function Dragger(loopy){
 
 			// Model's been changed!
 			publish("model/changed");
+			// undoManager.saveState(loopy.model);
+
 
 			var edge = self.dragging;
 			var labelX = Mouse.x - self.offsetX;
@@ -106,6 +115,8 @@ function Dragger(loopy){
 				edge.arc = -newLabelPoint[1]; // WHY NEGATIVE? I DON'T KNOW.
 
 			}else{
+				// undoManager.saveState(loopy.model);
+
 
 				// For SELF-ARROWS: just get angle & mag for label.
 				var dx = labelX - edge.from.x,
@@ -133,6 +144,8 @@ function Dragger(loopy){
 
 			// Model's been changed!
 			publish("model/changed");
+			// undoManager.saveState(loopy.model);
+
 			
 			var label = self.dragging;
 			label.x = Mouse.x - self.offsetX;
@@ -149,6 +162,8 @@ function Dragger(loopy){
 		// ONLY WHEN EDITING w DRAG
 		if(self.loopy.mode!=Loopy.MODE_EDIT) return;
 		if(self.loopy.tool!=Loopy.TOOL_DRAG) return;
+		undoManager.saveState(loopy.model);
+
 
 		// Let go!
 		self.dragging = null;

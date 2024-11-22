@@ -1,3 +1,5 @@
+// import undoManager from './undo.js';
+
 /**********************************
 
 MODEL!
@@ -23,11 +25,9 @@ function Model(loopy){
     self.offsetX = 0;
     self.offsetY = 0;
 
-	// // Update canvas size on window resize
+	// Update canvas size on window resize
 	// function resizeCanvas() {
-	// 	canvas.width = window.innerWidth;
-	// 	canvas.height = window.innerHeight;
-	// 	self.update();
+	// 	canvas.update();
 	// }
 
     // window.addEventListener('resize', resizeCanvas);
@@ -35,22 +35,24 @@ function Model(loopy){
 
 
 	// Handle zoom with scroll
-	canvas.addEventListener('wheel', function(event) {
-		// event.preventDefault();
-		const zoomSpeed = 0.1;
-		const scaleDelta = event.deltaY > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
+	// canvas.addEventListener('wheel', function(event) {
+	// 	// event.preventDefault();
+	// 	const zoomSpeed = 0.1;
+	// 	const scaleDelta = event.deltaY > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
 
-		// Update scale
-		self.scale *= scaleDelta;
+	// 	// Update scale
+	// 	self.scale *= scaleDelta;
 
-		// Adjust the offset to keep the zoom centered on the cursor
-		const mouseX = event.clientX - canvas.offsetLeft;
-		const mouseY = event.clientY - canvas.offsetTop;
-		self.offsetX = mouseX - (mouseX - self.offsetX) * scaleDelta;
-		self.offsetY = mouseY - (mouseY - self.offsetY) * scaleDelta;
+	// 	// Adjust the offset to keep the zoom centered on the cursor
+	// 	const mouseX = event.clientX - canvas.offsetLeft;
+	// 	const mouseY = event.clientY - canvas.offsetTop;
+	// 	self.offsetX = mouseX - (mouseX - self.offsetX) * scaleDelta;
+	// 	self.offsetY = mouseY - (mouseY - self.offsetY) * scaleDelta;
 
-		self.update();
-	});
+	// 	self.update();
+	// });
+
+
 
 	///////////////////
 	// NODES //////////
@@ -70,9 +72,13 @@ function Model(loopy){
 		// Model's been changed!
 		publish("model/changed");
 
+		// Save state before adding the new node
+		undoManager.saveState(self);
+
 		// Add Node
 		var node = new Node(self, config);
 		// var nodeLabel = new NodeLabel(node, config);
+
 		
 		self.nodeByID[node.id] = node;
 		self.nodes.push(node);
@@ -89,9 +95,13 @@ function Model(loopy){
 		// Model's been changed!
 		publish("model/changed");
 
+		// Save state before deleting the node
+		undoManager.saveState(self);
+
 		// Remove from array
 		self.nodes.splice(self.nodes.indexOf(node), 1);
 		// self.nodeLabels.splice(self.nodeLabels.indexOf(node),1);
+
 
 		// Remove from object
 		delete self.nodeByID[node.id];
@@ -124,7 +134,9 @@ function Model(loopy){
 
 		// Model's been changed!
 		publish("model/changed");
-	
+		// Save state before adding the new edge
+		undoManager.saveState(self);
+
 		// Add Edge
 		var edge = new Edge(self, config);
 		self.edgeByID[edge.id] = edge;
@@ -143,7 +155,8 @@ function Model(loopy){
 
 	// Remove edge
 	self.removeEdge = function(edge){
-
+		// Save state before deleting the edge
+		undoManager.saveState(self);
 		// Model's been changed!
 		publish("model/changed");
 
@@ -222,6 +235,7 @@ function Model(loopy){
 
 	// OR INFO CHANGED
 	subscribe("model/changed", function(){
+		
 		if(self.loopy.mode==Loopy.MODE_EDIT) drawCountdown=drawCountdownFull;
 	});
 
