@@ -81,7 +81,6 @@ function Edge(model, config){
         if (self.delayBuffer.length > lag) {
             let delayedSignal = self.delayBuffer.shift(); // Release the signal after delay
             if (delayedSignal) {
-				console.log(delayedSignal)
                 self.signals.unshift(delayedSignal);
                 Edge.allSignals.push(delayedSignal);
             }
@@ -189,7 +188,6 @@ function Edge(model, config){
 			const accumulateSignals = () => {
 			  self.model.edges.forEach(edge => {
 				  // Calculate the incoming signal from the edge
-				  console.log(edge.strength)
 				  let incomingSignal = edge.from.value * edge.damper * stochasticValueSelection(edge.strength, -1, 1, edge.confidence);
 	  
 				  // Check if this is a pass node
@@ -342,7 +340,6 @@ function Edge(model, config){
 		tx=self.to.x*2;
 		ty=self.to.y*2;	
 
-		// console.log(fx, fy, tx, ty)
 		if(self.from==self.to){
 			var rotation = self.rotation;
 			rotation *= Math.TAU/360;
@@ -412,7 +409,6 @@ function Edge(model, config){
 
 		var labelPosition = self.getPositionAlongArrow(0.5);
 
-		// console.log(labelPosition)
 		lx = labelPosition.x;
 		ly = labelPosition.y;
 
@@ -612,7 +608,7 @@ function Edge(model, config){
 
 		// Kill Listeners!
 		unsubscribe("model/reset",_listenerReset);
-		undoManager.saveState(loopy.model);
+		// undoManager.saveState(loopy.model);
 
 
 		// Remove from parent!

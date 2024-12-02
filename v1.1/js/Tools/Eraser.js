@@ -10,7 +10,6 @@ function Eraser(loopy){
 	self.loopy = loopy;
 
 	self.erase = function(clicked){
-
 		// ONLY WHEN EDITING w DRAG
 		if(self.loopy.mode!=Loopy.MODE_EDIT) return;
 		if(self.loopy.tool!=Loopy.TOOL_ERASE) return;

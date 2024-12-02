@@ -10,6 +10,7 @@ function Model(loopy){
 
 	var self = this;
 	self.loopy = loopy;
+	// undoManager = Undo(loopy)
 
 	// Properties
 	self.speed = 0.05;
@@ -27,7 +28,7 @@ function Model(loopy){
 
 	// Update canvas size on window resize
 	// function resizeCanvas() {
-	// 	canvas.update();
+	// 	// self.update();
 	// }
 
     // window.addEventListener('resize', resizeCanvas);
@@ -35,9 +36,26 @@ function Model(loopy){
 
 
 	// Handle zoom with scroll
+	// window.addEventListener('wheel', function(event) {
+	// 	// event.preventDefault();
+	// 	const zoomSpeed = 0.01;
+	// 	const scaleDelta = event.deltaY > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
+
+	// 	// Update scale
+	// 	self.scale *= scaleDelta;
+
+	// 	// Adjust the offset to keep the zoom centered on the cursor
+	// 	const mouseX = event.clientX;
+	// 	const mouseY = event.clientY;
+	// 	self.offsetX = mouseX - (mouseX) * scaleDelta;
+	// 	self.offsetY = mouseY - (mouseY) * scaleDelta;
+
+	// 	self.update();
+	// });
+
 	// canvas.addEventListener('wheel', function(event) {
 	// 	// event.preventDefault();
-	// 	const zoomSpeed = 0.1;
+	// 	const zoomSpeed = 0.001;
 	// 	const scaleDelta = event.deltaY > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
 
 	// 	// Update scale
@@ -52,12 +70,117 @@ function Model(loopy){
 	// 	self.update();
 	// });
 
+	self.restoringState = false;
+	// Inside Loopy or Model initialization
+	self.undoStack = [];
+	self.redoStack = [];
+
+	// Save the current state of the model
+	self.saveState = function () {
+		const serializedState = {
+			nodes: self.nodes.map(node => ({
+				id: node.id,
+				x: node.x,
+				y: node.y,
+				value: node.value,
+				label: node.label,
+				radius: node.radius,
+			})),
+			edges: self.edges.map(edge => ({
+				id: edge.id,
+				from: edge.from,
+				to: edge.to,
+				arc: edge.arc,
+				lag: edge.lag,
+				strength: edge.strength,
+			})),
+			labels: self.labels.map(label => ({
+				id: label.id,
+				text: label.text,
+				x: label.x,
+				y: label.y,
+			})),
+		};
+	
+
+		self.undoStack.push(serializedState);
+		
+	};
+	
+	
+
+	// Restore a state
+	self.restoreState = function (state) {
+		self.restoringState = true; // Set flag to indicate restoration
+
+		self.clear(); // Clear current state before restoring
+	
+		// Recreate nodes
+		const idToNodeMap = {};
+		state.nodes.forEach(node => {
+			const newNode = self.addNode(node);
+			idToNodeMap[node.id] = newNode; // Map node ID to object for edge reconstruction
+		});
+	
+		// Recreate edges
+		state.edges.forEach(edge => {
+			self.addEdge({
+				from: idToNodeMap[edge.from], // Resolve node object from ID
+				to: idToNodeMap[edge.to], // Resolve node object from ID
+				arc: edge.arc,
+				lag: edge.lag,
+				strength: edge.strength,
+			});
+		});
+	
+		// Recreate labels
+		state.labels.forEach(label => self.addLabel(label));
+	
+		self.update(); // Refresh the canvas
+
+		self.restoringState = false; // Reset flag after restoration
+	};
+
+
+	// Combined subscription for model changes
+	subscribe("model/changed", function () {
+		// self.saveState(); // Save the new state
+	});
+	
+
+	// Handle model reset
+	subscribe("model/reset", function () {
+		// self.undoStack = [];
+		// self.redoStack = [];
+		self.saveState(); // Save the blank state after reset
+	});
+
+	// Undo functionality
+	self.undo = function () {
+		if (self.undoStack.length > 1) { // Keep at least the initial state
+			const currentState = self.undoStack.pop(); // Remove current state
+			self.redoStack.push(currentState); // Save it to redo stack
+			const previousState = self.undoStack[self.undoStack.length - 1]; // Get previous state
+			self.restoreState(previousState);
+		}
+	};
+
+	// Redo functionality
+	self.redo = function () {		
+		if (self.redoStack.length > 0) {
+			const nextState = self.redoStack.pop(); // Get the next state
+			self.undoStack.push(nextState); // Save current state to undo stack
+			self.restoreState(nextState);
+		}
+	};
+
+
+
 
 
 	///////////////////
 	// NODES //////////
 	///////////////////
-
 	// Nodes
 	self.nodes = [];
 	self.nodeByID = {};
@@ -69,22 +192,25 @@ function Model(loopy){
 	// Add Node
 	self.addNode = function(config){
 
-		// Model's been changed!
-		publish("model/changed");
+		// Model's been changed (only if not restoring state)!
+		if (!self.restoringState) {
+			publish("model/changed");
+		}
 
 		// Save state before adding the new node
-		undoManager.saveState(self);
+		// window.undoRedoCoordinator.undoManager.saveState();
 
 		// Add Node
 		var node = new Node(self, config);
-		// var nodeLabel = new NodeLabel(node, config);
 
 		
 		self.nodeByID[node.id] = node;
 		self.nodes.push(node);
-		// if(!node.id || node.id !== self.nodes.length-1) node.id = self.nodes.length-1;
-		// applyInitialPropEffects(node);
 		self.update();
+
+		if (!self.restoringState) {
+			self.saveState()
+		}
 		return node;
 
 	};
@@ -96,7 +222,7 @@ function Model(loopy){
 		publish("model/changed");
 
 		// Save state before deleting the node
-		undoManager.saveState(self);
+		// window.undoRedoCoordinator.saveState(self);
 
 		// Remove from array
 		self.nodes.splice(self.nodes.indexOf(node), 1);
@@ -113,6 +239,9 @@ function Model(loopy){
 				edge.kill();
 				i--; // move index back, coz it's been killed
 			}
+		}
+		if (!self.restoringState) {
+			self.saveState()
 		}
 		
 	};
@@ -132,10 +261,12 @@ function Model(loopy){
 	// Add edge
 	self.addEdge = function(config){
 
-		// Model's been changed!
-		publish("model/changed");
+		// Model's been changed (only if not restoring state)!
+		if (!self.restoringState) {
+			publish("model/changed");
+		}
 		// Save state before adding the new edge
-		undoManager.saveState(self);
+		// undoManager.saveState(self);
 
 		// Add Edge
 		var edge = new Edge(self, config);
@@ -149,19 +280,27 @@ function Model(loopy){
 		// self.addNode(ghostNode);
 	
 		self.update();
+		if (!self.restoringState) {
+			self.saveState()
+		}
 	
 		return edge;
 	};
 
 	// Remove edge
 	self.removeEdge = function(edge){
+
 		// Save state before deleting the edge
-		undoManager.saveState(self);
+		// undoManager.saveState(self);
 		// Model's been changed!
 		publish("model/changed");
 
 		// Remove edge
 		self.edges.splice(self.edges.indexOf(edge),1);
+
+		if (!self.restoringState) {
+			self.saveState()
+		}
 
 	};
 
@@ -185,13 +324,19 @@ function Model(loopy){
 	// Remove label
 	self.addLabel = function(config){
 
-		// Model's been changed!
-		publish("model/changed");
+
+		// Model's been changed (only if not restoring state)!
+		if (!self.restoringState) {
+			publish("model/changed");
+		}
 
 		// Add label
 		var label = new Label(self,config);
 		self.labels.push(label);
 		self.update();
+		if (!self.restoringState) {
+			self.saveState()
+		}
 		return label;
 	};
 
@@ -203,6 +348,9 @@ function Model(loopy){
 
 		// Remove label
 		self.labels.splice(self.labels.indexOf(label),1);
+		if (!self.restoringState) {
+			self.saveState()
+		}
 		
 	};
 
@@ -385,7 +533,6 @@ function Model(loopy){
 		// Nodes
 		for(var i=0;i<nodes.length;i++){
 			var node = nodes[i];
-			console.log(node[8])
 
 			self.addNode({
 				id: node[0],

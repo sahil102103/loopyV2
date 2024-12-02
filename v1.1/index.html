@@ -48,9 +48,6 @@
 
 	<!-- Need to clean up this UI section to have everything in there own JS files-->
 	<div id="data-window">
-		<!-- <div>
-			<h4 style="text-align: center;">Welcome to the Loopy Output Window -- Click a menu item to get started. Some tabs may load slowly due to complex computations.</h4>
-		</div> -->
 		<div class="tabs">
 			<button class="tablink" id='canvasTab' onclick="openPage('Canvas')">Canvas</button>
 			<!-- <button class="tablink" id='amountsTab' onclick="openPage('Amounts')">Amounts</button> -->
@@ -66,7 +63,7 @@
 			<button class="tablink" id='generateTab' onclick="openPage('Generate')">Generate</button>
 			<button class="tablink hidden" id='crisisAnalysisTab' onclick="openPage('CrisisAnalysis')">Crisis Analysis</button>
 			<button class="tablink hidden" id='correlationTab' onclick="openPage('Correlation')">Correlation</button>
-			<!-- <button class="tablink hidden" id='stabilityMapTab' onclick="openPage('StabilityMap')">Stability Map</button> -->
+			<button class="tablink hidden" id='stabilityMapTab' onclick="openPage('StabilityMap')">Stability Map</button>
 
 
 
@@ -166,6 +163,23 @@
 
 		<div id="StabilityMap" class='tabcontent'>
 			<div id="stabilityMapPlot"></div>
+			<div id="controls">
+				<label for="decayMin">Decay Min:</label>
+				<input type="number" id="decayMin" value="0.1" step="0.1">
+				<label for="decayMax">Decay Max:</label>
+				<input type="number" id="decayMax" value="1.0" step="0.1">
+				<label for="decaySteps">Decay Steps:</label>
+				<input type="number" id="decaySteps" value="20" step="1">
+				
+				<label for="delayMin">Delay Min:</label>
+				<input type="number" id="delayMin" value="1" step="1">
+				<label for="delayMax">Delay Max:</label>
+				<input type="number" id="delayMax" value="50" step="1">
+				<label for="delaySteps">Delay Steps:</label>
+				<input type="number" id="delaySteps" value="20" step="1">
+			
+				<button id="updateStabilityMap">Generate Stability Map</button>
+			</div>
 		</div>
 
 
@@ -203,7 +217,6 @@
 <script src="js/Libraries/minpubsub.js"></script>
 <script src="js/Libraries/Mouse.js"></script>
 <script src="js/Libraries/Key.js"></script>
-<script src="js/Libraries/undo.js"></script>
 
 
 <!-- Core Simulation Code -->
@@ -225,6 +238,11 @@
 <script src="js/Tools/Dragger.js"></script>
 <script src="js/Tools/Eraser.js"></script>
 <script src="js/Tools/Labeller.js"></script>
+<script src="js/Tools/Undo.js"></script>
+<script src="js/Tools/Redo.js"></script>
+<script src="js/Tools/UndoRedoCoordinator.js"></script>
+<script src="js/Tools/MultipleSelect.js"></script>
+
 
 <!-- Output Window -->
 <script src="js/Out/Outputs.js"></script>
@@ -239,7 +257,6 @@
 
 	window.onload = function () {
 		if (getCookie('loggedIn') !== 'true') {
-			console.log("hello, you are not logged in :)")
 			window.location.href = 'https://loopy-v2.vercel.app/v1.1/login.html'; // Redirect if not logged in
 		} else {
 			openPage('Canvas');

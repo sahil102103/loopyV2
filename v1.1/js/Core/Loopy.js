@@ -12,6 +12,9 @@ Loopy.TOOL_INK = 0;
 Loopy.TOOL_DRAG = 1;
 Loopy.TOOL_ERASE = 2;
 Loopy.TOOL_LABEL = 3;
+Loopy.TOOL_UNDO = 4;
+Loopy.TOOL_REDO = 5;
+Loopy.TOOL_MULTIPLESELECT = 6;
 
 function Loopy(config){
 
@@ -50,6 +53,14 @@ function Loopy(config){
 	self.drag = new Dragger(self);
 	self.erase = new Eraser(self);
 	self.label = new Labeller(self);
+	// self.undo = new Undo(self);
+	// self.redo = new Redo(self);
+	self.multipleselect = new MultipleSelect(self);
+
+	
+	
+	
+
 
 	// Play Controls
 	self.playbar = new PlayControls(self);
@@ -204,7 +215,7 @@ function Loopy(config){
 	
 	// "BLANK START" DATA:
 	// var _blankData;
-	var _blankData = "[[],[],[[609,311,%22draw%2520circles%2520for%2520nodes%2520and%2520lines%2520for%2520edges!%22]],2%5D";
+	var _blankData = "[[],[],[],2%5D";
 
 	self.loadFromURL = function(){
 		var data = _getParameterByName("data");

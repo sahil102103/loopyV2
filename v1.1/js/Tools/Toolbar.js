@@ -48,6 +48,7 @@ function Toolbar(loopy) {
     self.setTool = function(tool) {
         self.currentTool = tool;
         var name = "TOOL_" + tool.toUpperCase();
+        console.log(name)
         loopy.tool = Loopy[name];
         document.getElementById("canvasses").setAttribute("cursor", tool);
     };
@@ -88,6 +89,29 @@ function Toolbar(loopy) {
         tooltip: "(E)RASE",
         callback: function() {
             self.setTool("erase");
+        }
+    });
+	self.addButton({
+        id: "undo",
+        tooltip: "(U)ndo",
+        callback: function() {
+            loopy.model.undo();
+            // self.setTool("undo");
+        }
+    });
+	self.addButton({
+        id: "redo",
+        tooltip: "(R)edo",
+        callback: function() {
+            loopy.model.redo();
+            // self.setTool("redo");
+        }
+    });
+	self.addButton({
+        id: "multiselect",
+        tooltip: "Multi-(S)elect",
+        callback: function() {
+            self.setTool("multiselect");
         }
     });
 

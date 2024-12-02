@@ -27,18 +27,43 @@ Node.COLORS = {
     19: "#d03a87"  // magenta
 };
 
+// Node.COLORS = {
+// 	0: "#F5F5F5", // White
+// 	1: "#FFEB3B", // Yellow
+// 	2: "#FFC107", // Amber
+// 	3: "#FF9800", // Orange
+// 	4: "#FF5722", // Deep Orange
+// 	5: "#F44336", // Red
+// 	6: "#E91E63", // Pink
+// 	7: "#9C27B0", // Purple
+// 	8: "#673AB7", // Deep Purple
+// 	9: "#3F51B5", // Indigo
+// 	10: "#2196F3", // Blue
+// 	11: "#03A9F4", // Light Blue
+// 	12: "#00BCD4", // Cyan
+// 	13: "#009688", // Teal
+// 	14: "#4CAF50", // Green
+// 	15: "#8BC34A", // Light Green
+// 	16: "#CDDC39", // Lime
+// 	17: "#607D8B", // Blue Gray
+// 	18: "#9E9E9E", // Gray
+// 	19: "#795548", // Brown
+//   };
+  
+
 
 Node.defaultValue = 0.4;
 Node.defaultHue = 0;
 
 Node.DEFAULT_RADIUS = 60;
+Node.DEFAULT_RETENTION = 1;
 Node.DEFAULT_FLOOR = -Infinity;
 Node.DEFAULT_CEIL = Infinity;
 Node.DEFAULT_FLOW = 0;
 Node.DEFAULT_PASSNODE = false;
 
 
-var selectedNodes = [];
+// var selectedNodes = [];
 
 // // Initialize an empty array to store action history
 // let actionHistory = [];
@@ -77,6 +102,7 @@ function Node(model, config){
 		label: '?',
 		hue: Node.defaultHue,
 		radius: Node.DEFAULT_RADIUS,
+		retention: Node.DEFAULT_RETENTION,
 		floor: Node.DEFAULT_FLOOR,
 		ceiling: Node.DEFAULT_CEIL,
 		flow: Node.DEFAULT_FLOW,
@@ -119,19 +145,19 @@ function Node(model, config){
 
 	});
 
-	var _listenerMouseDownNotPlaying = subscribe("mousedown", function() {
-		if(_controlsPressedWhenNotInPlay) {
-			onmousedown = (event) => {
-				if (event.shiftKey) {
-					if (selectedNodes.includes(self)) {
-						selectedNodes = selectedNodes.filter(node => node !== self);
-					} else {
-						selectedNodes.push(self);
-					}
-				};
-			}
-		}
-    });
+	// var _listenerMouseDownNotPlaying = subscribe("mousedown", function() {
+	// 	if(_controlsPressedWhenNotInPlay) {
+	// 		onmousedown = (event) => {
+	// 			if (event.shiftKey) {
+	// 				if (selectedNodes.includes(self)) {
+	// 					selectedNodes = selectedNodes.filter(node => node !== self);
+	// 				} else {
+	// 					selectedNodes.push(self);
+	// 				}
+	// 			};
+	// 		}
+	// 	}
+    // });
 
 	var _listenerDoubleClick = subscribe("dblclick", function() {
 		if (self.isPointInNode(Mouse.x, Mouse.y)) {
@@ -200,24 +226,27 @@ function Node(model, config){
 		// if (self.value > self.ceiling) {
 		// 	self.value = Math.min(self.ceiling, self.value)
 		if (self.value < self.floor) {
-			self.value = Math.max(self.floor, self.value)
+			self.value = (Math.max(self.floor, self.value) * self.retention)
+		}
+		else {
+			self.value *= self.retention;
 		}
 	
 		// Propagate signal
 		self.sendSignal(signal);
 
 		// Update the time series chart for each node
-		if (chart && (selectedNodes.length == 0)) {
+		if (chart && (loopy.multipleselect.getSelectedNodes().length == 0)) {
 			chart.data.labels.push(tick);
 			tick++
 			for (let i = 0; i < model.nodes.length; i++) {
 				updateTimeSeriesChart(model.nodes[i].value, i);
 			}
-		} else if (chart && selectedNodes) {
+		} else if (chart && loopy.multipleselect.getSelectedNodes()) {
 			chart.data.labels.push(tick);
 			tick++
-			for (let i = 0; i < selectedNodes.length; i++) {
-				updateTimeSeriesChart(selectedNodes[i].value, i);
+			for (let i = 0; i < loopy.multipleselect.getSelectedNodes().length; i++) {
+				updateTimeSeriesChart(loopy.multipleselect.getSelectedNodes()[i].value, i);
 			}
 		}
 
@@ -297,7 +326,7 @@ function Node(model, config){
 		}
 
 		// DRAW HIGHLIGHT???
-		if (selectedNodes.includes(self)){
+		if (loopy.multipleselect.getSelectedNodes().includes(self)){
 			ctx.beginPath();
 			ctx.arc(0, 0, r+50, 0, Math.TAU, false);
 			ctx.fillStyle = MULTIPLE_HIGHLIGHT_COLOR;
@@ -411,12 +440,12 @@ function Node(model, config){
 
 	self.kill = function(){
 
-		undoManager.saveState(loopy.model);
+		// undoManager.saveState(loopy.model);
 
 		// Kill Listeners!
 		unsubscribe("mousemove",_listenerMouseMove);
 		unsubscribe("mousedown",_listenerMouseDown);
-		unsubscribe("mousedown",_listenerMouseDownNotPlaying);
+		// unsubscribe("mousedown",_listenerMouseDownNotPlaying);
 		unsubscribe("mouseup",_listenerMouseUp);
 		unsubscribe("model/reset",_listenerReset);
 		unsubscribe("dblclick", _listenerDoubleClick);
@@ -425,7 +454,7 @@ function Node(model, config){
 		model.removeNode(self);
 
 		// Remove from selected nodes
-		selectedNodes = selectedNodes.filter(node => node !== self);
+		selectedNodes = loopy.multipleselect.getSelectedNodes().filter(node => node !== self);
 
 		// Killed!
 		publish("kill",[self]);

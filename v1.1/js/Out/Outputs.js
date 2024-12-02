@@ -57,8 +57,9 @@ var fullNodeData = []; // Store the full data separately
 function drawTimeSeriesChart() {
     timeSeriesNodeData = [];
     fullNodeData = []; // Initialize full data storage
+    // console.log(selectedNodes)
 
-    const nodes = selectedNodes.length === 0 ? loopy.model.nodes : selectedNodes;
+    const nodes = loopy.multipleselect.getSelectedNodes().length === 0 ? loopy.model.nodes : loopy.multipleselect.getSelectedNodes();
     nodes.forEach(node => {
         const nodeData = {
             label: node.label,
@@ -75,6 +76,7 @@ function drawTimeSeriesChart() {
     const ctx = document.getElementById('timeSeriesChart').getContext('2d');
     chart = new Chart(ctx, {
         type: 'line',
+    
         data: {
             labels: Array.from({ length: timeSeriesNodeData[0].data.length }, (_, i) => i.toString()),
             datasets: timeSeriesNodeData

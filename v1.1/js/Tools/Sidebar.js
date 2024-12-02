@@ -3,6 +3,10 @@
 SIDEBAR CODE
 
 **********************************/
+
+////////////////////////////////////////////////////////////////////////////////////////////
+// SHOW AND HIDE ///////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////
 document.getElementById('sidebar-toggle').addEventListener('click', function() {
     var sidebar = document.getElementById('sidebar');
     if (sidebar.style.right === '0px') {
@@ -31,42 +35,6 @@ function Sidebar(loopy){
 		}
 	});
 
-	////////////////////////////////////////////////////////////////////////////////////////////
-	// SHOW AND HIDE ///////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////////////////////////
-
-	// Add a toggle button within the sidebar
-	// var toggleButton = document.createElement("button");
-	// toggleButton.innerHTML = "|||";
-	// toggleButton.className = "sidebar-toggle-button";
-	// self.dom.appendChild(toggleButton);
-
-	// // Method to show the sidebar
-	// self.showSidebar = function() {
-	// 	self.dom.style.display = "block";
-	// };
-
-	// // Method to hide the sidebar
-	// self.hideSidebar = function() {
-	// 	self.dom.style.display = "none";
-	// };
-
-	// // Method to toggle the sidebar's visibility
-	// self.toggleSidebar = function() {
-	// 	if (self.dom.style.display === "none") {
-	// 		self.showSidebar();
-	// 	} else {
-	// 		self.hideSidebar();
-	// 	}
-	// };
-
-	// // Event listener for the toggle button
-	// toggleButton.addEventListener("click", function() {
-	// 	self.toggleSidebar();
-	// });
-
-	// // Ensure the sidebar is visible by default
-	// self.showSidebar();
 
 	////////////////////////////////////////////////////////////////////////////////////////////
 	// ACTUAL PAGES ////////////////////////////////////////////////////////////////////////////
@@ -105,7 +73,7 @@ function Sidebar(loopy){
 			}
 		}));
 		page.addComponent("radius", new ComponentSlider({
-			bg: "initial",
+			bg: "radius",
 			label: "Border Radius:",
 			options: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
 			//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
@@ -130,6 +98,16 @@ function Sidebar(loopy){
 		// 	label: "Additional Amount:",
 		// 	id: 'flow'
 		// }));
+
+		page.addComponent("retention", new ComponentSlider({
+			bg: "lag",
+			label: "Node Retention:",
+			options: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+			//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
+			oninput: function(value){
+				Node.DEFAULT_RETENTION = value;
+			}
+		}));
 
 		page.addComponent("floor", new ComponentInput({
 			label: "Floor:",
@@ -329,14 +307,14 @@ function Sidebar(loopy){
 	
 		// Add the Set Global Parameters button correctly using ComponentButton
 		page.addComponent(new ComponentButton({
-			label: "Set Edge Parameters",
+			label: "Set Global Edge Parameters",
 			onclick: function(){
 				self.showPage("GlobalParameters");
 			}
 		}));
 
 		page.addComponent(new ComponentButton({
-			label: "Set Node Parameters",
+			label: "Set Global Node Parameters",
 			onclick: function(){
 				self.showPage("GlobalNodeParameters");
 			}
@@ -393,19 +371,7 @@ function Sidebar(loopy){
 
 		// Global Parameters Page
 		var globalNodePage = new SidebarPage();
-
-		function getRandomLightColor() {
-			const hue = Math.floor(Math.random() * 360); // Random hue between 0 and 360
-			const saturation = Math.floor(Math.random() * 100) + 1; // Saturation between 1% and 100%
-			const lightness = 75; // Fixed lightness at 75%
-		  
-			return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-		  }
-		  
-		  // Example usage:
-		  const randomColor = getRandomLightColor();
-		  document.body.style.backgroundColor = randomColor;
-		  
+		  		  
 
 		globalNodePage.addComponent("randomize", new ComponentButton({
 			label: "Randomize Colors",
@@ -423,7 +389,7 @@ function Sidebar(loopy){
 			onclick: function(value){
 				const numOfNodes = loopy.model.nodes.length
 				for (let i = 0; i <= numOfNodes; i++ ) {
-					let color = 8
+					let color = "red"
 					loopy.model.nodes[i].hue = color
 				}
 			}
@@ -450,7 +416,7 @@ function Sidebar(loopy){
 		// 	}
 		// }));
 		globalNodePage.addComponent("radius", new ComponentSliderGlobal({
-			bg: "initial",
+			bg: "radius",
 			item: "Node",
 			label: "Border Radius:",
 			globalProp: 'radius',
@@ -460,7 +426,17 @@ function Sidebar(loopy){
 				Node.DEFAULT_RADIUS = value;
 			}
 		}));
-
+		globalNodePage.addComponent("retention", new ComponentSliderGlobal({
+			bg: "lag",
+			item: "Node",
+			label: "Node Retention:",
+			globalProp: 'retention',
+			options: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+			//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
+			oninput: function(value){
+				Node.DEFAULT_RETENTION = value;
+			}
+		}));
 
 
 	
@@ -580,6 +556,54 @@ function Component(){
 	};
 }
 
+function ComponentGlobal(){
+	var self = this;
+	self.dom = null;
+	self.page = null;
+	self.propName = null;
+	self.show = function(){
+		// TO IMPLEMENT
+	};
+	self.getValue = function(){
+		console.log(self)
+		return self.globalPage.target[self.propName];
+	};
+	self.setValue = function(value){
+		
+		// Model's been changed!
+		publish("model/changed");
+
+		console.log(self)
+		// Edit the value!
+		self.globalPage.target[self.propName] = value;
+		self.page.onedit(); // callback!
+		
+	};
+}
+
+function ComponentGlobalNode(){
+	var self = this;
+	self.dom = null;
+	self.page = null;
+	self.propName = null;
+	self.show = function(){
+		// TO IMPLEMENT
+	};
+	self.getValue = function(){
+		return self.globalNodePage.target[self.propName];
+	};
+	self.setValue = function(value){
+		
+		// Model's been changed!
+		publish("model/changed");
+		console.log(self)
+		// Edit the value!
+		self.globalNodePage.target[self.propName] = value;
+		self.page.onedit(); // callback!
+		
+	};
+}
+
 
 function ComponentInput(config) {
     // Inherit
@@ -632,7 +656,6 @@ function ComponentInput(config) {
         setTimeout(function() { input.select(); }, 10);
     };
 }
-
 
 function ComponentSlider(config){
 
@@ -758,7 +781,7 @@ function ComponentSlider(config){
 
 function ComponentSliderGlobal(config) {
     var self = this;
-    Component.apply(self);
+    ComponentGlobal.apply(self);
 
     // Create DOM: label and slider container
     self.dom = document.createElement("div");
@@ -891,7 +914,6 @@ function ComponentSliderGlobal(config) {
     };
 }
 
-
 function ComponentCheckbox(config) {
     // Inherit from Component
     var self = this;
@@ -932,7 +954,6 @@ function ComponentCheckbox(config) {
 }
 
 function ComponentButton(config){
-
 	// Inherit
 	var self = this;
 	Component.apply(self);
@@ -951,12 +972,7 @@ function ComponentButton(config){
 
 }
 
-
-
-
-
 function ComponentHTML(config){
-
 	// Inherit
 	var self = this;
 	Component.apply(self);
@@ -968,7 +984,6 @@ function ComponentHTML(config){
 }
 
 function ComponentOutput(config){
-
 	// Inherit
 	var self = this;
 	Component.apply(self);

@@ -162,11 +162,12 @@ function Dragger(loopy){
 		// ONLY WHEN EDITING w DRAG
 		if(self.loopy.mode!=Loopy.MODE_EDIT) return;
 		if(self.loopy.tool!=Loopy.TOOL_DRAG) return;
-		undoManager.saveState(loopy.model);
+		// undoManager.saveState(loopy.model);
 
 
 		// Let go!
 		self.dragging = null;
+		
 		self.offsetX = 0;
 		self.offsetY = 0;
 

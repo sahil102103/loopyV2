@@ -26,7 +26,7 @@ async function loadAndExecutePythonScript(){
 			'pandas', 
 			// 'igraph', 
 			'networkx', 
-			// 'scipy', 
+			'scipy', 
 			'scikit-learn', 
 			'seaborn', 
 			'matplotlib', 
@@ -37,6 +37,7 @@ async function loadAndExecutePythonScript(){
 
 	try {
 		pyodide.runPython(`
+			from collections import defaultdict
 			import numpy as np
 			import pandas as pd
 			import networkx as nx
@@ -64,13 +65,13 @@ async function loadAndExecutePythonScript(){
 			# from sklearn.model_selection import GridSearchCV
 			# from sklearn.pipeline import Pipeline
 			# from sklearn.metrics import roc_curve, auc
-			# from scipy.signal import find_peaks
+			from scipy.signal import find_peaks
 			from scipy.stats import norm
 			# import statsmodels.api as sm
 			from pathlib import Path
 			import warnings
 			import math
-			# import matplotlib.colors as mcolors
+			import matplotlib.colors as mcolors
 			# from scipy.stats import zscore
 			warnings.filterwarnings("ignore")
 			`);
@@ -163,13 +164,13 @@ const loadInitialData = async () => {
 	}, {})
 
     // Filter nodes and edges based on whether selectedNodes is populated
-    const nodesToInclude = selectedNodes.length > 0 ? 
-        loopy.model.nodes.filter(node => selectedNodes.includes(node.label)) : 
+    const nodesToInclude = loopy.multipleselect.getSelectedNodes().length > 0 ? 
+        loopy.model.nodes.filter(node => loopy.multipleselect.getSelectedNodes().includes(node.label)) : 
         loopy.model.nodes;
 
-    const edgesToInclude = selectedNodes.length > 0 ? 
+    const edgesToInclude = loopy.multipleselect.getSelectedNodes().length > 0 ? 
         loopy.model.edges.filter(edge => 
-            selectedNodes.includes(edge.from.label) && selectedNodes.includes(edge.to.label)
+            loopy.multipleselect.getSelectedNodes().includes(edge.from.label) && loopy.multipleselect.getSelectedNodes().includes(edge.to.label)
         ) : 
         loopy.model.edges;
 
@@ -645,7 +646,6 @@ const simulation2Plots = pyodide.globals.get('simulation2Plots').toJs();
 const plotsContainer = document.getElementById('simulationPlots2');
 plotsContainer.innerHTML = '';
 
-console.log(simulation2Plots)
 simulation2Plots.forEach(node => {
 	let file = pyodide.FS.readFile(node, { encoding: 'binary' });
 	let blob = new Blob([file], { type: 'image/png' });
@@ -734,7 +734,6 @@ const boxPlots = pyodide.globals.get('boxplots').toJs();
 const plotsContainer = document.getElementById('boxPlots');
 plotsContainer.innerHTML = '';
 
-console.log(boxPlots)
 boxPlots.forEach(node => {
 	let file = pyodide.FS.readFile(node, { encoding: 'binary' });
 	let blob = new Blob([file], { type: 'image/png' });
@@ -808,7 +807,6 @@ const violinPlots = pyodide.globals.get('violinplots');
 const plotsContainer = document.getElementById('violinPlots');
 plotsContainer.innerHTML = '';
 
-console.log(violinPlots)
 
 violinPlots.forEach(node => {
 	let file = pyodide.FS.readFile(node, { encoding: 'binary' });
@@ -983,121 +981,89 @@ correlationPlot = "corr.png"
     openPage('Correlation');
 }
 
-// document.getElementById('stabilityMapTab').onclick = async () => {
-// 	showLoadingSpinner();
-//     await loadInitialData();
-//     pyodide.runPython(`
-// # Import required libraries
-// import matplotlib.pyplot as plt
-// import matplotlib.colors as mcolors
-
-// stabilityMapPlot = ''
-
-// # Create a directed graph
-// G = nx.DiGraph()
-// for (node1, node2), weight, polarity, delay, certainty in zip(edges, edge_weights, edge_polarities, edge_delays, edge_certainties):
-//     G.add_edge(node1, node2, weight=weight, polarity=polarity, delay=delay, certainty=certainty)
-
-// # Function to classify node behavior
-// def classify_behavior(time_series_data):
-//     """Classify the behavior of each node's time series into 'Over-damped', 'Optimal', or 'Unconstrained'."""
-//     classifications = {}
-//     for node, series in time_series_data.items():
-//         # Convert the series to a DataFrame for ease of processing
-//         df = pd.DataFrame(series, columns=[node])
-
-//         # Calculate rolling z-score
-//         rolling_z_score = calculate_rolling_z_score(df[node])
-
-//         # Calculate average rolling z-score
-//         avg_z_score = rolling_z_score.abs().mean()
-
-
-//         # Classification logic with refined criteria
-//         if avg_z_score > 1.2:
-//             classifications[node] = "Unconstrained"
-//         elif 0.5 < avg_z_score < 1.2:
-//             classifications[node] = "Optimal"
-//         else:
-//             classifications[node] = "Over-damped"
-
-
-//     return classifications
-
-// # Parameters for the stability map
-// decay_factors = np.linspace(0.1, 1.0, 20)
-// delays = np.linspace(1, 50, 20)
-// stability_matrix = np.zeros((len(delays), len(decay_factors)))
-
-// # Simulate signal transfer and build stability matrix
-// for i, delay in enumerate(delays):
-//     for j, decay in enumerate(decay_factors):
-//         node_values = {node: 0 for node in G.nodes()}
-//         for _ in range(100):  # Reduced iterations for performance
-//             for edge in G.edges(data=True):
-//                 source, target, data = edge
-//                 signal = node_values[source] * decay * data["weight"]
-//                 node_values[target] += signal
-//         classifications = [classify_behavior([node_values[node] for _ in range(100)]) for node in G.nodes()]
-//         if "Unconstrained" in classifications:
-//             stability_matrix[i, j] = 1.0
-//         elif "Optimal" in classifications:
-//             stability_matrix[i, j] = 0.6
-//         else:
-//             stability_matrix[i, j] = 0.2
-
-// # Plot the stability map
-// fig, ax = plt.subplots(figsize=(10, 6))
-// cmap = plt.cm.coolwarm
-// norm = mcolors.Normalize(vmin=0, vmax=1)
-// cax = ax.imshow(stability_matrix, cmap=cmap, norm=norm, extent=[0.1, 1.5, 1, 50], origin="lower", aspect="auto")
-// ax.set_xlabel("Decay Parameter")
-// ax.set_ylabel("Delay Parameter")
-// ax.set_title("Parameter Space Stability Map")
-// cbar = fig.colorbar(cax, ax=ax)
-// cbar.set_label("Stability Measure")
-// cbar.ax.set_yticklabels(["Over-damped", "Optimal", "Unconstrained"])
-// plt.tight_layout()
-
-// # Save the plot as an image
-// plt.savefig("stability_map.png")
-// stabilityMapPlot = "stability_map.png"
-//     `);
-
-//     const stabilityMapPlot = pyodide.globals.get('stabilityMapPlot');
-//     const plotsContainer = document.getElementById('stabilityMapPlot');
-//     plotsContainer.innerHTML = '';
-
-//     // Retrieve and display the image
-//     let file = pyodide.FS.readFile(stabilityMapPlot, { encoding: 'binary' });
-//     let blob = new Blob([file], { type: 'image/png' });
-//     let url = URL.createObjectURL(blob);
-
-//     const img = document.createElement('img');
-//     img.src = url;
-//     plotsContainer.appendChild(img);
-// 	hideLoadingSpinner();
-//     openPage('StabilityMap');
-// };
-
-document.getElementById('stabilityMapTab').onclick = async () => {
+document.getElementById("stabilityMapTab").onclick = async () => {
     showLoadingSpinner();
     await loadInitialData();
 
-    // Generate Decay vs Delay plot
-    pyodide.runPython(`
-# Import required libraries
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
+    try {
+		// Retrieve values from input fields
+		const decayMin = parseFloat(document.getElementById("decayMin").value);
+		const decayMax = parseFloat(document.getElementById("decayMax").value);
+		const decaySteps = parseInt(document.getElementById("decaySteps").value);
 
-stabilityMapPlot = ''
+		const delayMin = parseFloat(document.getElementById("delayMin").value);
+		const delayMax = parseFloat(document.getElementById("delayMax").value);
+		const delaySteps = parseInt(document.getElementById("delaySteps").value);
 
-# Create a directed graph
-G = nx.DiGraph()
-for (node1, node2), weight, polarity, delay, certainty in zip(edges, edge_weights, edge_polarities, edge_delays, edge_certainties):
-    G.add_edge(node1, node2, weight=weight, polarity=polarity, delay=delay, certainty=certainty)
+		// Construct ranges
+		const decayRange = [decayMin, decayMax, decaySteps];
+		const delayRange = [delayMin, delayMax, delaySteps];
+        // const decayRange = [0.1, 1.0, 20]; // Default range for decay factors
+        // const delayRange = [1, 50, 20]; // Default range for delays
+		// Assuming you have a way to determine pass nodes in your application
+		const passnodeList = loopy.model.nodes
+		.filter(node => node.isPassNode)
+		.map(node => node.label);
 
-# Function to classify node behavior
+		// const node_floors = loopy.model.nodes.reduce((acc, node) => {
+		// 	acc[node.label] = node.floor; // Use the node's label as the key and floor as the value
+		// 	return acc;
+		// }, {});
+
+		// const node_ceilings = loopy.model.nodes.reduce((acc, node) => {
+		// 	acc[node.label] = node.ceiling; // Use the node's label as the key and floor as the value
+		// 	return acc;
+		// }, {});
+
+		const node_floors = loopy.model.nodes.reduce((acc, node) => {
+			acc[node.label] = node.floor !== undefined ? node.floor : -Infinity; // Default to -Infinity if undefined
+			return acc;
+		}, {});
+		
+		const node_ceilings = loopy.model.nodes.reduce((acc, node) => {
+			acc[node.label] = node.ceiling !== undefined ? node.ceiling : Infinity; // Default to Infinity if undefined
+			return acc;
+		}, {});
+
+
+        // Pass decayRange and delayRange to Python
+        pyodide.globals.set("decayRange", decayRange);
+        pyodide.globals.set("delayRange", delayRange);
+		pyodide.globals.set("passnodeList", passnodeList);
+
+		pyodide.globals.set("node_floors", pyodide.toPy(node_floors));
+		pyodide.globals.set("node_ceilings", pyodide.toPy(node_ceilings));
+        await pyodide.runPythonAsync(`
+
+def blended_uniform_normal(mean, low, high, certainty, size=1000):
+    max_variance = 1  # Set maximum variance for when certainty is 0
+    variance = (1 - certainty) * max_variance  # Variance decreases as certainty increases
+
+    samples = []
+
+    # Continue generating until we get the required number of valid samples
+    while len(samples) < size:
+        # Generate a mixture of uniform and normal samples
+        uniform_sample = np.random.uniform(low=low, high=high)
+        normal_sample = np.random.normal(loc=mean, scale=np.sqrt(variance))
+
+        # Blend the two samples based on certainty
+        blended_sample = (1 - certainty) * uniform_sample + certainty * normal_sample
+
+        # Accept the sample only if it is within the specified range
+        if low <= blended_sample <= high:
+          samples.append(blended_sample)
+
+    return samples
+
+# Define the classification function
+def calculate_rolling_z_score(time_series, window=10):
+    """Calculate the rolling z-score for a time series."""
+    rolling_mean = time_series.rolling(window=window).mean()
+    rolling_std = time_series.rolling(window=window).std()
+    z_score = (time_series - rolling_mean) / rolling_std
+    return z_score
+
 def classify_behavior(time_series_data):
     """Classify the behavior of each node's time series into 'Over-damped', 'Optimal', or 'Unconstrained'."""
     classifications = {}
@@ -1108,170 +1074,462 @@ def classify_behavior(time_series_data):
         # Calculate rolling z-score
         rolling_z_score = calculate_rolling_z_score(df[node])
 
+        # Check for periodic peaks
+        peaks, _ = find_peaks(df[node], height=0.05, distance=10)  # Adding a minimum distance for peak detection
+        num_peaks = len(peaks)
+        
         # Calculate average rolling z-score
         avg_z_score = rolling_z_score.abs().mean()
 
-
         # Classification logic with refined criteria
-        if avg_z_score > 1.2:
+        if num_peaks > 8 and avg_z_score > 1.2:
             classifications[node] = "Unconstrained"
-        elif 0.5 < avg_z_score < 1.2:
+        elif 0.5 < avg_z_score < 1.2 and 3 <= num_peaks <= 8:
             classifications[node] = "Optimal"
         else:
             classifications[node] = "Over-damped"
-
-
+    
     return classifications
-	
-def generate_decay_vs_delay():
-    decay_factors = np.linspace(0.1, 1.0, 20)
-    delays = np.linspace(1, 50, 20)
-    stability_matrix = np.zeros((len(delays), len(decay_factors)))
 
-    for i, delay in enumerate(delays):
-        for j, decay in enumerate(decay_factors):
-            # Reset the signal_map and time_series_data for each simulation
-            signal_map = {}
-            time_series_data = {node: [] for node in graph.nodes}
-            delay_buffers = {(edge[0], edge[1]): [0] * graph.edges[edge]['delay'] for edge in graph.edges}  # Reset delay buffers
-            
-            # Run the simulation with the current parameters
-            time_series_data = simulate_signal_transfer(iterations=200, decay_factor=decay, delay=int(delay), use_delay=True, node_retention=None)
-            
-            # Classify the behavior of each node in the graph
-            classification = classify_behavior(time_series_data)
-            
-            # Determine overall classification based on node classifications
-            if 'Unconstrained' in classification.values():
-                stability_matrix[i, j] = 1.0  # Unconstrained
-            elif 'Optimal' in classification.values():
-                stability_matrix[i, j] = 0.6  # Optimal
+
+def stochastic_value_selection(mean, low, high, certainty):
+  return blended_uniform_normal(mean, low, high, certainty, 1)[0]
+
+# Create a directed graph using NetworkX
+graph = nx.DiGraph()
+
+# Add edges along with their weights, polarities, and delays
+for i, (source, target) in enumerate(edges):
+    graph.add_edge(source, target, weight=edge_weights[i], polarity=edge_polarities[i], delay=edge_delays[i], certainty=edge_certainties[i])
+
+# Initialize signal_map with current node values
+signal_map = {}
+time_series_data = {node: [] for node in graph.nodes}
+passnodes = set(passnodeList)
+
+# Initialize delay buffers for each edge
+delay_buffers = {(edge[0], edge[1]): [0] * graph.edges[edge]['delay'] for edge in graph.edges}
+
+def initialize_signal_map():
+    """Initialize the signal map with initial values for each node."""
+    for node in graph.nodes:
+        if node in passnodes:
+            signal_map[node] = 0.0
+        else:
+            signal_map[node] = random.uniform(0, 1)
+    return signal_map
+
+def accumulate_signals(decay_factor=0.9, global_delay=None, use_delay=True, node_retention=None):
+    """Update the signal map based on incoming signals from connected nodes, with optional system-wide delay."""
+    new_signal_map = defaultdict(float)
+    previous_signal_map = signal_map.copy()  # Store previous values for consistency
+
+    for edge in graph.edges(data=True):
+        predecessor = edge[0]
+        node = edge[1]
+        edge_data = edge[2]
+        weight = edge_data['weight']
+        polarity = edge_data['polarity']
+        certainty = edge_data['certainty']
+
+        # Set delay based on global or edge-specific delay, only if delay is being used
+        delay = global_delay if global_delay is not None else edge_data['delay']
+
+        if use_delay:
+            # Ensure delay buffer matches the current delay value
+            if len(delay_buffers[(predecessor, node)]) != delay:
+                delay_buffers[(predecessor, node)] = [0] * delay
+
+            # Pop the oldest signal from the delay buffer
+            delayed_signal = delay_buffers[(predecessor, node)].pop(0)
+            if polarity == '+':
+                polarity = 1.0
             else:
-                stability_matrix[i, j] = 0.2  # Over-damped
+                polarity = -1.0
 
-    plt.figure()
-    cmap = plt.cm.coolwarm
-    norm = mcolors.Normalize(vmin=0, vmax=1)
-    plt.imshow(stability_matrix, cmap=cmap, norm=norm, extent=[0.1, 1.0, 1, 50], origin="lower", aspect="auto")
-    plt.xlabel("Decay Parameter")
-    plt.ylabel("Delay Parameter")
-    plt.title("Decay vs Delay")
-    plt.colorbar(label="Stability Measure")
-    plt.savefig("decay_vs_delay.png")
-    return "decay_vs_delay.png"
+            # Calculate the incoming signal with delay
+            incoming_signal = delayed_signal * decay_factor * weight * stochastic_value_selection(polarity, -1, 1, certainty)
+            # Push the current signal to the delay buffer for the next cycle
+            delay_buffers[(predecessor, node)].append(previous_signal_map[predecessor])
+        else:
+            # Skip delay and use the current signal immediately
+            incoming_signal = previous_signal_map[predecessor] * decay_factor * weight * stochastic_value_selection(polarity, -1, 1, certainty)
 
-decay_vs_delay_plot = generate_decay_vs_delay()
-    `);
 
-    const decayVsDelayPlot = pyodide.globals.get('decay_vs_delay_plot');
-    const plotsContainer = document.getElementById('stabilityMapPlot');
-    plotsContainer.innerHTML = '';
+        # Accumulate the incoming signal to the target node
+        new_signal_map[node] += incoming_signal
 
-    let file = pyodide.FS.readFile(decayVsDelayPlot, { encoding: 'binary' });
-    let blob = new Blob([file], { type: 'image/png' });
-    let url = URL.createObjectURL(blob);
+    # Update each node's value in signal_map after all calculations
+    for node in graph.nodes():
+        floor_value = node_floors.get(node, float('-inf'))
+        ciel_value = node_ceilings.get(node, float('inf'))
 
-    const img1 = document.createElement('img');
-    img1.src = url;
-    plotsContainer.appendChild(img1);
+        # Ensure floor_value and ciel_value are valid numbers
+        floor_value = floor_value if floor_value is not None else float('-inf')
+        ciel_value = ciel_value if ciel_value is not None else float('inf')
+		
+        previous_value = float(previous_signal_map[node])
+        new_value = float(new_signal_map[node])
+        floor_value = float(floor_value)
+        ciel_value = float(ciel_value)
 
-    // Generate Decay vs Node Retention plot
-    pyodide.runPython(`
-def generate_decay_vs_retention():
-    decay_factors = np.linspace(0.1, 1.0, 20)
-    node_retentions = np.linspace(0.1, 0.5, 20)
-    stability_matrix = np.zeros((len(node_retentions), len(decay_factors)))
-
-    for i, retention in enumerate(node_retentions):
-        for j, decay in enumerate(decay_factors):
-            node_values = {node: 0 for node in G.nodes()}
-            for _ in range(100):
-                for edge in G.edges(data=True):
-                    source, target, data = edge
-                    signal = node_values[source
-                    ] * decay * retention * data["weight"]
-                    node_values[target] += signal
-            classifications = [classify_behavior([node_values[node] for _ in range(100)]) for node in G.nodes()]
-            if "Unconstrained" in classifications:
-                stability_matrix[i, j] = 1.0
-            elif "Optimal" in classifications:
-                stability_matrix[i, j] = 0.6
+        if node in passnodes:
+            # For passnodes, the new signal is solely based on incoming signals
+            signal_map[node] = max(floor_value, min(new_value, ciel_value))
+        else:
+            if not node_retention:
+                signal_map[node] = max(floor_value, min(previous_value * decay_factor + new_value, ciel_value))
             else:
-                stability_matrix[i, j] = 0.2
+                signal_map[node] = max(floor_value, min(previous_value * node_retention + new_value, ciel_value))
 
-    plt.figure()
-    cmap = plt.cm.coolwarm
-    norm = mcolors.Normalize(vmin=0, vmax=1)
-    plt.imshow(stability_matrix, cmap=cmap, norm=norm, extent=[0.1, 1.0, 0.1, 0.5], origin="lower", aspect="auto")
-    plt.xlabel("Decay Parameter")
-    plt.ylabel("Node Retention Parameter")
-    plt.title("Decay vs Node Retention")
-    plt.colorbar(label="Stability Measure")
-    plt.savefig("decay_vs_retention.png")
-    return "decay_vs_retention.png"
+    print("passes step 5")
 
-decay_vs_retention_plot = generate_decay_vs_retention()
-    `);
+    return signal_map
 
-    const decayVsRetentionPlot = pyodide.globals.get('decay_vs_retention_plot');
-    file = pyodide.FS.readFile(decayVsRetentionPlot, { encoding: 'binary' });
-    blob = new Blob([file], { type: 'image/png' });
-    url = URL.createObjectURL(blob);
+def simulate_signal_transfer(iterations=100, decay_factor=0.9, delay=None, use_delay=True, node_retention=None):
+    """Simulate signal transfer for a given number of iterations, with optional global delay."""
+    initialize_signal_map()
+    for _ in range(iterations):
+        accumulate_signals(decay_factor, global_delay=delay, use_delay=use_delay, node_retention=node_retention)
+        for node in graph.nodes():
+            time_series_data[node].append(signal_map[node])
 
-    const img2 = document.createElement('img');
-    img2.src = url;
-    plotsContainer.appendChild(img2);
+    return time_series_data
 
-    // Generate Delay vs Node Retention plot
-    pyodide.runPython(`
-def generate_delay_vs_retention():
-    delays = np.linspace(1, 50, 20)
-    node_retentions = np.linspace(0.1, 0.5, 20)
-    stability_matrix = np.zeros((len(node_retentions), len(delays)))
+# Retrieve decay and delay ranges from JavaScript
+decay_min, decay_max, decay_steps = decayRange
+delay_min, delay_max, delay_steps = delayRange
 
-    for i, retention in enumerate(node_retentions):
-        for j, delay in enumerate(delays):
-            node_values = {node: 0 for node in G.nodes()}
-            for _ in range(100):
-                for edge in G.edges(data=True):
-                    source, target, data = edge
-                    signal = node_values[source] * retention * data["weight"]
-                    node_values[target] += signal
-            classifications = [classify_behavior([node_values[node] for _ in range(100)]) for node in G.nodes()]
-            if "Unconstrained" in classifications:
-                stability_matrix[i, j] = 1.0
-            elif "Optimal" in classifications:
-                stability_matrix[i, j] = 0.6
-            else:
-                stability_matrix[i, j] = 0.2
+# Generate ranges for decay factors and delays
+decay_factors = np.linspace(decay_min, decay_max, int(decay_steps))
+delays = np.linspace(delay_min, delay_max, int(delay_steps))
 
-    plt.figure()
-    cmap = plt.cm.coolwarm
-    norm = mcolors.Normalize(vmin=0, vmax=1)
-    plt.imshow(stability_matrix, cmap=cmap, norm=norm, extent=[1, 50, 0.1, 0.5], origin="lower", aspect="auto")
-    plt.xlabel("Delay Parameter")
-    plt.ylabel("Node Retention Parameter")
-    plt.title("Delay vs Node Retention")
-    plt.colorbar(label="Stability Measure")
-    plt.savefig("delay_vs_retention.png")
-    return "delay_vs_retention.png"
+# Initialize stability matrix
+stability_matrix = np.zeros((len(delays), len(decay_factors)))
 
-delay_vs_retention_plot = generate_delay_vs_retention()
-    `);
+# Main simulation loop
+for i, delay in enumerate(delays):
+    for j, decay in enumerate(decay_factors):
+        # Simulate signal transfer for each combination of decay and delay
+        signal_map = {}
+        time_series_data = {node: [] for node in graph.nodes}
+        delay_buffers = {(edge[0], edge[1]): [0] * graph.edges[edge]['delay'] for edge in graph.edges} 
+        time_series_data = simulate_signal_transfer(iterations=100, decay_factor=decay, delay=int(delay), use_delay=True)
+        
+        # Classify node behavior
+        classification = classify_behavior(time_series_data)
 
-    const delayVsRetentionPlot = pyodide.globals.get('delay_vs_retention_plot');
-    file = pyodide.FS.readFile(delayVsRetentionPlot, { encoding: 'binary' });
-    blob = new Blob([file], { type: 'image/png' });
-    url = URL.createObjectURL(blob);
+        # Update stability matrix
+        if "Unconstrained" in classification.values():
+            stability_matrix[i, j] = 1.0
+        elif "Optimal" in classification.values():
+            stability_matrix[i, j] = 0.6
+        else:
+            stability_matrix[i, j] = 0.2
 
-    const img3 = document.createElement('img');
-    img3.src = url;
-    plotsContainer.appendChild(img3);
+# Plot stability map
+plt.figure(figsize=(10, 6))
+cmap = plt.cm.coolwarm
+norm = mcolors.Normalize(vmin=0, vmax=1)
+plt.imshow(stability_matrix, cmap=cmap, norm=norm, extent=[decay_min, decay_max, delay_min, delay_max], origin="lower", aspect="auto")
+plt.colorbar(label="Stability Measure")
+plt.xlabel("Decay Parameter")
+plt.ylabel("Delay Parameter")
+plt.title("Stability Map")
+plt.savefig("stability_map.png")
+        `);
 
-    hideLoadingSpinner();
-    openPage('StabilityMap');
+        // Retrieve and display plot
+        const plotPath = "stability_map.png";
+        const file = pyodide.FS.readFile(plotPath, { encoding: "binary" });
+        const blob = new Blob([file], { type: "image/png" });
+        const url = URL.createObjectURL(blob);
+
+        const img = document.createElement("img");
+        img.src = url;
+
+        const plotsContainer = document.getElementById("stabilityMapPlot");
+        plotsContainer.innerHTML = ""; // Clear existing content
+        plotsContainer.appendChild(img);
+
+    } catch (error) {
+        console.error("Error generating stability map:", error);
+        alert("An error occurred. Check console for details.");
+    } finally {
+        hideLoadingSpinner();
+        openPage("StabilityMap");
+    }
 };
 
+
+
+
+document.getElementById("updateStabilityMap").onclick = async () => {
+    showLoadingSpinner();
+    await loadInitialData();
+
+    try {
+        // Retrieve values from input fields
+        const decayMin = parseFloat(document.getElementById("decayMin").value);
+        const decayMax = parseFloat(document.getElementById("decayMax").value);
+        const decaySteps = parseInt(document.getElementById("decaySteps").value);
+
+        const delayMin = parseFloat(document.getElementById("delayMin").value);
+        const delayMax = parseFloat(document.getElementById("delayMax").value);
+        const delaySteps = parseInt(document.getElementById("delaySteps").value);
+
+        // Construct ranges
+        const decayRange = [decayMin, decayMax, decaySteps];
+        const delayRange = [delayMin, delayMax, delaySteps];
+
+        // Assuming you have a way to determine pass nodes in your application
+        const passnodeList = loopy.model.nodes
+            .filter(node => node.isPassNode)
+            .map(node => node.label);
+
+        const node_floors = loopy.model.nodes.reduce((acc, node) => {
+            acc[node.label] = node.floor !== undefined ? node.floor : -Infinity;
+            return acc;
+        }, {});
+
+        const node_ceilings = loopy.model.nodes.reduce((acc, node) => {
+            acc[node.label] = node.ceiling !== undefined ? node.ceiling : Infinity;
+            return acc;
+        }, {});
+
+        // Pass ranges and other parameters to Python
+        pyodide.globals.set("decayRange", decayRange);
+        pyodide.globals.set("delayRange", delayRange);
+        pyodide.globals.set("passnodeList", passnodeList);
+        pyodide.globals.set("node_floors", pyodide.toPy(node_floors));
+        pyodide.globals.set("node_ceilings", pyodide.toPy(node_ceilings));
+
+        // Run the Python code (as in your original script)
+        await pyodide.runPythonAsync(`
+		def blended_uniform_normal(mean, low, high, certainty, size=1000):
+			max_variance = 1  # Set maximum variance for when certainty is 0
+			variance = (1 - certainty) * max_variance  # Variance decreases as certainty increases
+			
+			samples = []
+			
+			# Continue generating until we get the required number of valid samples
+			while len(samples) < size:
+				# Generate a mixture of uniform and normal samples
+				uniform_sample = np.random.uniform(low=low, high=high)
+				normal_sample = np.random.normal(loc=mean, scale=np.sqrt(variance))
+			
+				# Blend the two samples based on certainty
+				blended_sample = (1 - certainty) * uniform_sample + certainty * normal_sample
+			
+				# Accept the sample only if it is within the specified range
+				if low <= blended_sample <= high:
+				  samples.append(blended_sample)
+			
+			return samples
+	
+		# Define the classification function
+		def calculate_rolling_z_score(time_series, window=10):
+			"""Calculate the rolling z-score for a time series."""
+			rolling_mean = time_series.rolling(window=window).mean()
+			rolling_std = time_series.rolling(window=window).std()
+			z_score = (time_series - rolling_mean) / rolling_std
+			return z_score
+		
+		def classify_behavior(time_series_data):
+			"""Classify the behavior of each node's time series into 'Over-damped', 'Optimal', or 'Unconstrained'."""
+			classifications = {}
+			for node, series in time_series_data.items():
+				# Convert the series to a DataFrame for ease of processing
+				df = pd.DataFrame(series, columns=[node])
+		
+				# Calculate rolling z-score
+				rolling_z_score = calculate_rolling_z_score(df[node])
+		
+				# Check for periodic peaks
+				peaks, _ = find_peaks(df[node], height=0.05, distance=10)  # Adding a minimum distance for peak detection
+				num_peaks = len(peaks)
+				
+				# Calculate average rolling z-score
+				avg_z_score = rolling_z_score.abs().mean()
+		
+				# Classification logic with refined criteria
+				if num_peaks > 8 and avg_z_score > 1.2:
+					classifications[node] = "Unconstrained"
+				elif 0.5 < avg_z_score < 1.2 and 3 <= num_peaks <= 8:
+					classifications[node] = "Optimal"
+				else:
+					classifications[node] = "Over-damped"
+			
+			return classifications
+		
+		
+		def stochastic_value_selection(mean, low, high, certainty):
+		  return blended_uniform_normal(mean, low, high, certainty, 1)[0]
+		
+		# Create a directed graph using NetworkX
+		graph = nx.DiGraph()
+		
+		# Add edges along with their weights, polarities, and delays
+		for i, (source, target) in enumerate(edges):
+			graph.add_edge(source, target, weight=edge_weights[i], polarity=edge_polarities[i], delay=edge_delays[i], certainty=edge_certainties[i])
+		
+		# Initialize signal_map with current node values
+		signal_map = {}
+		time_series_data = {node: [] for node in graph.nodes}
+		passnodes = set(passnodeList)
+		
+		# Initialize delay buffers for each edge
+		delay_buffers = {(edge[0], edge[1]): [0] * graph.edges[edge]['delay'] for edge in graph.edges}
+		
+		def initialize_signal_map():
+			"""Initialize the signal map with initial values for each node."""
+			for node in graph.nodes:
+				if node in passnodes:
+					signal_map[node] = 0.0
+				else:
+					signal_map[node] = random.uniform(0, 1)
+			return signal_map
+		
+		def accumulate_signals(decay_factor=0.9, global_delay=None, use_delay=True, node_retention=None):
+			"""Update the signal map based on incoming signals from connected nodes, with optional system-wide delay."""
+			new_signal_map = defaultdict(float)
+			previous_signal_map = signal_map.copy()  # Store previous values for consistency
+		
+			for edge in graph.edges(data=True):
+				predecessor = edge[0]
+				node = edge[1]
+				edge_data = edge[2]
+				weight = edge_data['weight']
+				polarity = edge_data['polarity']
+				certainty = edge_data['certainty']
+		
+				# Set delay based on global or edge-specific delay, only if delay is being used
+				delay = global_delay if global_delay is not None else edge_data['delay']
+		
+				if use_delay:
+					# Ensure delay buffer matches the current delay value
+					if len(delay_buffers[(predecessor, node)]) != delay:
+						delay_buffers[(predecessor, node)] = [0] * delay
+		
+					# Pop the oldest signal from the delay buffer
+					delayed_signal = delay_buffers[(predecessor, node)].pop(0)
+					if polarity == '+':
+						polarity = 1.0
+					else:
+						polarity = -1.0
+		
+					# Calculate the incoming signal with delay
+					incoming_signal = delayed_signal * decay_factor * weight * stochastic_value_selection(polarity, -1, 1, certainty)
+					# Push the current signal to the delay buffer for the next cycle
+					delay_buffers[(predecessor, node)].append(previous_signal_map[predecessor])
+				else:
+					# Skip delay and use the current signal immediately
+					incoming_signal = previous_signal_map[predecessor] * decay_factor * weight * stochastic_value_selection(polarity, -1, 1, certainty)
+		
+		
+				# Accumulate the incoming signal to the target node
+				new_signal_map[node] += incoming_signal
+		
+			# Update each node's value in signal_map after all calculations
+			for node in graph.nodes():
+				floor_value = node_floors.get(node, float('-inf'))
+				ciel_value = node_ceilings.get(node, float('inf'))
+		
+				# Ensure floor_value and ciel_value are valid numbers
+				floor_value = floor_value if floor_value is not None else float('-inf')
+				ciel_value = ciel_value if ciel_value is not None else float('inf')
+				
+				previous_value = float(previous_signal_map[node])
+				new_value = float(new_signal_map[node])
+				floor_value = float(floor_value)
+				ciel_value = float(ciel_value)
+		
+				if node in passnodes:
+					# For passnodes, the new signal is solely based on incoming signals
+					signal_map[node] = max(floor_value, min(new_value, ciel_value))
+				else:
+					if not node_retention:
+						signal_map[node] = max(floor_value, min(previous_value * decay_factor + new_value, ciel_value))
+					else:
+						signal_map[node] = max(floor_value, min(previous_value * node_retention + new_value, ciel_value))
+		
+			print("passes step 5")
+		
+			return signal_map
+		
+		def simulate_signal_transfer(iterations=100, decay_factor=0.9, delay=None, use_delay=True, node_retention=None):
+			"""Simulate signal transfer for a given number of iterations, with optional global delay."""
+			initialize_signal_map()
+			for _ in range(iterations):
+				accumulate_signals(decay_factor, global_delay=delay, use_delay=use_delay, node_retention=node_retention)
+				for node in graph.nodes():
+					time_series_data[node].append(signal_map[node])
+		
+			return time_series_data
+		
+		# Retrieve decay and delay ranges from JavaScript
+		decay_min, decay_max, decay_steps = decayRange
+		delay_min, delay_max, delay_steps = delayRange
+		
+		# Generate ranges for decay factors and delays
+		decay_factors = np.linspace(decay_min, decay_max, int(decay_steps))
+		delays = np.linspace(delay_min, delay_max, int(delay_steps))
+		
+		# Initialize stability matrix
+		stability_matrix = np.zeros((len(delays), len(decay_factors)))
+		
+		# Main simulation loop
+		for i, delay in enumerate(delays):
+			for j, decay in enumerate(decay_factors):
+				# Simulate signal transfer for each combination of decay and delay
+				signal_map = {}
+				time_series_data = {node: [] for node in graph.nodes}
+				delay_buffers = {(edge[0], edge[1]): [0] * graph.edges[edge]['delay'] for edge in graph.edges} 
+				time_series_data = simulate_signal_transfer(iterations=100, decay_factor=decay, delay=int(delay), use_delay=True)
+				
+				# Classify node behavior
+				classification = classify_behavior(time_series_data)
+		
+				# Update stability matrix
+				if "Unconstrained" in classification.values():
+					stability_matrix[i, j] = 1.0
+				elif "Optimal" in classification.values():
+					stability_matrix[i, j] = 0.6
+				else:
+					stability_matrix[i, j] = 0.2
+		
+		# Plot stability map
+		plt.figure(figsize=(10, 6))
+		cmap = plt.cm.coolwarm
+		norm = mcolors.Normalize(vmin=0, vmax=1)
+		plt.imshow(stability_matrix, cmap=cmap, norm=norm, extent=[decay_min, decay_max, delay_min, delay_max], origin="lower", aspect="auto")
+		plt.colorbar(label="Stability Measure")
+		plt.xlabel("Decay Parameter")
+		plt.ylabel("Delay Parameter")
+		plt.title("Stability Map")
+		plt.savefig("stability_map.png")
+`); // Keep your Python code logic here.
+        // Retrieve and display plot
+        const plotPath = "stability_map.png";
+        const file = pyodide.FS.readFile(plotPath, { encoding: "binary" });
+        const blob = new Blob([file], { type: "image/png" });
+        const url = URL.createObjectURL(blob);
+
+        const img = document.createElement("img");
+        img.src = url;
+
+        const plotsContainer = document.getElementById("stabilityMapPlot");
+        plotsContainer.innerHTML = ""; // Clear existing content
+        plotsContainer.appendChild(img);
+
+    } catch (error) {
+        console.error("Error generating stability map:", error);
+        alert("An error occurred. Check console for details.");
+    } finally {
+        hideLoadingSpinner();
+        openPage("StabilityMap");
+    }
+};
 
 
 }
