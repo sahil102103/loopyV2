@@ -984,11 +984,11 @@ correlationPlot = "corr.png"
 document.getElementById("stabilityMapTab").onclick = async () => {
     showLoadingSpinner();
     await loadInitialData();
-	function updateProgressBar(percentage) {
-		const progressBar = document.getElementById('progressBar');
-		progressBar.style.width = percentage + '%';
-		progressBar.textContent = percentage + '%';
-	  }
+	// function updateProgressBar(percentage) {
+	// 	const progressBar = document.getElementById('progressBar');
+	// 	progressBar.style.width = percentage + '%';
+	// 	progressBar.textContent = percentage + '%';
+	//   }
 
     try {
 		// Retrieve values from input fields
@@ -1029,244 +1029,210 @@ document.getElementById("stabilityMapTab").onclick = async () => {
 		pyodide.globals.set("node_floors", pyodide.toPy(node_floors));
 		pyodide.globals.set("node_ceilings", pyodide.toPy(node_ceilings));
         await pyodide.runPythonAsync(`
-import js
-import asyncio
+			def blended_uniform_normal(mean, low, high, certainty, size=1000):
+				max_variance = 1  # Set maximum variance for when certainty is 0
+				variance = (1 - certainty) * max_variance  # Variance decreases as certainty increases
+			
+				samples = []
+			
+				# Continue generating until we get the required number of valid samples
+				while len(samples) < size:
+					# Generate a mixture of uniform and normal samples
+					uniform_sample = np.random.uniform(low=low, high=high)
+					normal_sample = np.random.normal(loc=mean, scale=np.sqrt(variance))
+			
+					# Blend the two samples based on certainty
+					blended_sample = (1 - certainty) * uniform_sample + certainty * normal_sample
+			
+					# Accept the sample only if it is within the specified range
+					if low <= blended_sample <= high:
+					  samples.append(blended_sample)
+			
+				return samples
+			
+			# Define the classification function
+			def calculate_rolling_z_score(time_series, window=10):
+				"""Calculate the rolling z-score for a time series."""
+				rolling_mean = time_series.rolling(window=window).mean()
+				rolling_std = time_series.rolling(window=window).std()
+				z_score = (time_series - rolling_mean) / rolling_std
+				return z_score
+			
+			def classify_behavior(time_series_data):
+				"""Classify the behavior of each node's time series into 'Over-damped', 'Optimal', or 'Unconstrained'."""
+				classifications = {}
+				for node, series in time_series_data.items():
+					# Convert the series to a DataFrame for ease of processing
+					df = pd.DataFrame(series, columns=[node])
+			
+					# Calculate rolling z-score
+					rolling_z_score = calculate_rolling_z_score(df[node])
+			
+					# Check for periodic peaks
+					peaks, _ = find_peaks(df[node], height=0.05, distance=10)  # Adding a minimum distance for peak detection
+					num_peaks = len(peaks)
+					
+					# Calculate average rolling z-score
+					avg_z_score = rolling_z_score.abs().mean()
+			
+					# Classification logic with refined criteria
+					if num_peaks > 8 and avg_z_score > 1.2:
+						classifications[node] = "Unconstrained"
+					elif 0.5 < avg_z_score < 1.2 and 3 <= num_peaks <= 8:
+						classifications[node] = "Optimal"
+					else:
+						classifications[node] = "Over-damped"
+				
+				return classifications
+			
+			
+			def stochastic_value_selection(mean, low, high, certainty):
+			  return blended_uniform_normal(mean, low, high, certainty, 1)[0]
+			
+			# Create a directed graph using NetworkX
+			graph = nx.DiGraph()
+			
+			# Add edges along with their weights, polarities, and delays
+			for i, (source, target) in enumerate(edges):
+				graph.add_edge(source, target, weight=edge_weights[i], polarity=edge_polarities[i], delay=edge_delays[i], certainty=edge_certainties[i])
+			
+			# Initialize signal_map with current node values
+			signal_map = {}
+			time_series_data = {node: [] for node in graph.nodes}
+			passnodes = set(passnodeList)
+			
+			# Initialize delay buffers for each edge
+			delay_buffers = {(edge[0], edge[1]): [0] * graph.edges[edge]['delay'] for edge in graph.edges}
+			
+			def initialize_signal_map():
+				"""Initialize the signal map with initial values for each node."""
+				for node in graph.nodes:
+					if node in passnodes:
+						signal_map[node] = 0.0
+					else:
+						signal_map[node] = random.uniform(0, 1)
+				return signal_map
+			
+			def accumulate_signals(decay_factor=0.9, global_delay=None, use_delay=True, node_retention=None):
+				"""Update the signal map based on incoming signals from connected nodes, with optional system-wide delay."""
+				new_signal_map = defaultdict(float)
+				previous_signal_map = signal_map.copy()  # Store previous values for consistency
+			
+				for edge in graph.edges(data=True):
+					predecessor = edge[0]
+					node = edge[1]
+					edge_data = edge[2]
+					weight = edge_data['weight']
+					polarity = edge_data['polarity']
+					certainty = edge_data['certainty']
+			
+					# Set delay based on global or edge-specific delay, only if delay is being used
+					delay = global_delay if global_delay is not None else edge_data['delay']
+			
+					if use_delay:
+						# Ensure delay buffer matches the current delay value
+						if len(delay_buffers[(predecessor, node)]) != delay:
+							delay_buffers[(predecessor, node)] = [0] * delay
+			
+						# Pop the oldest signal from the delay buffer
+						delayed_signal = delay_buffers[(predecessor, node)].pop(0)
+						if polarity == '+':
+							polarity = 1.0
+						else:
+							polarity = -1.0
+			
+						# Calculate the incoming signal with delay
+						incoming_signal = delayed_signal * decay_factor * weight * stochastic_value_selection(polarity, -1, 1, certainty)
+						# Push the current signal to the delay buffer for the next cycle
+						delay_buffers[(predecessor, node)].append(previous_signal_map[predecessor])
+					else:
+						# Skip delay and use the current signal immediately
+						incoming_signal = previous_signal_map[predecessor] * decay_factor * weight * stochastic_value_selection(polarity, -1, 1, certainty)
+			
+			
+					# Accumulate the incoming signal to the target node
+					new_signal_map[node] += incoming_signal
+			
+				# Update each node's value in signal_map after all calculations
+				for node in graph.nodes():
+					floor_value = node_floors.get(node, float('-inf'))
+					ciel_value = node_ceilings.get(node, float('inf'))
+			
+					# Ensure floor_value and ciel_value are valid numbers
+					floor_value = floor_value if floor_value is not None else float('-inf')
+					ciel_value = ciel_value if ciel_value is not None else float('inf')
+					
+					previous_value = float(previous_signal_map[node])
+					new_value = float(new_signal_map[node])
+					floor_value = float(floor_value)
+					ciel_value = float(ciel_value)
+			
+					if node in passnodes:
+						# For passnodes, the new signal is solely based on incoming signals
+						signal_map[node] = max(floor_value, min(new_value, ciel_value))
+					else:
+						if not node_retention:
+							signal_map[node] = max(floor_value, min(previous_value * decay_factor + new_value, ciel_value))
+						else:
+							signal_map[node] = max(floor_value, min(previous_value * node_retention + new_value, ciel_value))
+			
+				print("passes step 5")
+			
+				return signal_map
+			
+			def simulate_signal_transfer(iterations=100, decay_factor=0.9, delay=None, use_delay=True, node_retention=None):
+				"""Simulate signal transfer for a given number of iterations, with optional global delay."""
+				initialize_signal_map()
+				for _ in range(iterations):
+					accumulate_signals(decay_factor, global_delay=delay, use_delay=use_delay, node_retention=node_retention)
+					for node in graph.nodes():
+						time_series_data[node].append(signal_map[node])
+			
+				return time_series_data
+			
+			# Retrieve decay and delay ranges from JavaScript
+			decay_min, decay_max, decay_steps = decayRange
+			delay_min, delay_max, delay_steps = delayRange
+			
+			# Generate ranges for decay factors and delays
+			decay_factors = np.linspace(decay_min, decay_max, int(decay_steps))
+			delays = np.linspace(delay_min, delay_max, int(delay_steps))
+			
+			# Initialize stability matrix
+			stability_matrix = np.zeros((len(delays), len(decay_factors)))
+			
+			# Main simulation loop
+			for i, delay in enumerate(delays):
+				for j, decay in enumerate(decay_factors):
+					# Simulate signal transfer for each combination of decay and delay
+					signal_map = {}
+					time_series_data = {node: [] for node in graph.nodes}
+					delay_buffers = {(edge[0], edge[1]): [0] * graph.edges[edge]['delay'] for edge in graph.edges} 
+					time_series_data = simulate_signal_transfer(iterations=100, decay_factor=decay, delay=int(delay), use_delay=True)
+					
+					# Classify node behavior
+					classification = classify_behavior(time_series_data)
+			
+					# Update stability matrix
+					if "Unconstrained" in classification.values():
+						stability_matrix[i, j] = 1.0
+					elif "Optimal" in classification.values():
+						stability_matrix[i, j] = 0.6
+					else:
+						stability_matrix[i, j] = 0.2
+			
+			# Plot stability map
+			plt.figure(figsize=(10, 6))
+			cmap = plt.cm.coolwarm
+			norm = mcolors.Normalize(vmin=0, vmax=1)
+			plt.imshow(stability_matrix, cmap=cmap, norm=norm, extent=[decay_min, decay_max, delay_min, delay_max], origin="lower", aspect="auto")
+			plt.colorbar(label="Stability Measure")
+			plt.xlabel("Decay Parameter")
+			plt.ylabel("Delay Parameter")
+			plt.title("Stability Map")
+			plt.savefig("stability_map.png")
+					`);
 
-async def allow_dom_update():
-    await asyncio.sleep(0)
-
-async def blended_uniform_normal(mean, low, high, certainty, size=1000):
-    max_variance = 1  # Set maximum variance for when certainty is 0
-    variance = (1 - certainty) * max_variance  # Variance decreases as certainty increases
-
-    samples = []
-
-    # Continue generating until we get the required number of valid samples
-    while len(samples) < size:
-        # Generate a mixture of uniform and normal samples
-        uniform_sample = np.random.uniform(low=low, high=high)
-        normal_sample = np.random.normal(loc=mean, scale=np.sqrt(variance))
-
-        # Blend the two samples based on certainty
-        blended_sample = (1 - certainty) * uniform_sample + certainty * normal_sample
-
-        # Accept the sample only if it is within the specified range
-        if low <= blended_sample <= high:
-          samples.append(blended_sample)
-
-    return samples
-
-# Define the classification function
-async def calculate_rolling_z_score(time_series, window=10):
-    """Calculate the rolling z-score for a time series."""
-    rolling_mean = time_series.rolling(window=window).mean()
-    rolling_std = time_series.rolling(window=window).std()
-    z_score = (time_series - rolling_mean) / rolling_std
-    return z_score
-
-async def classify_behavior(time_series_data):
-    """Classify the behavior of each node's time series into 'Over-damped', 'Optimal', or 'Unconstrained'."""
-    classifications = {}
-    for node, series in time_series_data.items():
-        # Convert the series to a DataFrame for ease of processing
-        df = pd.DataFrame(series, columns=[node])
-
-        # Calculate rolling z-score
-        rolling_z_score = calculate_rolling_z_score(df[node])
-
-        # Check for periodic peaks
-        peaks, _ = find_peaks(df[node], height=0.05, distance=10)  # Adding a minimum distance for peak detection
-        num_peaks = len(peaks)
-        
-        # Calculate average rolling z-score
-        avg_z_score = rolling_z_score.abs().mean()
-
-        # Classification logic with refined criteria
-        if num_peaks > 8 and avg_z_score > 1.2:
-            classifications[node] = "Unconstrained"
-        elif 0.5 < avg_z_score < 1.2 and 3 <= num_peaks <= 8:
-            classifications[node] = "Optimal"
-        else:
-            classifications[node] = "Over-damped"
-    
-    return classifications
-
-
-async def stochastic_value_selection(mean, low, high, certainty):
-  return blended_uniform_normal(mean, low, high, certainty, 1)[0]
-
-# Create a directed graph using NetworkX
-graph = nx.DiGraph()
-
-# Add edges along with their weights, polarities, and delays
-for i, (source, target) in enumerate(edges):
-    graph.add_edge(source, target, weight=edge_weights[i], polarity=edge_polarities[i], delay=edge_delays[i], certainty=edge_certainties[i])
-
-# Initialize signal_map with current node values
-signal_map = {}
-time_series_data = {node: [] for node in graph.nodes}
-passnodes = set(passnodeList)
-
-# Initialize delay buffers for each edge
-delay_buffers = {(edge[0], edge[1]): [0] * graph.edges[edge]['delay'] for edge in graph.edges}
-
-async def initialize_signal_map():
-    """Initialize the signal map with initial values for each node."""
-    for node in graph.nodes:
-        if node in passnodes:
-            signal_map[node] = 0.0
-        else:
-            signal_map[node] = random.uniform(0, 1)
-    return signal_map
-
-# Retrieve decay and delay ranges from JavaScript
-decay_min, decay_max, decay_steps = decayRange
-delay_min, delay_max, delay_steps = delayRange
-
-# Generate ranges for decay factors and delays
-decay_factors = np.linspace(decay_min, decay_max, int(decay_steps))
-delays = np.linspace(delay_min, delay_max, int(delay_steps))
-
-total_steps = decay_steps * delay_steps
-step_counter = 0
-
-async def accumulate_signals(decay_factor=0.9, global_delay=None, use_delay=True, node_retention=None):
-    global step_counter
-    """Update the signal map based on incoming signals from connected nodes, with optional system-wide delay."""
-    new_signal_map = defaultdict(float)
-    previous_signal_map = signal_map.copy()  # Store previous values for consistency
-
-    for edge in graph.edges(data=True):
-        predecessor = edge[0]
-        node = edge[1]
-        edge_data = edge[2]
-        weight = edge_data['weight']
-        polarity = edge_data['polarity']
-        certainty = edge_data['certainty']
-
-        # Set delay based on global or edge-specific delay, only if delay is being used
-        delay = global_delay if global_delay is not None else edge_data['delay']
-
-        if use_delay:
-            # Ensure delay buffer matches the current delay value
-            if len(delay_buffers[(predecessor, node)]) != delay:
-                delay_buffers[(predecessor, node)] = [0] * delay
-
-            # Pop the oldest signal from the delay buffer
-            delayed_signal = delay_buffers[(predecessor, node)].pop(0)
-            if polarity == '+':
-                polarity = 1.0
-            else:
-                polarity = -1.0
-
-            # Calculate the incoming signal with delay
-            incoming_signal = delayed_signal * decay_factor * weight * stochastic_value_selection(polarity, -1, 1, certainty)
-            # Push the current signal to the delay buffer for the next cycle
-            delay_buffers[(predecessor, node)].append(previous_signal_map[predecessor])
-        else:
-            # Skip delay and use the current signal immediately
-            incoming_signal = previous_signal_map[predecessor] * decay_factor * weight * stochastic_value_selection(polarity, -1, 1, certainty)
-
-
-        # Accumulate the incoming signal to the target node
-        new_signal_map[node] += incoming_signal
-
-    # Update each node's value in signal_map after all calculations
-    for node in graph.nodes():
-        floor_value = node_floors.get(node, float('-inf'))
-        ciel_value = node_ceilings.get(node, float('inf'))
-
-        # Ensure floor_value and ciel_value are valid numbers
-        floor_value = floor_value if floor_value is not None else float('-inf')
-        ciel_value = ciel_value if ciel_value is not None else float('inf')
-		
-        previous_value = float(previous_signal_map[node])
-        new_value = float(new_signal_map[node])
-        floor_value = float(floor_value)
-        ciel_value = float(ciel_value)
-
-        if node in passnodes:
-            # For passnodes, the new signal is solely based on incoming signals
-            signal_map[node] = max(floor_value, min(new_value, ciel_value))
-        else:
-            if not node_retention:
-                signal_map[node] = max(floor_value, min(previous_value * decay_factor + new_value, ciel_value))
-            else:
-                signal_map[node] = max(floor_value, min(previous_value * node_retention + new_value, ciel_value))
-
-#    step_counter += 1
-#    progress = (step_counter/total_steps) * 100
-#    js.updateProgressBar(progress)
-#    await asyncio.sleep(0)
-
-    return signal_map
-
-async def simulate_signal_transfer(iterations=100, decay_factor=0.9, delay=None, use_delay=True, node_retention=None):
-    """Simulate signal transfer for a given number of iterations, with optional global delay."""
-    initialize_signal_map()
-    for _ in range(iterations):
-        accumulate_signals(decay_factor, global_delay=delay, use_delay=use_delay, node_retention=node_retention)
-        await asyncio.sleep(0)
-        for node in graph.nodes():
-            time_series_data[node].append(signal_map[node])
-
-    return time_series_data
-
-
-# Initialize stability matrix
-stability_matrix = np.zeros((len(delays), len(decay_factors)))
-
-async def main_simulation():
-    stability_matrix = np.zeros((len(delays), len(decay_factors)))
-
-    for i, delay in enumerate(delays):
-        for j, decay in enumerate(decay_factors):
-            # Simulate signal transfer for each combination of decay and delay
-            signal_map = {}
-            time_series_data = {node: [] for node in graph.nodes}
-            delay_buffers = {(edge[0], edge[1]): [0] * graph.edges[edge]['delay'] for edge in graph.edges}
-
-            time_series_data = await simulate_signal_transfer(
-                iterations=100,
-                decay_factor=decay,
-                delay=int(delay),
-                use_delay=True
-            )
-
-            # Classify node behavior
-            classification = await classify_behavior(time_series_data)
-
-            # Update stability matrix
-            if "Unconstrained" in classification.values():
-                stability_matrix[i, j] = 1.0
-            elif "Optimal" in classification.values():
-                stability_matrix[i, j] = 0.6
-            else:
-                stability_matrix[i, j] = 0.2
-
-    return stability_matrix
-
-
-
-        `);
-
-		await pyodide.runPythonAsync(`
-from __main__ import main_simulation
-async def main():
-    stability_matrix = await main_simulation()
-    # Plot and save the stability map
-    plt.figure(figsize=(10, 6))
-    cmap = plt.cm.coolwarm
-    norm = mcolors.Normalize(vmin=0, vmax=1)
-    plt.imshow(stability_matrix, cmap=cmap, norm=norm, extent=[decay_min, decay_max, delay_min, delay_max], origin="lower", aspect="auto")
-    plt.colorbar(label="Stability Measure")
-    plt.xlabel("Decay Parameter")
-    plt.ylabel("Delay Parameter")
-    plt.title("Stability Map")
-    plt.savefig("stability_map.png")
-			`);
-
-		await pyodide.runPythonAsync("await main()");
 
 
         // Retrieve and display plot
