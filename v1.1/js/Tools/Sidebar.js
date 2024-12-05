@@ -50,8 +50,11 @@ function Sidebar(loopy){
 				self.showPage("Edit");
 			}
 		}));
+		page.addComponent(new ComponentHTML({
+			html: `<br><h3>Node</h3>`
+		}))
 		page.addComponent("label", new ComponentInput({
-			label: "<br><br>Name:",
+			label: "Name:",
 			id: "label",
 		}));
 
@@ -81,17 +84,21 @@ function Sidebar(loopy){
 				Node.DEFAULT_RADIUS = value;
 			}
 		}));
-		page.onedit = function(){
-
+		page.onedit = function() {
 			// Set color of Slider
 			var node = page.target;
 			var color = Node.COLORS[node.hue];
 			page.getComponent("init").setBGColor(color);
-
+		
+			// Update the existing title component
+			var titleElement = page.dom.querySelector("h3"); // Assumes <h3> is used for the title
+			if (titleElement) {
+				titleElement.innerHTML = `Node (${node.label || "Unnamed"})`;
+			}
+		
 			// Focus on the name field IF IT'S "" or "?"
 			var name = node.label;
-			if(name=="" || name=="?") page.getComponent("label").select();
-
+			if (name == "" || name == "?") page.getComponent("label").select();
 		};
 
 		// page.addComponent("flow", new ComponentInput({
@@ -150,10 +157,9 @@ function Sidebar(loopy){
 				self.showPage("Edit");
 			}
 		}));
-
-		page.addComponent("lineBreak", new ComponentHTML({
-			html: "linebreak"
-		}));
+		page.addComponent(new ComponentHTML({
+			html: `<br><h3>Edge</h3>`
+		}))
 
 		page.addComponent("strength", new ComponentSlider({
 			bg: "strength",
@@ -226,6 +232,20 @@ function Sidebar(loopy){
 			}
 		}));
 		self.addPage("Edge", page);
+
+		page.onedit = function() {
+			var edge = page.target;
+		
+			// Get connected node names
+			var fromNode = edge.from ? edge.from.label || "Unnamed" : "Unknown";
+			var toNode = edge.to ? edge.to.label || "Unnamed" : "Unknown";
+		
+			// Update the existing title component
+			var titleElement = page.dom.querySelector("h3"); // Assumes <h3> is used for the title
+			if (titleElement) {
+				titleElement.innerHTML = `Edge (${fromNode} → ${toNode})`;
+			}
+		};
 	})();
 
 	// Label!
@@ -324,6 +344,18 @@ function Sidebar(loopy){
 	
 		// Global Parameters Page
 		var globalPage = new SidebarPage();
+
+		globalPage.addComponent(new ComponentButton({
+			header: true,
+			label: "back to top",
+			onclick: function(){
+				self.showPage("Edit");
+			}
+		}));
+
+		globalPage.addComponent(new ComponentHTML({
+			html: `<br><h3>Global Edge Parameters</h3>`
+		}))
 		
 
 		globalPage.addComponent("damper", new ComponentSliderGlobal({
@@ -358,63 +390,24 @@ function Sidebar(loopy){
 				Edge.defaultLag = value;
 			}
 		}));
-
-	
-		globalPage.addComponent(new ComponentButton({
-			label: "Back to Edit",
-			onclick: function(){
-				self.showPage("Edit");
-			}
-		}));
 	
 		self.addPage("GlobalParameters", globalPage);
 
 		// Global Parameters Page
 		var globalNodePage = new SidebarPage();
-		  		  
 
-		globalNodePage.addComponent("randomize", new ComponentButton({
-			label: "Randomize Colors",
-			onclick: function(value){
-				const numOfNodes = loopy.model.nodes.length
-				for (let i = 0; i <= numOfNodes; i++ ) {
-					let color = i % 20
-					loopy.model.nodes[i].hue = color
-				}
+		globalNodePage.addComponent(new ComponentButton({
+			header: true,
+			label: "back to top",
+			onclick: function(){
+				self.showPage("Edit");
 			}
 		}));
 
-		globalNodePage.addComponent("pictureReady", new ComponentButton({
-			label: "Make Uniform Color",
-			onclick: function(value){
-				const numOfNodes = loopy.model.nodes.length
-				for (let i = 0; i <= numOfNodes; i++ ) {
-					let color = "red"
-					loopy.model.nodes[i].hue = color
-				}
-			}
-		}));
+		globalNodePage.addComponent(new ComponentHTML({
+			html: `<br><h3>Global Node Parameters</h3>`
+		}))
 
-		// globalNodePage.addComponent("System Loss", new ComponentSliderGlobal({
-		// 	bg: "lag",
-		// 	item: "Node",
-		// 	label: "System Loss",
-		// 	options: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
-		// 	globalProp: 'systemLoss',
-		// 	oninput: function(value){
-		// 		Node.defaultHue = value;
-		// 	}
-		// }));
-
-		// page.addComponent("radius", new ComponentSlider({
-		// 	bg: "initial",
-		// 	label: "Border Radius:",
-		// 	options: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-		// 	//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
-		// 	oninput: function(value){
-		// 		Node.DEFAULT_RADIUS = value;
-		// 	}
-		// }));
 		globalNodePage.addComponent("radius", new ComponentSliderGlobal({
 			bg: "radius",
 			item: "Node",
@@ -437,13 +430,25 @@ function Sidebar(loopy){
 				Node.DEFAULT_RETENTION = value;
 			}
 		}));
+		globalNodePage.addComponent("randomize", new ComponentButton({
+			label: "Randomize Colors",
+			onclick: function(value){
+				const numOfNodes = loopy.model.nodes.length
+				for (let i = 0; i <= numOfNodes; i++ ) {
+					let color = i % 20
+					loopy.model.nodes[i].hue = color
+				}
+			}
+		}));
 
-
-	
-		globalNodePage.addComponent(new ComponentButton({
-			label: "Back to Edit",
-			onclick: function(){
-				self.showPage("Edit");
+		globalNodePage.addComponent("pictureReady", new ComponentButton({
+			label: "Make Uniform Color",
+			onclick: function(value){
+				const numOfNodes = loopy.model.nodes.length
+				for (let i = 0; i <= numOfNodes; i++ ) {
+					let color = "red"
+					loopy.model.nodes[i].hue = color
+				}
 			}
 		}));
 	

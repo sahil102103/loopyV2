@@ -6,7 +6,7 @@ EDGE!
 
 Edge.allSignals = [];
 Edge.MAX_SIGNALS = 100;
-Edge.MAX_SIGNALS_PER_EDGE = 1; // Do we really want this : Ask Dr. Oet
+Edge.MAX_SIGNALS_PER_EDGE = 10; // Do we really want this : Ask Dr. Oet
 Edge.defaultStrength = 1;
 Edge.defaultStrengthMultiplier = 1
 Edge.defaultConfidence = 0.5
@@ -314,6 +314,9 @@ function Edge(model, config){
 	// UPDATE & DRAW /////////////////////
 	//////////////////////////////////////
 
+	self.labelX = 0;
+	self.labelY = 0;
+
 	// Update!
 	var fx, fy, tx, ty,
 		r, dx, dy, w, a, h,
@@ -414,8 +417,8 @@ function Edge(model, config){
 
 		// ACTUAL label position, for grabbing purposes
 
-		self.edgeLabelX = (fx + Math.cos(a)*lx - Math.sin(a)*ly)/2; // un-retina
-		self.edgeLabelY = (fy + Math.sin(a)*lx + Math.cos(a)*ly)/2; // un-retina
+		self.labelX = (fx + Math.cos(a)*lx - Math.sin(a)*ly)/2; // un-retina
+		self.labelY = (fy + Math.sin(a)*lx + Math.cos(a)*ly)/2; // un-retina
 
 
 		// self.x = Math.floor(self.labelX);
@@ -445,6 +448,106 @@ function Edge(model, config){
 
 	};
 
+
+	// 	////////////////////////////////////////////////
+	// 	// PRE-CALCULATE THE MATH (for retina canvas) //
+	// 	////////////////////////////////////////////////
+
+	// 	// Edge case: if arc is EXACTLY zero, whatever, add 0.1 to it.
+	// 	if(self.arc==0) self.arc=0.1;
+
+	// 	// Mathy calculations: (all retina, btw)
+	// 	fx=self.from.x*2;
+	// 	fy=self.from.y*2;
+	// 	tx=self.to.x*2;
+	// 	ty=self.to.y*2;	
+	// 	if(self.from==self.to){
+	// 		var rotation = self.rotation;
+	// 		rotation *= Math.TAU/360;
+	// 		tx += Math.cos(rotation);
+	// 		ty += Math.sin(rotation);
+	// 	}
+	// 	dx = tx-fx;
+	// 	dy = ty-fy;
+	// 	w = Math.sqrt(dx*dx+dy*dy);
+	// 	a = Math.atan2(dy,dx);
+	// 	h = Math.abs(self.arc*2);
+
+	// 	// From: http://www.mathopenref.com/arcradius.html
+	// 	r = (h/2) + ((w*w)/(8*h));
+	// 	y = r-h; // the circle's y-pos is radius - given height.
+	// 	a2 = Math.acos((w/2)/r); // angle from x axis, arc-cosine of half-width & radius
+
+	// 	// Arrow buffer...
+	// 	arrowBuffer = 15;
+	// 	arrowDistance = (self.to.radius+arrowBuffer)*2;
+	// 	arrowAngle = arrowDistance/r; // (distance/circumference)*TAU, close enough.
+	// 	beginDistance = (self.from.radius+arrowBuffer)*2;
+	// 	beginAngle = beginDistance/r;
+
+	// 	// Arc it!
+	// 	startAngle = a2 - Math.TAU/2;
+	// 	endAngle = -a2;
+	// 	if(h>r){
+	// 		startAngle *= -1;
+	// 		endAngle *= -1;
+	// 	}
+	// 	if(self.arc>0){
+	// 		y2 = y;
+	// 		begin = startAngle+beginAngle;
+	// 		end = endAngle-arrowAngle;
+	// 	}else{
+	// 		y2 = -y;
+	// 		begin = -startAngle-beginAngle;
+	// 		end = -endAngle+arrowAngle;
+	// 	}
+
+	// 	// Arrow HEAD!
+	// 	arrowLength = 10*2;
+	// 	ax = w/2 + Math.cos(end)*r;
+	// 	ay = y2 + Math.sin(end)*r;
+	// 	aa = end + Math.TAU/4;
+
+	// 	// My label is...
+	// 	var s = self.strength;
+	// 	var l;
+	// 	if(s>=3) l="+++";
+	// 	else if(s>=2) l="++";
+	// 	else if(s>=1) l="+";
+	// 	else if(s==0) l="?";
+	// 	else if(s>=-1) l="–"; // EM dash, not hyphen.
+	// 	else if(s>=-2) l="– –";
+	// 	else l="– – –";
+	// 	self.label = l;
+
+	// 	// Label position
+	// 	var labelPosition = self.getPositionAlongArrow(0.5);
+	// 	lx = labelPosition.x;
+	// 	ly = labelPosition.y;
+
+	// 	// ACTUAL label position, for grabbing purposes
+	// 	self.labelX = (fx + Math.cos(a)*lx - Math.sin(a)*ly)/2; // un-retina
+	// 	self.labelY = (fy + Math.sin(a)*lx + Math.cos(a)*ly)/2; // un-retina
+
+	// 	// ...add offset to label
+	// 	labelBuffer = 18*2; // retina
+	// 	if(self.arc<0) labelBuffer*=-1;
+	// 	ly += labelBuffer;
+
+	// 	///////////////////////////////////////
+	// 	// AND THEN UPDATE OTHER STUFF AFTER //
+	// 	// THE CALCULATIONS ARE DONE I GUESS //
+	// 	///////////////////////////////////////
+
+	// 	// When actually playing the simulation...
+	// 	/*if(self.loopy.mode==Loopy.MODE_PLAY){
+	// 		self.to.nextValue += self.from.value * self.strength * speed;
+	// 	}*/
+
+	// 	// Update signals
+	// 	self.updateSignals();
+
+	// };
 
 
 
@@ -691,7 +794,7 @@ function Edge(model, config){
 		if(self.loopy.tool==Loopy.TOOL_DRAG || self.loopy.tool==Loopy.TOOL_INK) radius=40; // selecting, wide radius!
 		else if(self.loopy.tool==Loopy.TOOL_ERASE) radius=25; // no accidental erase
 		else radius = 15; // you wanna label close to edges
-		return _isPointInCircle(x, y, self.edgeLabelX, self.edgeLabelY, radius);
+		return _isPointInCircle(x, y, self.labelX, self.labelY, radius);
 	};
 
 	// For centering and scaling

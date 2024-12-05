@@ -43,7 +43,9 @@
 
 <body style="opacity:0">
 	<div id="loading-spinner" style="display: none;">
-		<h6>Loading...</h6>
+		<div id="progressContainer">
+			<div id="progressBar"></div>
+		  </div>		  
 	</div>	
 
 	<!-- Need to clean up this UI section to have everything in there own JS files-->
@@ -164,21 +166,42 @@
 		<div id="StabilityMap" class='tabcontent'>
 			<div id="stabilityMapPlot"></div>
 			<div id="controls">
-				<label for="decayMin">Decay Min:</label>
-				<input type="number" id="decayMin" value="0.1" step="0.1">
-				<label for="decayMax">Decay Max:</label>
-				<input type="number" id="decayMax" value="1.0" step="0.1">
-				<label for="decaySteps">Decay Steps:</label>
-				<input type="number" id="decaySteps" value="20" step="1">
-				
-				<label for="delayMin">Delay Min:</label>
-				<input type="number" id="delayMin" value="1" step="1">
-				<label for="delayMax">Delay Max:</label>
-				<input type="number" id="delayMax" value="50" step="1">
-				<label for="delaySteps">Delay Steps:</label>
-				<input type="number" id="delaySteps" value="20" step="1">
-			
-				<button id="updateStabilityMap">Generate Stability Map</button>
+				<!-- Decay Controls -->
+				<div class="control-group">
+					<label for="decayMin">Signal Decay Min:</label>
+					<input type="number" id="decayMin" value="0.1" step="0.1">
+					<label for="decayMax">Signal Decay Max:</label>
+					<input type="number" id="decayMax" value="1.0" step="0.1">
+					<label for="decaySteps">Signal Decay Steps:</label>
+					<input type="number" id="decaySteps" value="20" step="1">
+				</div>
+
+				<!-- Delay Controls -->
+				<div class="control-group">
+					<label for="delayMin">Signal Delay Min:</label>
+					<input type="number" id="delayMin" value="1" step="1">
+					<label for="delayMax">Signal Delay Max:</label>
+					<input type="number" id="delayMax" value="50" step="1">
+					<label for="delaySteps">Signal Delay Steps:</label>
+					<input type="number" id="delaySteps" value="20" step="1">
+				</div>
+
+				<!-- Node Retention Controls -->
+				<div class="control-group">
+					<label for="nodeRetentionMin">Node Retention Min:</label>
+					<input type="number" id="nodeRetentionMin" value="0.1" step="0.1">
+					<label for="nodeRetentionMax">Node Retention Max:</label>
+					<input type="number" id="nodeRetentionMax" value="1.0" step="0.1">
+					<label for="nodeRetentionSteps">Node Retention Steps:</label>
+					<input type="number" id="nodeRetentionSteps" value="20" step="1">
+				</div>
+
+				<!-- Buttons -->
+				<div class="button-group">
+					<button id="updateStabilityMap">Delay vs Decay</button>
+					<!-- <button id="generateDecayRetention">Decay vs Node Retention</button>
+					<button id="generateRetentionDelay">Node Retention vs Delay</button> -->
+				</div>
 			</div>
 		</div>
 
