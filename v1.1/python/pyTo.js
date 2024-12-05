@@ -999,7 +999,7 @@ document.getElementById("stabilityMapTab").onclick = async () => {
 		const delayMin = parseFloat(document.getElementById("delayMin").value);
 		const delayMax = parseFloat(document.getElementById("delayMax").value);
 		const delaySteps = parseInt(document.getElementById("delaySteps").value);
-		window.updateProgressBar = updateProgressBar;
+		// window.updateProgressBar = updateProgressBar;
 
 		// Construct ranges
 		const decayRange = [decayMin, decayMax, decaySteps];
@@ -1194,10 +1194,10 @@ async def accumulate_signals(decay_factor=0.9, global_delay=None, use_delay=True
             else:
                 signal_map[node] = max(floor_value, min(previous_value * node_retention + new_value, ciel_value))
 
-    step_counter += 1
-    progress = (step_counter/total_steps) * 100
-    js.updateProgressBar(progress)
-    await asyncio.sleep(0)
+#    step_counter += 1
+#    progress = (step_counter/total_steps) * 100
+#    js.updateProgressBar(progress)
+#    await asyncio.sleep(0)
 
     return signal_map
 
@@ -1559,11 +1559,11 @@ plt.savefig("stability_map.png")
         openPage("StabilityMap");
     }
 }
-window.updateProgressBar = function(percentage) {
-	const progressBar = document.getElementById('progressBar');
-	progressBar.style.width = percentage + '%';
-	progressBar.textContent = percentage + '%';
-}
+// window.updateProgressBar = function(percentage) {
+// 	const progressBar = document.getElementById('progressBar');
+// 	progressBar.style.width = percentage + '%';
+// 	progressBar.textContent = percentage + '%';
+// }
 
 document.getElementById("generateDecayRetention").onclick = async() => {
     showLoadingSpinner();
@@ -1571,7 +1571,7 @@ document.getElementById("generateDecayRetention").onclick = async() => {
     await loadInitialData();
 
     try {
-		updateProgressBar(5);
+		// updateProgressBar(5);
 		// Retrieve values from input fields
 		const decayMin = parseFloat(document.getElementById("decayMin").value);
 		const decayMax = parseFloat(document.getElementById("decayMax").value);
@@ -1777,9 +1777,9 @@ def accumulate_signals(decay_factor=0.9, global_delay=None, use_delay=True, node
             else:
                 signal_map[node] = max(floor_value, min(previous_value * node_retention + new_value, ciel_value))
 
-    step_counter += 1
-    progress = (step_counter/total_steps) * 100
-    js.updateProgressBar(progress)
+#    step_counter += 1
+#    progress = (step_counter/total_steps) * 100
+#    js.updateProgressBar(progress)
 
     return signal_map
 
@@ -2041,8 +2041,6 @@ def accumulate_signals(decay_factor=0.9, global_delay=None, use_delay=True, node
                 signal_map[node] = max(floor_value, min(previous_value * decay_factor + new_value, ciel_value))
             else:
                 signal_map[node] = max(floor_value, min(previous_value * node_retention + new_value, ciel_value))
-
-    print("passes step 5")
 
     return signal_map
 
