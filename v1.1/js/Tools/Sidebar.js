@@ -292,6 +292,66 @@ function Sidebar(loopy){
 		self.addPage("Label", page);
 	})();
 
+	// Global Node!
+	(function(){
+		var page = new SidebarPage();
+		page.addComponent(new ComponentButton({
+			header: true,
+			label: "back to top",
+			onclick: function(){
+				self.showPage("Edit");
+			}
+		}));
+
+		page.addComponent(new ComponentHTML({
+			html: `<br><h3>Global Node Parameters</h3>`
+		}))
+
+		page.addComponent("radius", new ComponentSliderGlobal({
+			bg: "radius",
+			item: "Node",
+			label: "Border Radius:",
+			globalProp: 'radius',
+			options: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+			//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
+			oninput: function(value){
+				Node.DEFAULT_RADIUS = value;
+			}
+		}));
+		page.addComponent("retention", new ComponentSliderGlobal({
+			bg: "lag",
+			item: "Node",
+			label: "Node Retention:",
+			globalProp: 'retention',
+			options: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+			//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
+			oninput: function(value){
+				Node.DEFAULT_RETENTION = value;
+			}
+		}));
+		page.addComponent("randomize", new ComponentButton({
+			label: "Randomize Colors",
+			onclick: function(value){
+				const numOfNodes = loopy.model.nodes.length
+				for (let i = 0; i <= numOfNodes; i++ ) {
+					let color = i % 20
+					loopy.model.nodes[i].hue = color
+				}
+			}
+		}));
+
+		page.addComponent("pictureReady", new ComponentButton({
+			label: "Make Uniform Color",
+			onclick: function(value){
+				const numOfNodes = loopy.model.nodes.length
+				for (let i = 0; i <= numOfNodes; i++ ) {
+					let color = "red"
+					loopy.model.nodes[i].hue = color
+				}
+			}
+		}));
+	})();
+
 	// Edit
 	(function(){
 		// Add the Set Global Parameters Button in the Edit page
@@ -550,6 +610,7 @@ function Component(){
 		return self.page.target[self.propName];
 	};
 	self.setValue = function(value){
+		// console.log(self)
 		
 		// Model's been changed!
 		publish("model/changed");
@@ -570,17 +631,17 @@ function ComponentGlobal(){
 		// TO IMPLEMENT
 	};
 	self.getValue = function(){
-		console.log(self)
-		return self.globalPage.target[self.propName];
+		// console.log(self)
+		return self.page.target[self.propName];
 	};
 	self.setValue = function(value){
 		
 		// Model's been changed!
 		publish("model/changed");
 
-		console.log(self)
+		// console.log(self)
 		// Edit the value!
-		self.globalPage.target[self.propName] = value;
+		self.page.target[self.propName] = value;
 		self.page.onedit(); // callback!
 		
 	};
@@ -601,7 +662,7 @@ function ComponentGlobalNode(){
 		
 		// Model's been changed!
 		publish("model/changed");
-		console.log(self)
+		// console.log(self)
 		// Edit the value!
 		self.globalNodePage.target[self.propName] = value;
 		self.page.onedit(); // callback!
@@ -824,7 +885,7 @@ function ComponentSliderGlobal(config) {
     var movePointer = function () {
         var value = self.getValue();  
         var optionIndex = config.options.indexOf(value);
-		console.log(optionIndex)
+		// console.log(optionIndex)
         var x = (optionIndex + 0.5) * (250 / config.options.length);  
         pointer.style.left = (x - 7.5) + "px";  
     };
@@ -939,7 +1000,7 @@ function ComponentCheckbox(config) {
     checkbox.onchange = function() {
         config.value = checkbox.checked; // Set config value to match checkbox state
         self.setValue(config.value);     // Update the value accordingly
-        console.log(config.value);       // Log the current value
+        // console.log(config.value);       // Log the current value
 
 
         // Trigger the onclick handler if defined

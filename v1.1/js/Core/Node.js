@@ -5,27 +5,28 @@ NODE!
 **********************************/
 
 Node.COLORS = {
-    0: "#e71d43", // crimson
-    1: "#ff0000", // red
-    2: "#ff3700", // red-orange
-    3: "#ff6e00", // orange
-    4: "#ffa500", // light orange
-    5: "#ffc300", // light yellow-orange
-    6: "#ffe100", // yellow-orange
-    7: "#ffff00", // yellow
-    8: "#aad500", // light green
-    9: "#55aa00", // green
-    10: "#008000", // dark green
-    11: "#005555", // teal
-    12: "#002baa", // blue
-    13: "#0000ff", // bright blue
-    14: "#1900d5", // indigo
-    15: "#3200ac", // dark indigo
-    16: "#4b0082", // dark violet
-    17: "#812ba6", // violet
-    18: "#b857ca", // light violet
-    19: "#d03a87"  // magenta
+    0: "#f55a73", // distinguishable lighter crimson
+    1: "#ff6666", // distinguishable lighter red
+    2: "#ff7040",  // distinguishable lighter red-orange
+    3: "#ff8533", // lighter orange
+    4: "#ffb733", // lighter light orange
+    5: "#ffcf33", // lighter light yellow-orange
+    6: "#ffe733", // lighter yellow-orange
+    7: "#ffff33", // lighter yellow
+    8: "#c3e633", // lighter light green
+    9: "#77cc33", // lighter green
+    10: "#33a033", // lighter dark green
+    11: "#4ca3a3", // lighter teal (unchanged)
+    12: "#4d74d9", // distinguishable medium blue
+    13: "#6666ff", // distinguishable bright blue
+    14: "#7a5cff", // distinguishable indigo
+    15: "#8c6be6", // distinguishable dark indigo
+    16: "#9f71d4", // distinguishable dark violet
+    17: "#b589e6",  // distinguishable violet
+    18: "#cf77e1", // lighter light violet
+    19: "#e060a0"  // lighter magenta
 };
+
 
 // Node.COLORS = {
 // 	0: "#F5F5F5", // White
