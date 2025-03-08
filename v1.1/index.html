@@ -63,20 +63,32 @@
 				</div>
 
 			</div>
-			<button class="tablink" id='generateTab' onclick="openPage('Generate')">Generate</button>
-			<button class="tablink hidden" id='crisisAnalysisTab' onclick="openPage('CrisisAnalysis')">Crisis Analysis</button>
+			<!-- Add View Database tab button -->
+			<div class="dropdown">
+				<button class="tablink">Edge Explanations</button>
+				<div class="dropdown-content">
+					<a class="tablink" id="viewDatabaseTab" onclick="openPage('ViewDatabase')">View</a>
+					<a class="tablink" id='nodeConnectionsTab' onclick="openPage('NodeConnections')">Create</a>
+
+				</div>
+			</div>
+			<button class="tablink" id='crisisAnalysisTab' onclick="openPage('CrisisAnalysis')">Crisis Analysis</button>
+			<button class="tablink" id='visualAnalysisTab' onclick="openPage('VisualAnalysis')">Visual Analysis</button>
+			<button class="tablink hidden" id='cycleAnalysisTab' onclick="openPage('CycleAnalysis')">Cycle Detection</button>
+			<button class="tablink hidden" id='generateTab' onclick="openPage('Generate')">Generate</button>
+			<button class="tablink hidden" id='degreeCentralityTab' onclick="openPage('DegreeCentrality')">Graph Centralities</button>
 			<button class="tablink hidden" id='correlationTab' onclick="openPage('Correlation')">Correlation</button>
 			<button class="tablink hidden" id='stabilityMapTab' onclick="openPage('StabilityMap')">Stability Map</button>
+			<button class="tablink" id='generateDiagramTab' onclick="openPage('Generate')">Generate Diagram</button>
+
+
 
 
 
 
 			<div class="dropdown hidden">
-				<button class="tablink hidden">For Researchers</button>
+				<button class="tablink hidden">Research Tabs</button>
 				<div class="dropdown-content hidden">
-					<a id='cycleAnalysisTab' onclick="openPage('CycleAnalysis')">Cycle Detection</a>
-					<a id='degreeCentralityTab' onclick="openPage('DegreeCentrality')">Graph Centralities</a>
-					<a id='visualAnalysisTab' onclick="openPage('VisualAnalysis')">Visual Analysis</a>
 					<a id='simulationTab' onclick="openPage('Simulation1')">Histogram 1</a>
 					<a id='simulation2Tab' onclick="openPage('Simulation2')">Histogram 2</a>
 					<a id='boxPlotTab' onclick="openPage('BoxPlot')">Box Plot</a>
@@ -118,10 +130,107 @@
 					<input type="submit" value="Submit">
 				</form>
 			</div>
-
-
-
+			
 		</div>
+
+
+		<div id="NodeConnections" class="tabcontent">
+			<!-- Table Section -->
+			<h3 id="graphTableHeader">Available Connections in Graph (Not in Database):</h3>
+			<table id="graphTable">
+				<thead>
+					<tr>
+						<th>Node 1</th>
+						<th>Node 2</th>
+						<th>Polarity</th>
+						<th>Strength</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+				<tbody>
+					<!-- Rows will be dynamically added here -->
+				</tbody>
+			</table>
+
+			<label for="apiKey">OpenAI API Key (For Generate explanation feature):</label>
+			<br><br>
+
+			<input type="text" id="apiKey" placeholder="Enter OpenAI API Key">
+			<br><br>
+
+			<h2>Node-to-Node Connection</h2>
+			
+			<!-- Node 1 Input -->
+			<label for="node1">Node 1:</label>
+			<input type="text" id="node1" placeholder="Enter Node 1">
+			<br><br>
+		
+			<!-- Node 2 Input -->
+			<label for="node2">Node 2:</label>
+			<input type="text" id="node2" placeholder="Enter Node 2">
+			<br><br>
+		
+			<!-- Polarity Input -->
+			<label for="polarity">Polarity:</label>
+			<select id="polarity">
+				<option value="+">Positive (+)</option>
+				<option value="-">Negative (-)</option>
+			</select>
+			<br><br>
+		
+			<!-- Strength Input -->
+			<label for="strength">Strength:</label>
+			<input type="number" id="strength" min="0.1" max="1.0" step="0.1" placeholder="Enter Strength (0.1 - 1.0)">
+			<br><br>
+		
+			<!-- Justification Input -->
+			<label for="justification">Justification:</label>
+			<textarea id="justification" rows="4" cols="50" placeholder="Justification will appear here after generating explanation..."></textarea>
+			<br><br>
+		
+			<!-- Buttons -->
+			<button id="generateButton">Generate Explanation</button>
+			<button id="saveButton">Save Connection</button>
+			<button id="clearButton">Clear Fields</button>
+			<button id="resetDefaultsButton">Reset Defaults</button>
+			<br><br>
+		
+			<!-- Output Section -->
+			<h3>Output:</h3>
+			<pre id="output">No output yet...</pre>
+		</div>
+
+
+		<!-- Add View Database tab content -->
+		<div id="ViewDatabase" class="tabcontent">
+			<h2>View All Connections</h2>
+
+			<label for="nodeFilter">Filter by Node Name:</label>
+			<input type="text" id="nodeFilter" placeholder="Enter node name..." />
+			<button id="filterDatabaseButton">Filter</button>
+			<button id="filterGraphButton">Filter By Graph</button>
+			<div id="databaseContent">
+				<table id="databaseTable">
+					<thead>
+						<tr>
+							<th>Node 1</th>
+							<th>Node 2</th>
+							<th>Polarity</th>
+							<th>Strength</th>
+							<th>Justification</th>
+						</tr>
+					</thead>
+					<tbody>
+						<!-- Data will be dynamically added here -->
+					</tbody>
+				</table>
+			</div>
+			<button id="refreshDatabaseButton">Full Database</button>
+		</div>
+
+		
+		
+
 
 		<!-- Have to collaborate with other researcher to have this properly working and change the python code into something that works with the loopy output-->
 		<div id="CycleAnalysis" class="tabcontent">
@@ -199,7 +308,7 @@
 
 				<!-- Buttons -->
 				<div class="button-group">
-					<button id="updateStabilityMap">Delay vs Decay</button>
+					<button id="genereatedDelayDecay">Delay vs Decay</button>
 					<button id="generateDecayRetention">Decay vs Node Retention</button>
 					<button id="generateRetentionDelay">Node Retention vs Delay</button>
 				</div>
@@ -210,8 +319,11 @@
 		<!-- New Diagram Generation Section -->
 		<div id="Generate" class="tabcontent">
 			<h2>Diagram Generator</h2>
+			<label for="apiKeyDiagramGenerator">OpenAI API Key (For Generate explanation feature):</label>
+			<input type="text" id="apiKeyDiagramGenerator" placeholder="Enter OpenAI API Key">
 			<textarea id="description" rows="4" cols="50" placeholder="Enter your description here..."></textarea><br>
-			<button id="generateButton">Generate Diagram</button>
+			<button id="generateDiagramButton">Generate Diagram</button>
+			<br>
 			<pre id="output"></pre>
 		</div>
 
@@ -232,28 +344,68 @@
 
 </html>
 
+<!-- Payments Processing Platform-->
+<script src="https://js.stripe.com/v3/"></script>
 
+
+<!-- Firestore SDKs -->
+<script type='module' src="firebase.js"></script>
+<script type="module" src="node/database.js"></script>
+<script src="config.js"></script>
+
+<script src="js/Tools/edgeExplanation.js" defer></script>
+<script src="js/Libraries/helpers.js" defer></script>
+<script src="js/Libraries/minpubsub.js" defer></script>
+<script src="js/Libraries/Mouse.js" defer></script>
+<script src="js/Libraries/Key.js" defer></script>
+<script src="js/Core/Loopy.js?v=5" defer></script>
+<script src="js/Core/Model.js?v=3" defer></script>
+<script src="js/Core/Node.js?v=3" defer></script>
+<script src="js/Core/NodeLabel.js" defer></script>
+<script src="js/Core/GhostNode.js" defer></script>
+<script src="js/Core/Edge.js?v=2" defer></script>
+<script src="js/Core/Label.js" defer></script>
+<script src="js/Tools/PageUI.js" defer></script>
+<script src="js/Tools/Sidebar.js?v=2" defer></script>
+<script src="js/Tools/Toolbar.js" defer></script>
+<script src="js/Tools/PlayControls.js" defer></script>
+<script src="js/Tools/Modal.js?v=4" defer></script>
+<script src="js/Tools/Ink.js" defer></script>
+<script src="js/Tools/Dragger.js" defer></script>
+<script src="js/Tools/Eraser.js" defer></script>
+<script src="js/Tools/Labeller.js" defer></script>
+<script src="js/Tools/Undo.js" defer></script>
+<script src="js/Tools/Redo.js" defer></script>
+<script src="js/Tools/UndoRedoCoordinator.js" defer></script>
+<script src="js/Tools/MultipleSelect.js" defer></script>
+<script src="js/Out/Outputs.js" defer></script>
+<script src="python/pyTo.js" defer></script>
+
+<script src="python/cycleAnalysis.js" defer></script>
+<script src="python/generateDiagram.js" defer></script>
+<script src="python/degreeCentrality.js" defer></script>
+<script src="python/crisisAnalysis.js" defer></script>
 
 
 
 <!-- Libraries -->
-<script src="js/Libraries/helpers.js"></script>
+<!-- <script src="js/Libraries/helpers.js"></script>
 <script src="js/Libraries/minpubsub.js"></script>
 <script src="js/Libraries/Mouse.js"></script>
-<script src="js/Libraries/Key.js"></script>
+<script src="js/Libraries/Key.js"></script> -->
 
 
 <!-- Core Simulation Code -->
-<script src="js/Core/Loopy.js?v=5"></script>
+<!-- <script src="js/Core/Loopy.js?v=5"></script>
 <script src="js/Core/Model.js?v=3"></script>
 <script src="js/Core/Node.js?v=3"></script>
 <script src="js/Core/NodeLabel.js"></script>
 <script src="js/Core/GhostNode.js"></script>
 <script src="js/Core/Edge.js?v=2"></script>
-<script src="js/Core/Label.js"></script>
+<script src="js/Core/Label.js"></script> -->
 
 <!-- Tools -->
-<script src="js/Tools/PageUI.js"></script>
+<!-- <script src="js/Tools/PageUI.js"></script>
 <script src="js/Tools/Sidebar.js?v=2"></script>
 <script src="js/Tools/Toolbar.js"></script>
 <script src="js/Tools/PlayControls.js"></script>
@@ -265,15 +417,17 @@
 <script src="js/Tools/Undo.js"></script>
 <script src="js/Tools/Redo.js"></script>
 <script src="js/Tools/UndoRedoCoordinator.js"></script>
-<script src="js/Tools/MultipleSelect.js"></script>
+<script src="js/Tools/MultipleSelect.js"></script> -->
 
 
 <!-- Output Window -->
-<script src="js/Out/Outputs.js"></script>
+<!-- <script src="js/Out/Outputs.js"></script> -->
 
 <!-- Note to self: Put extra code after Core Simulation Code-->
-<script type="text/javascript" src="python/pyTo.js"></script>
-<script src="python/generateDiagram.js"></script>
+<!-- <script type="text/javascript" src="python/pyTo.js"></script>
+<script src="python/generateDiagram.js"></script> -->
+
+
 
 
 <!-- Start it -->
@@ -300,4 +454,39 @@
 		}
 		return null;
 	}
+
+
+  	
+  const urlParams = new URLSearchParams(window.location.search);
+    const isFullVersion = urlParams.get("full") === '1';
+  
+    if (isFullVersion) {
+      // Execute the code to show full version elements
+      const toDisplayWhenPyPackagesLoaded = document.getElementsByClassName('hidden');
+      const hiddenElements = document.querySelectorAll('.dropdown.hidden, .dropdown.hidden *');
+  
+      for (let i = 0; i < toDisplayWhenPyPackagesLoaded.length; i++) {
+        toDisplayWhenPyPackagesLoaded[i].classList.remove('hidden');
+      }
+      hiddenElements.forEach(element => {
+        element.classList.remove('hidden');
+      });
+  
+      // Hide the loader if present
+      const loadPythonPackages = document.getElementById('loadPythonPackages');
+      console.log(loadPythonPackages)
+      if (loadPythonPackages) {
+        loadPythonPackages.style.display = 'none';
+      }
+    }
+
+	// window.onload = function () {
+  //         if (getCookie('loggedIn') !== 'true') {
+  //             window.location.href = CONFIG.LOGIN_REDIRECT_URL; // Use the value from CONFIG
+  //         } else {
+  //             openPage('Canvas');
+  //             window.loopy = new Loopy();
+  //             document.body.style.opacity = '1'; // Make the body visible
+  //         }
+  //     };
 </script>

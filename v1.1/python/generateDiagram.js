@@ -1,6 +1,7 @@
-document.getElementById('generateButton').addEventListener('click', async () => {
+document.getElementById('generateDiagramButton').addEventListener('click', async () => {
     const outputElement = document.getElementById('output');
     const description = document.getElementById('description').value.trim();
+    console.log("hello")
 
     if (!description) {
         outputElement.textContent = 'Please enter a description.';
@@ -9,7 +10,7 @@ document.getElementById('generateButton').addEventListener('click', async () => 
 
     outputElement.textContent = 'Loading...';
 
-    const apiKey = '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'; // Replace with your OpenAI API key
+    const apiKey = document.getElementById('apiKeyDiagramGenerator').value.trim();
 
     const systemPrompt = `
 You are a diagram generator that converts natural language descriptions into serialized data for diagrams. Your goal is to create models where nodes, edges, coordinates, values, polarities, and other attributes are automatically assigned based on the input description. Ensure that the serialized data is properly formatted for use in a URL that reconstructs the diagram accurately.
@@ -207,7 +208,7 @@ Return only the final link
                 'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: 'gpt-4o',
+                model: 'gpt-4o-mini',
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: description }
@@ -224,6 +225,7 @@ Return only the final link
         // const url = `http://127.0.0.1:5500/v1.1/?data=${encodedData}`;
 
         outputElement.innerHTML = `Generated URL: <a href="${generatedData}" target="_blank">${generatedData}</a>`;
+        console.log(generatedData)
     } catch (error) {
         outputElement.textContent = `Error: ${error.message}`;
     }

@@ -1,3 +1,17 @@
+// legacyScript.js
+async function getData() {
+    const { getFireStore, query, where, db, collection, getDocs } = window.firebase;
+
+    const querySnapshot = await getDocs(collection(db, "users"));
+    querySnapshot.forEach((doc) => {
+        `${doc.id} => ${JSON.stringify(doc.data())}`;
+    });
+}
+
+getData();
+
+
+
 /**********************************
 
 SIDEBAR CODE
@@ -121,10 +135,10 @@ function Sidebar(loopy){
 			id: 'floor'
 		}));
 
-		// page.addComponent("ceiling", new ComponentInput({
-		// 	label: "Ceiling:",
-		// 	id: 'ceiling'
-		// }));
+		page.addComponent("ceiling", new ComponentInput({
+			label: "Ceiling:",
+			id: 'ceiling'
+		}));
 
 		page.addComponent("pass", new ComponentCheckbox({
 			label: 'Pass Node: ',
@@ -159,7 +173,7 @@ function Sidebar(loopy){
 		}));
 		page.addComponent(new ComponentHTML({
 			html: `<br><h3>Edge</h3>`
-		}))
+		}));
 
 		page.addComponent("strength", new ComponentSlider({
 			bg: "strength",
@@ -224,6 +238,26 @@ function Sidebar(loopy){
 		page.addComponent(new ComponentHTML({
 			html: "(to make a stronger relationship, draw multiple arrows!)"
 		}));
+
+		page.addComponent(new ComponentButton({
+			label: "Justification",
+			onclick: function(){
+				openPage('ViewDatabase')
+				const filterNodes = [page.target.from.label, page.target.to.label];
+				fetchDatabaseEntries(filterNodes);
+			}
+		}));
+
+		page.addComponent(new ComponentButton({
+			label: "Justification Exact",
+			onclick: function(){
+				openPage('ViewDatabase')
+				const filterNodes = [page.target.from.label, page.target.to.label];
+				fetchMatchingNodes(filterNodes);
+			}
+		}));
+
+
 		page.addComponent(new ComponentButton({
 			label: "delete arrow",
 			onclick: function(edge){
@@ -249,108 +283,131 @@ function Sidebar(loopy){
 	})();
 
 	// Label!
-	(function(){
-		var page = new SidebarPage();
-		page.addComponent(new ComponentButton({
-			header: true,
-			label: "back to top",
-			onclick: function(){
-				self.showPage("Edit");
-			}
-		}));
-		page.addComponent("text", new ComponentInput({
-			label: "<br><br>Label:",
-			id: 'text',
-			textarea: true
-		}));
-		page.onshow = function(){
-			// Focus on the text field
-			page.getComponent("text").select();
-		};
-		page.onhide = function(){
+	// (function(){
+	// 	var page = new SidebarPage();
+	// 	page.addComponent(new ComponentButton({
+	// 		header: true,
+	// 		label: "back to top",
+	// 		onclick: function(){
+	// 			self.showPage("Edit");
+	// 		}
+	// 	}));
+	// 	page.addComponent("text", new ComponentInput({
+	// 		label: "<br><br>Label:",
+	// 		id: 'text',
+	// 		textarea: true
+	// 	}));
+	// 	page.onshow = function(){
+	// 		// Focus on the text field
+	// 		page.getComponent("text").select();
+	// 	};
+	// 	page.onhide = function(){
 			
-			// If you'd just edited it...
-			var label = page.target;
-			if(!page.target) return;
+	// 		// If you'd just edited it...
+	// 		var label = page.target;
+	// 		if(!page.target) return;
 
-			// If text is "" or all spaces, DELETE.
-			var text = label.text;
-			if(/^\s*$/.test(text)){
-				// that was all whitespace, KILL.
-				page.target = null;
-				label.kill();
-			}
+	// 		// If text is "" or all spaces, DELETE.
+	// 		var text = label.text;
+	// 		if(/^\s*$/.test(text)){
+	// 			// that was all whitespace, KILL.
+	// 			page.target = null;
+	// 			label.kill();
+	// 		}
 
-		};
-		page.addComponent(new ComponentButton({
-			label: "delete label",
-			onclick: function(label){
-				label.kill();
-				self.showPage("Edit");
-			}
-		}));
-		self.addPage("Label", page);
-	})();
+	// 	};
+	// 	page.addComponent(new ComponentButton({
+	// 		label: "delete label",
+	// 		onclick: function(label){
+	// 			label.kill();
+	// 			self.showPage("Edit");
+	// 		}
+	// 	}));
+	// 	self.addPage("Label", page);
+	// })();
 
-	// Global Node!
-	(function(){
-		var page = new SidebarPage();
-		page.addComponent(new ComponentButton({
-			header: true,
-			label: "back to top",
-			onclick: function(){
-				self.showPage("Edit");
-			}
-		}));
+    // Global Node!
+	// (function(){
+	// 	var page = new SidebarPage();
+	// 	page.addComponent(new ComponentButton({
+	// 		header: true,
+	// 		label: "back to top",
+	// 		onclick: function(){
+	// 			self.showPage("Edit");
+	// 		}
+	// 	}));
 
-		page.addComponent(new ComponentHTML({
-			html: `<br><h3>Global Node Parameters</h3>`
-		}))
+	// 	page.addComponent(new ComponentHTML({
+	// 		html: `<br><h3>Global Node Parameters</h3>`
+	// 	}))
 
-		page.addComponent("radius", new ComponentSliderGlobal({
-			bg: "radius",
-			item: "Node",
-			label: "Border Radius:",
-			globalProp: 'radius',
-			options: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-			//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
-			oninput: function(value){
-				Node.DEFAULT_RADIUS = value;
-			}
-		}));
-		page.addComponent("retention", new ComponentSliderGlobal({
-			bg: "lag",
-			item: "Node",
-			label: "Node Retention:",
-			globalProp: 'retention',
-			options: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
-			//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
-			oninput: function(value){
-				Node.DEFAULT_RETENTION = value;
-			}
-		}));
-		page.addComponent("randomize", new ComponentButton({
-			label: "Randomize Colors",
-			onclick: function(value){
-				const numOfNodes = loopy.model.nodes.length
-				for (let i = 0; i <= numOfNodes; i++ ) {
-					let color = i % 20
-					loopy.model.nodes[i].hue = color
-				}
-			}
-		}));
+	// 	page.addComponent("radius", new ComponentSliderGlobal({
+	// 		bg: "radius",
+	// 		item: "Node",
+	// 		label: "Border Radius:",
+	// 		globalProp: 'radius',
+	// 		options: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+	// 		//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
+	// 		oninput: function(value){
+	// 			Node.DEFAULT_RADIUS = value;
+	// 		}
+	// 	}));
+	// 	page.addComponent("retention", new ComponentSliderGlobal({
+	// 		bg: "lag",
+	// 		item: "Node",
+	// 		label: "Node Retention:",
+	// 		globalProp: 'retention',
+	// 		options: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+	// 		//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
+	// 		oninput: function(value){
+	// 			Node.DEFAULT_RETENTION = value;
+	// 		}
+	// 	}));
 
-		page.addComponent("pictureReady", new ComponentButton({
-			label: "Make Uniform Color",
-			onclick: function(value){
-				const numOfNodes = loopy.model.nodes.length
-				for (let i = 0; i <= numOfNodes; i++ ) {
-					let color = "red"
-					loopy.model.nodes[i].hue = color
-				}
-			}
-		}));
-	})();
+	// 	// page.addComponent("pass", new ComponentCheckbox({
+	// 	// 	label: 'Pass Node: ',
+	// 	// 	id: 'pass',
+	// 	// 	value: Node.DEFAULT_PASSNODE,
+	// 	// 	onclick: function (value) {
+	// 	// 		Node.DEFAULT_PASSNODE = value;
+	// 	// 	}
+	// 	// }))
+
+	// 	// page.addComponent("pass", new ComponentSliderGlobal({
+	// 	// 	bg: "lag",
+	// 	// 	item: "Node",
+	// 	// 	label: "Node Retention:",
+	// 	// 	globalProp: 'pass',
+	// 	// 	options: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+	// 	// 	//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
+	// 	// 	oninput: function(value){
+	// 	// 		Node.DEFAULT_RETENTION = value;
+	// 	// 	}
+	// 	// }));
+
+
+	// 	page.addComponent("randomize", new ComponentButton({
+	// 		label: "Randomize Colors",
+	// 		onclick: function(value){
+	// 			const numOfNodes = loopy.model.nodes.length
+	// 			for (let i = 0; i <= numOfNodes; i++ ) {
+	// 				let color = i % 20
+	// 				loopy.model.nodes[i].hue = color
+	// 			}
+	// 		}
+	// 	}));
+
+	// 	page.addComponent("pictureReady", new ComponentButton({
+	// 		label: "Make Uniform Color",
+	// 		onclick: function(value){
+	// 			const numOfNodes = loopy.model.nodes.length
+	// 			for (let i = 0; i <= numOfNodes; i++ ) {
+	// 				let color = "red"
+	// 				loopy.model.nodes[i].hue = color
+	// 			}
+	// 		}
+	// 	}));
+	// })();
 
 	// Edit
 	(function(){
@@ -376,14 +433,46 @@ function Sidebar(loopy){
 
 			"<div id='loadPythonPackages'>" +
 				"<b>To access ALL TABS<br>" +
-				"<b style='font-size: .8em'>Will take a minute or two to load<br>" +
-				"<b style='font-size: .8em'>PS: Make sure all names are different<br><br>" +
+				"<b style='font-size: .8em'>PS: Make sure all node names are different<br><br>" +
 				"<div id='loadingIndicator' style='display: none;'> <div class='spinner'></div> </div>" +
-				"<span class='mini_button' onclick='loadAndExecutePythonScript()'>Load In Python Packages</span><br><br>" +
+				"<span class='mini_button' id='researcherMode'>Researcher Mode 🚀</span><br><br>" +
 			"<hr/><br>" +
 
 			"</div>"
 		}));
+
+		// Function to Add Node Connection
+function addNodeConnection() {
+    const node1Id = document.getElementById("node1").value.trim();
+    const node2Id = document.getElementById("node2").value.trim();
+    const strength = parseFloat(document.getElementById("strength").value);
+
+    if (!node1Id || !node2Id || isNaN(strength)) {
+        alert("Please fill out all fields correctly.");
+        return;
+    }
+
+    // Assuming you have access to your model or a graph object
+    const node1 = loopy.model.getNodeById(node1Id);
+    const node2 = loopy.model.getNodeById(node2Id);
+
+    if (!node1 || !node2) {
+        alert("One or both nodes not found. Please check the IDs.");
+        return;
+    }
+
+    // Create a new edge between the nodes
+    const newEdge = new Edge({
+        from: node1,
+        to: node2,
+        strength: strength,
+    });
+    loopy.model.edges.push(newEdge);
+
+    // Trigger re-render
+    publish("model/changed");
+    alert(`Connection added between ${node1Id} and ${node2Id} with strength ${strength}`);
+}
 	
 		// Add the Set Global Parameters button correctly using ComponentButton
 		page.addComponent(new ComponentButton({
@@ -444,7 +533,7 @@ function Sidebar(loopy){
 			bg: "lag",
 			item: "Edge",
 			label: "Global Propagation Delay:",
-			options: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+			options: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
 			globalProp: "lag",  // The property to apply globally
 			oninput: function(value) {
 				Edge.defaultLag = value;
@@ -488,6 +577,26 @@ function Sidebar(loopy){
 			//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
 			oninput: function(value){
 				Node.DEFAULT_RETENTION = value;
+			}
+		}));
+		// page.addComponent("pass", new ComponentCheckbox({
+		// 	label: 'Pass Node: ',
+		// 	id: 'pass',
+		// 	value: Node.DEFAULT_PASSNODE,
+		// 	onclick: function (value) {
+		// 		Node.DEFAULT_PASSNODE = value;
+		// 	}
+		// }))
+
+		globalNodePage.addComponent("pass", new ComponentButton({
+			label: "Flip Pass Node:",
+			oninput: function(value){
+				const numOfNodes = loopy.model.nodes.length;
+				let opposite = !loopy.model.nodes[0].pass
+				for (let i = 0; i <= numOfNodes; i++) {
+					loopy.model.nodes[i].pass = opposite
+				}
+				// Node.DEFAULT_PASSNODE = value;
 			}
 		}));
 		globalNodePage.addComponent("randomize", new ComponentButton({
@@ -634,6 +743,7 @@ function ComponentGlobal(){
 		// console.log(self)
 		return self.page.target[self.propName];
 	};
+
 	self.setValue = function(value){
 		
 		// Model's been changed!
@@ -857,6 +967,38 @@ function ComponentSliderGlobal(config) {
 
     var label = _createLabel(config.label);
     labelContainer.appendChild(label);
+
+	self.getValue = function() {
+        // Decide what global property to return based on config.item and config.globalProp
+        if (config.item === "Edge") {
+            if (config.globalProp === "damper") return Edge.damper;
+            if (config.globalProp === "confidence") return Edge.defaultStrengthMultiplier;
+            if (config.globalProp === "lag") return Edge.defaultLag;
+        } else if (config.item === "Node") {
+            if (config.globalProp === "radius") return Node.DEFAULT_RADIUS;
+            if (config.globalProp === "retention") return Node.DEFAULT_RETENTION;
+        }
+        return config.options[0]; // fallback if none match
+    };
+	self.setValue = function(value) {
+        publish("model/changed");
+        if (config.item === "Edge") {
+            loopy.model.edges.forEach(edge => {
+                edge[config.globalProp] = value;
+            });
+            // Also update any global defaults if needed
+            if (config.globalProp === "damper") Edge.damper = value;
+            if (config.globalProp === "confidence") Edge.defaultStrengthMultiplier = value;
+            if (config.globalProp === "lag") Edge.defaultLag = value;
+        } else if (config.item === "Node") {
+            loopy.model.nodes.forEach(node => {
+                node[config.globalProp] = value;
+            });
+            if (config.globalProp === "radius") Node.DEFAULT_RADIUS = value;
+            if (config.globalProp === "retention") Node.DEFAULT_RETENTION = value;
+        }
+		self.page.onedit();
+    };
 
     // Create value label to display the current value (default to the first option on load)
     var valueLabel = _createLabel(config.label === "Color:" ? getColor(config.options[0]) : config.options[0]);

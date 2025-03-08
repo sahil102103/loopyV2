@@ -1,0 +1,120 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs and debug output
+logs/
+*.log
+*.out
+*.err
+debug.log
+
+# Unit test / coverage reports
+.coverage
+.coverage.*
+*.cover
+coverage.xml
+htmlcov/
+
+# Environments
+.env
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# PyInstaller
+#  Usually these files are written by a Python application to preserve state between runs
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# macOS files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Local config files
+*.local
+*.config.json
+settings.py  # If it contains sensitive information (move to .env instead)
+
+# Build files
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+*.whl
+
+# Cache files
+*.cache
+.cache/
+*.bak
+*.tmp
+
+# Flask/Backend-specific files
+instance/
+*.sqlite3
+*.db
+
+# Uploaded files (if applicable)
+uploads/
+media/
+tmp/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# Virtual environment
+venv/
+*.pyenv/
+
+# AWS or cloud provider keys
+*.pem
+*.key
+
+# Python Package Index metadata
+pip-wheel-metadata/
+__pypackages__/
+
+# Generated files
+*.ipynb_export.py
+
+# Temporary files created during development
+*.tmp
+*.temp
+*.backup
+~$*
+
+# If using Stripe or other API keys
+*.stripe.json
+stripe_secrets.txt

@@ -1,9 +1,8 @@
-// const { CanvasRenderService } = require('chartjs-node-canvas');
+// Global settings
+const autoColorEnabled = true; // If true, node colors are set automatically using convertNumToColor
+const undoStack = []; // Simple undo stack (Work in progress)
 
-var chart;
-var chartSmooth;
-var smoothWindowValue = 7;
-
+// Convert numeric hue to a color pair [name, hex]
 function convertNumToColor(color) {
     switch (color) {
         case 0:
@@ -47,36 +46,80 @@ function convertNumToColor(color) {
         case 19:
             return ["Magenta", "#d03a87"];
         default:
-            return;
+            return ["Default", "#000000"];
     }
 }
 
+var chart;
+var chartSmooth;
+var smoothWindowValue = 7;
 var timeSeriesNodeData = [];
 var fullNodeData = []; // Store the full data separately
+
+// Function to save state for undo (Work in progress)
+function pushUndoState() {
+    // For demonstration, we push a deep copy of current fullNodeData.
+    // A more complete implementation would capture all relevant model state.
+    undoStack.push(JSON.parse(JSON.stringify(fullNodeData)));
+}
+
+// Stub undo function (work in progress)
+function undoAction() {
+    if (undoStack.length === 0) {
+        console.log("Nothing to undo.");
+        return;
+    }
+    const prevState = undoStack.pop();
+    // Restore previous state (here we simply replace fullNodeData and redraw the chart)
+    fullNodeData = prevState;
+    // Also update timeSeriesNodeData based on restored fullNodeData:
+    timeSeriesNodeData.forEach((dataset, index) => {
+        dataset.data = fullNodeData[index].data.slice();
+    });
+    chart.update();
+    console.log("Undo performed (Work in progress).");
+}
+
+// Attach undo action to a button if it exists
+document.getElementById('undoButton')?.addEventListener('click', undoAction);
 
 function drawTimeSeriesChart() {
     timeSeriesNodeData = [];
     fullNodeData = []; // Initialize full data storage
-    // console.log(selectedNodes)
 
-    const nodes = loopy.multipleselect.getSelectedNodes().length === 0 ? loopy.model.nodes : loopy.multipleselect.getSelectedNodes();
+    // Use either selected nodes or all nodes from the model
+    const nodes = loopy.multipleselect.getSelectedNodes().length === 0 
+        ? loopy.model.nodes 
+        : loopy.multipleselect.getSelectedNodes();
+
     nodes.forEach(node => {
+        // Ensure initial value is within floor and ceiling limits
+        let initialValue = node.value;
+        if (node.ceiling !== undefined && initialValue > node.ceiling) {
+            initialValue = node.ceiling;
+        }
+        // Create node data, using automatic color if enabled
+        const colorPair = autoColorEnabled ? convertNumToColor(node.hue) : [node.manualColorName, node.manualColorHex];
         const nodeData = {
             label: node.label,
-            data: [node.value],
-            borderColor: convertNumToColor(node.hue)[1],
-            backgroundColor: convertNumToColor(node.hue)[1],
+            data: [initialValue],
+            borderColor: colorPair[1],
+            backgroundColor: colorPair[1],
             borderWidth: 5,
             fill: false
         };
         timeSeriesNodeData.push(nodeData);
-        fullNodeData.push({ ...nodeData }); // Store the full data for reference
+        fullNodeData.push({ ...nodeData });
     });
 
-    const ctx = document.getElementById('timeSeriesChart').getContext('2d');
+    const canvas = document.getElementById('timeSeriesChart');
+    // Limit the chart size via inline styling
+    // canvas.style.width = "600px";
+    // canvas.style.height = "400px";
+    
+    const ctx = canvas.getContext('2d');
     chart = new Chart(ctx, {
         type: 'line',
-    
         data: {
             labels: Array.from({ length: timeSeriesNodeData[0].data.length }, (_, i) => i.toString()),
             datasets: timeSeriesNodeData
@@ -100,31 +143,79 @@ function drawTimeSeriesChart() {
         }
     });
 
-    addForwardDataSlider();
+    addForwardBackwardDataSlider();
 }
 
-function addForwardDataSlider() {
-
-    if (!document.getElementById('forwardDataSlider')) {
+function addForwardBackwardDataSlider() {
+    if (!document.getElementById('sliderContainer')) {
+        // Create slider container with fixed positioning at bottom
         const sliderContainer = document.createElement('div');
         sliderContainer.id = 'sliderContainer';
-        sliderContainer.innerHTML = '<input type="range" id="forwardDataSlider" min="0" max="100" value="100" style="width: 95%; height: 8px; background: #d3d3d3; border-radius: 5px;">';
-        
+        sliderContainer.style.display = 'flex';
+        sliderContainer.style.alignItems = 'center';
+        sliderContainer.style.gap = '20px';
+        sliderContainer.style.margin = '10px auto';
+        sliderContainer.style.width = '95%';
+        sliderContainer.style.position = 'fixed';
+        sliderContainer.style.bottom = '0';
+        sliderContainer.style.left = '0';
+        sliderContainer.style.backgroundColor = '#fff'; // Optional: add a background to the slider bar
+        sliderContainer.style.zIndex = '1000';
+
+        // Backward slider container (Trim Start)
+        const backwardContainer = document.createElement('div');
+        backwardContainer.innerHTML = `
+            <label for="backwardDataSlider">Trim Start</label>
+            <input type="range" id="backwardDataSlider" min="0" max="100" value="0" style="width: 100%; height: 8px;">
+        `;
+
+        // Forward slider container (Trim End)
+        const forwardContainer = document.createElement('div');
+        forwardContainer.innerHTML = `
+            <label for="forwardDataSlider">Trim End</label>
+            <input type="range" id="forwardDataSlider" min="0" max="100" value="100" style="width: 100%; height: 8px;">
+        `;
+
+        // Append the sliders to the container
+        sliderContainer.appendChild(backwardContainer);
+        sliderContainer.appendChild(forwardContainer);
         document.getElementById('TimeSeries').appendChild(sliderContainer);
 
-        document.getElementById('forwardDataSlider').addEventListener('input', function(event) {
+        // Add event listeners for slider input
+        document.getElementById('backwardDataSlider').addEventListener('input', function (event) {
+            updateChartBackwardData(parseInt(event.target.value));
+        });
+
+        document.getElementById('forwardDataSlider').addEventListener('input', function (event) {
             updateChartForwardData(parseInt(event.target.value));
         });
     }
-    
 }
 
 function updateChartForwardData(percentage) {
-    const newLength = Math.ceil(fullNodeData[0].data.length * (percentage / 100));
+    const backwardValue = parseInt(document.getElementById('backwardDataSlider').value);
+    if (percentage <= backwardValue) return; // Prevent overlap
 
-    chart.data.labels = Array.from({ length: newLength }, (_, i) => i.toString());
+    const startIndex = Math.ceil(fullNodeData[0].data.length * (backwardValue / 100));
+    const endIndex = Math.ceil(fullNodeData[0].data.length * (percentage / 100));
+
+    chart.data.labels = Array.from({ length: endIndex - startIndex }, (_, i) => i + startIndex);
     chart.data.datasets.forEach((dataset, index) => {
-        dataset.data = fullNodeData[index].data.slice(0, newLength);
+        dataset.data = fullNodeData[index].data.slice(startIndex, endIndex);
+    });
+    chart.update();
+}
+
+function updateChartBackwardData(percentage) {
+    const forwardValue = parseInt(document.getElementById('forwardDataSlider').value);
+    if (percentage >= forwardValue) return; // Prevent overlap
+
+    const startIndex = Math.ceil(fullNodeData[0].data.length * (percentage / 100));
+    const endIndex = Math.ceil(fullNodeData[0].data.length * (forwardValue / 100));
+
+    chart.data.labels = Array.from({ length: endIndex - startIndex }, (_, i) => i + startIndex);
+    chart.data.datasets.forEach((dataset, index) => {
+        dataset.data = fullNodeData[index].data.slice(startIndex, endIndex);
     });
     chart.update();
 }
@@ -139,7 +230,7 @@ function smoothData(data, windowSize) {
 }
 
 document.getElementById('smoothWindowForm').addEventListener('submit', function(event) {
-    event.preventDefault(); // Prevent the form from submitting normally
+    event.preventDefault(); // Prevent form submission
     smoothWindowValue = parseInt(document.getElementById('smoothwindow').value);
     
     if (isNaN(smoothWindowValue) || smoothWindowValue <= 0) {
@@ -199,50 +290,6 @@ function drawSmoothedTimeSeriesChart() {
     });
 }
 
-
-
-
-// var _listenerReset = subscribe("model/reset", function(){
-//     if (chart){
-//         chart.destroy();
-//     }
-//     drawTimeSeriesChart();
-// });
-
-// document.getElementById('saveButton').addEventListener('click', function () {
-//     // Get the canvas element
-//     const canvas = document.getElementById('myChart');
-//     // Convert the canvas to a data URL
-//     const dataURL = canvas.toDataURL('image/png');
-//     // Create a temporary link element
-//     const link = document.createElement('a');
-//     link.href = dataURL;
-//     link.download = 'chart.png'; // The name of the downloaded file
-//     // Trigger the download by simulating a click
-//     link.click();
-// });
-
-// Function to execute when the button is clicked
-// function handleClick() {
-
-// }
-
-// Function to execute when the button is clicked
-// function handleClick() {
-//     chart.destroy()
-//     drawTimeSeriesChart();
-// }
-
-// // Get the button element and add an event listener
-// const button = document.getElementById('rebuildTimeSeriesChartButton');
-// console.log(chart.toBase64Image())
-// button.href = chart.toBase64Image();
-// button.download = 'my_file_name.png';
-
-// // Trigger the download
-// button.click();
-
-
 function openPage(pageName) {
     let tabcontent = document.getElementsByClassName('tabcontent');
     for (let i = 0; i < tabcontent.length; i++) {
@@ -257,79 +304,36 @@ function openPage(pageName) {
     document.getElementById(pageName).style.display = 'block';
     document.querySelector(`[onclick="openPage('${pageName}')"]`).style.backgroundColor = '#ccc';
 
-    document.getElementById('destoryTimeSeriesChart')
-
     if (pageName === 'TimeSeries') {
         if (!chart) {
-            drawTimeSeriesChart()
+            drawTimeSeriesChart();
         }
-        chart.update()
+        chart.update();
     }
 
     if (pageName === 'TimeSeriesSmooth') {
         if (!chartSmooth) {
             drawSmoothedTimeSeriesChart();
         } else {
-            // Re-smooth the data before updating the chart
             const smoothedData = timeSeriesNodeData.map(dataset => {
                 return {
                     label: `${dataset.label} (Smoothed)`,
-                    data: smoothData(dataset.data, smoothWindowValue), // Use the same window size used initially
+                    data: smoothData(dataset.data, smoothWindowValue),
                     borderColor: dataset.borderColor,
                     backgroundColor: dataset.backgroundColor,
                     borderWidth: 1,
                     fill: false
                 };
             });
-
-            chartSmooth.data.datasets = smoothedData; // Update the datasets with new smoothed data
-            chartSmooth.destroy()
-            drawSmoothedTimeSeriesChart()
+            chartSmooth.data.datasets = smoothedData;
+            chartSmooth.destroy();
+            drawSmoothedTimeSeriesChart();
         }
     }
-
 }
 
 function updateTimeSeriesChart(currentAmount, iter) {
+    // Before updating, push current state for undo
+    pushUndoState();
     chart.data.datasets[iter].data.push(currentAmount);
 }
-
-
-// function captureNodeData() {
-//     let csvContent = "data:text/csv;charset=utf-8,";
-
-//     // Add the headers for the CSV
-//     csvContent += "Node Label,Node Value\n";
-
-//     // Iterate over the node data and create CSV rows
-//     timeSeriesNodeData.forEach(dataset => {
-//         const label = dataset.label;
-//         const values = dataset.data.join(","); // Join values with commas
-
-//         // Add each node's data as a new row
-//         csvContent += `${label},${values}\n`;
-//     });
-
-//     return csvContent;
-// }
-
-// function downloadCSV() {
-//     const csvContent = captureNodeData();
-
-//     // Create a temporary link element
-//     const link = document.createElement("a");
-//     link.href = encodeURI(csvContent);
-
-//     // Set the file name for the download
-//     link.download = "node_data.csv";
-
-//     // Trigger the download by simulating a click
-//     document.body.appendChild(link);
-//     link.click();
-
-//     // Clean up by removing the link after the download
-//     document.body.removeChild(link);
-// }
-
-// // Add an event listener to a button for downloading the CSV
-// document.getElementById("downloadCSVButton").addEventListener("click", downloadCSV);

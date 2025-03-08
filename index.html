@@ -1,170 +1,316 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    
-	<!-- META -->
-	<title>FlowCLD: a tool for thinking in systems</title>
-    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
-	<meta content="utf-8" http-equiv="encoding">
-	<meta charset="utf-8">
-	<link rel="icon" type="image/png" href="favicon.png">
+  <meta charset="utf-8" />
+  <title>FlowCLD: A Tool for Thinking in Systems</title>
+  <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
+  <meta content="utf-8" http-equiv="encoding" />
 
-	<!-- Schema.org markup for Google+ -->
-	<meta itemprop="name" content="LOOPY!">
-	<meta itemprop="description" content="a tool for thinking in systems">
-	<meta itemprop="image" content="http://ncase.me/loopy/social/thumbnail.png">
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png" />
 
-	<!-- Twitter Card data: LARGE -->
-	<meta name="twitter:card" content="summary_large_image">
-	<meta name="twitter:site" content="@ncasenmare">
-	<meta name="twitter:title" content="LOOPY!">
-	<meta name="twitter:description" content="a tool for thinking in systems">
-	<meta name="twitter:creator" content="@ncasenmare">
-	<meta name="twitter:image" content="http://ncase.me/loopy/social/thumbnail.png">
+  <!-- Social / Open Graph Meta Tags -->
+  <meta name="description" content="FlowCLD is a tool for thinking in systems." />
+  <meta itemprop="name" content="FlowCLD" />
+  <meta itemprop="description" content="A tool for thinking in systems." />
+  <meta itemprop="image" content="http://example.com/social/thumbnail.png" />
 
-	<!-- Open Graph data -->
-	<meta property="og:title" content="LOOPY!">
-	<meta property="og:type" content="website">
-	<meta property="og:url" content="http://ncase.me/loopy/">
-	<meta property="og:image" content="http://ncase.me/loopy/social/thumbnail.png">
-	<meta property="og:description" content="a tool for thinking in systems">
+  <!-- Twitter Card data -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@flowcld" />
+  <meta name="twitter:title" content="FlowCLD" />
+  <meta name="twitter:description" content="A tool for thinking in systems." />
+  <meta name="twitter:creator" content="@flowcld" />
+  <meta name="twitter:image" content="http://example.com/social/thumbnail.png" />
 
-	<!-- Styles -->
-	<link href="css/index.css" type="text/css" rel="stylesheet"/>
+  <!-- Open Graph data -->
+  <meta property="og:title" content="FlowCLD" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="http://example.com/flowcld" />
+  <meta property="og:image" content="http://example.com/social/thumbnail.png" />
+  <meta property="og:description" content="A tool for thinking in systems." />
 
+  <!-- CSS (You can keep your own index.css or integrate the styles below into it) -->
+  <link href="css/index.css" type="text/css" rel="stylesheet" />
+
+  <!-- Inline styles for demonstration; ideally, place in your CSS file -->
+  <style>
+    /* Basic Reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: sans-serif;
+      background: #e9e9e9;
+      color: #333;
+      line-height: 1.6;
+    }
+    a {
+      color: #007BFF;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f5f5f5;
+      padding: 1rem 2rem;
+    }
+    .logo {
+      font-weight: bold;
+      font-size: 1.5rem;
+    }
+    nav a {
+      margin-left: 1rem;
+      font-weight: 500;
+    }
+
+    /* Hero (Splash) Section */
+    .hero {
+      text-align: center;
+      padding: 4rem 2rem;
+      background: #fafafa;
+    }
+    .hero h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+    }
+    .hero p {
+      font-size: 1.2rem;
+      max-width: 600px;
+      margin: 0.5rem auto 2rem auto;
+    }
+    .cta-button {
+      display: inline-block;
+      padding: 0.8rem 1.5rem;
+      background: #007BFF;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 1rem;
+    }
+    .cta-button:hover {
+      background: #0056b3;
+    }
+
+    /* Features Section */
+    .section {
+      padding: 2rem 1rem;
+    }
+    .features {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .feature-item {
+      flex: 1 1 300px;
+      background: #fff;
+      padding: 1.5rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .feature-item img {
+      max-width: 100%;
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+    .feature-item h3 {
+      margin-bottom: 0.5rem;
+    }
+    .feature-item p {
+      color: #555;
+    }
+
+    /* Example/iframe Section */
+    #examples {
+      text-align: center;
+      padding: 2rem 0;
+    }
+
+    /* Footer */
+    footer {
+      background: #f5f5f5;
+      padding: 2rem 1rem;
+      text-align: center;
+      margin-top: 2rem;
+    }
+    .footer-content {
+      max-width: 800px;
+      margin: 0 auto;
+      color: #666;
+    }
+
+    /* Social sharing icons */
+    .share-buttons {
+      display: inline-flex;
+      list-style: none;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .share-buttons li img {
+      width: 32px;
+      height: 32px;
+    }
+
+    /* Responsive for smaller screens */
+    @media (max-width: 768px) {
+      .features {
+        flex-direction: column;
+        align-items: center;
+      }
+      .feature-item {
+        max-width: 600px;
+        margin: 1rem 0;
+      }
+      .hero h1 {
+        font-size: 2rem;
+      }
+      .hero p {
+        font-size: 1rem;
+      }
+    }
+  </style>
 </head>
-<body style="background:#e9e9e9">
+<body>
 
-	<!-- SPLASH -->
-	<div class="white section" id="splash">
-		<div id="logo_container">
-			<iframe id="logo_interactive" src="splash/" style="border:none" width="300" height="350"></iframe>
-			<div id="logo"></div>
-		</div>
-	</div>
-	<div id="arrow"></div>
+  <!-- HEADER -->
+  <header>
+    <div class="logo">FlowCLD</div>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#examples">Examples</a>
+      <a href="#footer">Contact</a>
+    </nav>
+  </header>
 
-	<!-- INFO -->
-	<div class="light-gray section" style="padding-top:20px">
-		<div id="why" class="content">
-			In a world filled with ever-more-complex
-			technological, sociological, ecological, 
-			political &amp; economic systems...
-			a tool to make interactive simulations may not be that much help.
-			But it can certainly try.
-		</div>
-		<div id="features" class="content">
+  <!-- HERO / SPLASH -->
+  <section class="hero" id="splash">
+    <h1>FlowCLD: A Tool for Thinking in Systems</h1>
+    <p>
+      In a world filled with ever-more-complex technological, sociological, ecological, 
+      and economic systems, FlowCLD helps you visualize, simulate, and share your system models.
+    </p>
+    <a class="cta-button" href="#features">Get Started</a>
+  </section>
 
-			<div class="feature-image">
-				<img src="img/feature_play.gif"/>
-			</div>
-			<div class="feature-text">
-				<div>play with simulations</div>
-				It's the ancient, time-honored way of learning:
-				messing around and seeing what happens.
-				Play with simulations to ask "what if" questions, and get
-				an intuition for how the system works!
-			</div>
-			
-			<div class="feature-text">
-				<div>programming by drawing</div>
-				Raw code is too inaccessible.
-				Also drag-and-drop is too mainstream.
-				But with LOOPY, you can model systems by simply drawing circles &amp; arrows,
-				like a wee baby
-			</div>
-			<div class="feature-image">
-				<img src="img/feature_draw.gif"/>
-			</div>
+  <!-- INFO / FEATURES -->
+  <section class="section" id="features" style="background: #ffffff;">
+    <div style="text-align:center; margin-bottom: 1.5rem;">
+      <h2>Features</h2>
+    </div>
+    <div class="features">
+      <!-- Feature 1 -->
+      <div class="feature-item">
+        <img src="img/feature_play.gif" alt="Play with simulations" />
+        <h3>Play With Simulations</h3>
+        <p>
+          Ask "what if?" questions by messing around with different variables
+          and interactions. Gain a deeper intuition for how the system works!
+        </p>
+      </div>
+      <!-- Feature 2 -->
+      <div class="feature-item">
+        <img src="img/feature_draw.gif" alt="Model by drawing" />
+        <h3>Draw Your Models</h3>
+        <p>
+          Model your systems by simply drawing circles & arrows. No heavy coding required,
+          just intuitive, visual connections.
+        </p>
+      </div>
+      <!-- Feature 3 -->
+      <div class="feature-item">
+        <img src="img/feature_remix.gif" alt="Remix simulations" />
+        <h3>Remix Simulations</h3>
+        <p>
+          Build upon or challenge others' models with FlowCLD's remix functionality.
+          You can go from <em>thinking</em> in systems to <em>talking</em> in systems!
+        </p>
+      </div>
+    </div>
+  </section>
 
-			<div class="feature-image">
-				<img src="img/feature_remix.gif" width="305"/>
-			</div>
-			<div class="feature-text">
-				<div>remix others' simulations</div>
-				Want to build upon your friends' models?
-				Or challenge your enemies' models?
-				LOOPY lets you have a conversation with simulations!
-				You can go from <i>thinking</i> in systems,
-				to <i>talking</i> in systems.
-			</div>
+  <!-- EXAMPLES -->
+  <section class="section" id="examples" style="background: #fafafa;">
+    <h2>Try an Example</h2>
+    <!-- Example iframe (optional) -->
+    <div style="margin: 2rem auto;">
+      <iframe src="v1.1/pages/examples/" 
+              scrolling="no" 
+              style="border:none" 
+              width="620" 
+              height="220">
+      </iframe>
+    </div>
+    <a href="/v1.1/login.html" class="cta-button">
+      Make a Model from Scratch →
+    </a>
+  </section>
 
-		</div>
-	</div>
+  <!-- CONCLUSION / CALL TO ACTION -->
+  <section class="section" style="background: #ffffff; font-size: 1.2rem;">
+    <div style="max-width: 800px; margin: 0 auto; text-align:center;">
+      <p>
+        However you choose to use FlowCLD, hopefully it can give you not just
+        the software tools, but also the <em>mental</em> tools to understand
+        the complex systems of the world around us. 
+      </p>
+      <p style="margin-top: 1rem;">
+        <a href="/v1.1/login.html" class="cta-button">Start Modeling Now →</a>
+      </p>
+    </div>
+  </section>
 
-	<!-- EXAMPLES -->
-	<div class="white section">
-		<div id="example_header" class="content">
-			NOW PLAY WITH AN EXAMPLE:
-		</div>
-		<div id="examples" class="content">
-			<iframe src="v1.1/pages/examples/" scrolling="no" style="border:none" width="620" height="220"></iframe>
-		</div>
-		<a href="v1.1/login.html" id="start_blank" class="cool_button">
-			<div>OR, MAKE A MODEL FROM SCRATCH &rarr;</div>
-		</a>
-	</div>
+  <!-- FOOTER / CREDITS -->
+  <footer id="footer">
+    <div class="footer-content">
+      <p style="margin-bottom: 0.5rem;">
+        © 2025 FlowCLD Inc. | 
+        <a href="https://github.com/example/flowcld">GitHub</a> | 
+        <a href="mailto:info@flowcld.com">Contact</a>
+      </p>
+      <p>
+        FlowCLD is open source and part of a movement to make learning active, not passive.
+        We welcome contributions and remixes!
+      </p>
 
-	<!-- CONCLUSION -->
-	<div class="light-gray section" style="font-size:24px">
-		<div class="content">
-			Like duct tape, you can use LOOPY for all sorts of things:
-		</div>
-		<div id="uses" class="content" style="margin-top:1.2em">
-			<img src="img/use_1.png"/><img src="img/use_2.png"/><img src="img/use_3.png"/><img src="img/use_4.png"/><img src="img/use_5.png"/>
-		</div>
-		<div class="content" style="margin-top:1.2em">
-			However you choose to use LOOPY, hopefully it can give you not just
-			the software tools, but also the <i>mental</i> tools to understand
-			the complex systems of the world around us.
-			It's a hot mess out there.
-			<br><br>
-			<a href="v1.1/login.html" id="final_button" class="cool_button">
-				<div>TRY OUT LOOPY &rarr;</div>
-			</a>
-			<br>
-			Happy simulating! &lt;3
-		</div>
-	</div>
-
-	<!-- CREDITS -->
-	<div class="dark-gray section">
-		<div class="content">
-			<div>LOOPY is a part of</div>
-			<div style="text-align:center; font-size:42px; font-weight:bold; color:#fff; margin:7px 0;">
-			<a style="color:#fff" href="http://explorableexplanations.com/">EXPLORABLE EXPLANATIONS</a>
-			</div>
-			<div style="text-align:right;">a movement to make learning active, not just passive</div>
-		</div>
-		<div class="content">
-			LOOPY is also open source and public domain,
-			meaning it's free for coders, educators, and just about anybody
-			to re-use and re-mix LOOPY as they see fit.
-			<a href="https://github.com/ncase/loopy">(Get the source code on Github!)</a>
-		</div>
-		<div class="content">
-			LOOPY is made by Nicky Case,
-			(<a href="http://ncase.me/">my wobsite</a> | <a href="https://twitter.com/ncasenmare">my tweeter</a>)
-			<br>
-			thanks to my generous supporters on Patreon!
-			<a href="v1.1/pages/credits">(see them all here)</a>
-			<br><br>
-			And if you like what I make, feel free to
-			<a href="https://www.patreon.com/ncase">toss coins at me on Patreon</a>. &lt;3
-		</div>
-	</div>
-
-	<!-- SOCIAL SHARING -->
-	<div class="black section">
-		<div id="sharing" class="content">
-			<span style="position:relative; top:-10px">share:</span>
-			<ul class="share-buttons">
-				<li><a href="https://www.facebook.com/sharer/sharer.php?u=http%3A%2F%2Fncase.me%2Floopy&t=LOOPY%2C%20a%20tool%20for%20thinking%20in%20systems" title="Share on Facebook" target="_blank"><img alt="Share on Facebook" src="css/icons/Facebook.png"></a></li>
-				<li><a href="https://twitter.com/intent/tweet?source=http%3A%2F%2Fncase.me%2Floopy&text=LOOPY%2C%20a%20tool%20for%20thinking%20in%20systems:%20http%3A%2F%2Fncase.me%2Floopy&via=ncasenmare" target="_blank" title="Tweet"><img alt="Tweet" src="css/icons/Twitter.png"></a></li>
-				<li><a href="mailto:?subject=LOOPY%2C%20a%20tool%20for%20thinking%20in%20systems&body=http%3A%2F%2Fncase.me%2Floopy" target="_blank" title="Send email"><img alt="Send email" src="css/icons/Email.png"></a></li>
-			</ul>
-		</div>
-	</div>
+      <!-- Social Sharing -->
+      <div id="sharing" style="margin-top: 1.5rem;">
+        <span>Share:</span>
+        <ul class="share-buttons">
+          <li>
+            <a href="https://www.facebook.com/sharer/sharer.php?u=http%3A%2F%2Fexample.com%2Fflowcld"
+               title="Share on Facebook" target="_blank">
+               <img alt="Share on Facebook" src="css/icons/Facebook.png" />
+            </a>
+          </li>
+          <li>
+            <a href="https://twitter.com/intent/tweet?source=http%3A%2F%2Fexample.com%2Fflowcld&text=FlowCLD%2C%20a%20tool%20for%20thinking%20in%20systems:%20http%3A%2F%2Fexample.com%2Fflowcld&via=flowcld"
+               target="_blank" title="Tweet">
+               <img alt="Tweet" src="css/icons/Twitter.png" />
+            </a>
+          </li>
+          <li>
+            <a href="mailto:?subject=FlowCLD%2C%20a%20tool%20for%20thinking%20in%20systems&body=http%3A%2F%2Fexample.com%2Fflowcld"
+               target="_blank" title="Send email">
+               <img alt="Send email" src="css/icons/Email.png" />
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </footer>
 
 </body>
 </html>

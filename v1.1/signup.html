@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html>
 <head>
-    <title>Login - FlowCLD</title>
+    <title>Sign Up - FlowCLD</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="css/login.css"> <!-- Link to your CSS file -->
+    <link rel="stylesheet" href="css/signup.css"> <!-- Link to CSS -->
     <style>
         /* Basic Reset */
         * {
@@ -24,19 +24,19 @@
             height: 100vh;
         }
 
-        /* Login Container */
-        .login-container {
+        /* Signup Container */
+        .signup-container {
             background: #fff;
             padding: 2rem;
             border-radius: 8px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
             max-width: 400px;
             width: 100%;
-            text-align: center;
         }
 
-        .login-container h1 {
+        .signup-container h1 {
             margin-bottom: 1.5rem;
+            text-align: center;
             color: #0e74da;
         }
 
@@ -44,21 +44,20 @@
         form {
             display: flex;
             flex-direction: column;
-            gap: 1rem;
         }
 
         label {
             font-weight: bold;
-            text-align: left;
+            margin-bottom: 0.5rem;
             color: #555;
         }
 
         input {
             padding: 0.75rem;
+            margin-bottom: 1.25rem;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 1rem;
-            transition: border-color 0.3s, box-shadow 0.3s;
         }
 
         input:focus {
@@ -82,50 +81,58 @@
             background: #054a96;
         }
 
-        /* Error Message */
-        #loginError {
+        .signup-footer {
             margin-top: 1rem;
-            color: red;
-            font-weight: bold;
-            display: none;
-        }
-
-        /* Footer Styling */
-        .login-footer {
-            margin-top: 1rem;
-            font-size: 0.9rem;
+            text-align: center;
             color: #555;
         }
 
-        .login-footer a {
+        .signup-footer a {
             color: #0e74da;
             text-decoration: none;
             font-weight: bold;
         }
 
-        .login-footer a:hover {
+        .signup-footer a:hover {
             text-decoration: underline;
+        }
+
+        /* Error Message */
+        #signupError {
+            color: red;
+            text-align: center;
+            display: none;
+            margin-top: 1rem;
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <h1>Welcome Back to FlowCLD</h1>
-        <form id="loginForm">
+    <div class="signup-container">
+        <h1>Sign Up for FlowCLD</h1>
+        <form id="signup-form">
+            <label for="firstname">First Name</label>
+            <input type="text" id="firstname" name="firstname" required>
+
+            <label for="lastname">Last Name</label>
+            <input type="text" id="lastname" name="lastname" required>
+
+            <label for="username">User Name</label>
+            <input type="text" id="username" name="username" required>
+
             <label for="email">Northeastern Email</label>
-            <input type="email" id="email" name="email" placeholder="Enter your email" required>
+            <input type="email" id="email" name="email" placeholder="example@northeastern.edu" required>
 
             <label for="password">Password</label>
-            <input type="password" id="password" name="password" placeholder="Enter your password" required>
+            <input type="password" id="password" name="password" required>
 
-            <button type="submit">Login</button>
+            <button type="submit">Sign Up</button>
         </form>
-        <div id="loginError">Invalid credentials, please try again.</div>
-        <div class="login-footer">
-            Don’t have an account? <a href="signup.html">Sign up here</a>
+        <div id="signupError">Error: Please check your details and try again.</div>
+        <div class="signup-footer">
+            Already have an account? <a href="login.html">Log in here</a>
         </div>
     </div>
 
-    <script src="js/login.js" type="module"></script> <!-- Link to login script -->
+    <script src="js/signup.js" type="module"></script> <!-- Link to signup script -->
 </body>
 </html>

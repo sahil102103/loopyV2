@@ -1,0 +1,10 @@
+flask
+networkx
+matplotlib
+scipy
+pandas
+scikit-learn
+seaborn
+pandas
+flask_cors
+stripe
