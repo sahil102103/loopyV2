@@ -118,3 +118,4 @@ __pypackages__/
 # If using Stripe or other API keys
 *.stripe.json
 stripe_secrets.txt
+.vercel

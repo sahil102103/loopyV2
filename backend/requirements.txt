@@ -8,3 +8,4 @@ seaborn
 pandas
 flask_cors
 stripe
+gunicorn
