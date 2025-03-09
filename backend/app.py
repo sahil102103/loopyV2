@@ -664,8 +664,8 @@ def create_checkout_session():
                 },
             ],
             mode='payment',
-            success_url='http://127.0.0.1:5500/v1.1/success.html',
-            cancel_url='http://127.0.0.1:5500/v1.1/cancel.html',
+            success_url='https://loopy-v2.vercel.app/v1.1/success.html',
+            cancel_url='https://loopy-v2.vercel.app/v1.1/cancel.html',
         )
         return jsonify({'id': session.id})
     except Exception as e:
