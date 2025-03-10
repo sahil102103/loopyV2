@@ -187,8 +187,8 @@ function Sidebar(loopy){
 		}));
 		page.addComponent("damper", new ComponentSlider({
 			bg: "lag",
-			label: "Weight:",
-			options:[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+			label: "Decay:",
+			options:[1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0],
 			oninput: function(value){
 				Edge.damper = value;
 			}
@@ -207,7 +207,7 @@ function Sidebar(loopy){
 		page.addComponent("lag", new ComponentSlider({
 			bg: "lag",
 			label: "Propogation Delay:",
-			options: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+			options: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50],
 			oninput: function (value) {
 				Edge.defaultLag = value;
 			}
@@ -510,8 +510,8 @@ function addNodeConnection() {
 		globalPage.addComponent("damper", new ComponentSliderGlobal({
 			bg: "lag",
 			item: "Edge",
-			label: "Global Weight:",
-			options: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+			label: "Global Decay:",
+			options: [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0],
 			globalProp: "damper",  // The property to apply globally
 			oninput: function(value) {
 				Edge.damper = value;
