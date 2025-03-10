@@ -610,7 +610,7 @@ function Edge(model, config){
 		// Width & Color for the arc
 		ctx.lineWidth = 13 * Math.abs(self.strength);
 		ctx.strokeStyle = "#666";
-		ctx.setLineDash([20, lag * 10]);
+		ctx.setLineDash([10, lag]);
 
 		// Translate & Rotate!
 		ctx.save();
