@@ -1,6 +1,5 @@
 let nodeConnectionsTabInitialized = false;
 
-// ExplanationTab Initialization
 function initNodeConnectionsTab() {
     if (nodeConnectionsTabInitialized) return;
     nodeConnectionsTabInitialized = true;
@@ -10,7 +9,7 @@ function initNodeConnectionsTab() {
     const clearButton = document.getElementById('clearButton');
     const resetButton = document.getElementById('resetDefaultsButton');
 
-    // Function: Generate Explanation
+    // Generate Explanation
     generateButton.addEventListener('click', async () => {
         const node1 = document.getElementById('node1').value.trim();
         const node2 = document.getElementById('node2').value.trim();
@@ -24,7 +23,6 @@ function initNodeConnectionsTab() {
         outputElement.textContent = 'Generating explanation...';
 
         let apiKey = document.getElementById('apiKey').value.trim();
-
         const systemPrompt = generateSystemPrompt(node1, node2, polarity, strength);
 
         try {
@@ -37,7 +35,7 @@ function initNodeConnectionsTab() {
         }
     });
 
-    // Function: Save Connection
+    // Save Connection
     saveButton.addEventListener('click', async () => {
         const node1 = document.getElementById('node1').value.trim();
         const node2 = document.getElementById('node2').value.trim();
@@ -56,14 +54,13 @@ function initNodeConnectionsTab() {
         }
     });
 
-    // Function: Clear Fields
+    // Clear Fields
     clearButton.addEventListener('click', clearFormFields);
 
-    // Function: Reset Defaults
+    // Reset Defaults
     resetButton.addEventListener('click', resetDefaults);
 }
 
-// Validation Function
 function validateInputs(node1, node2, strength) {
     if (!node1 || !node2 || isNaN(strength) || strength < 0.1 || strength > 1.0) {
         alert("Please fill out all fields correctly.");
@@ -72,7 +69,6 @@ function validateInputs(node1, node2, strength) {
     return true;
 }
 
-// Generate System Prompt for OpenAI
 function generateSystemPrompt(node1, node2, polarity, strength) {
     return `
 You are a system that:
@@ -102,7 +98,6 @@ Note: Please output the response in plain text.
     `;
 }
 
-// Fetch Explanation from OpenAI API
 async function fetchExplanationFromAPI(apiKey, systemPrompt) {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -121,7 +116,6 @@ async function fetchExplanationFromAPI(apiKey, systemPrompt) {
     return data.choices[0].message.content;
 }
 
-// Save Connection to Firestore
 async function saveConnectionToFirestore(node1, node2, polarity, strength, justification) {
     const connectionData = {
         edgeproperties: { polarity, strength, explanation: justification },
@@ -133,7 +127,6 @@ async function saveConnectionToFirestore(node1, node2, polarity, strength, justi
     await firebase.addDoc(firebase.collection(firebase.db, "edge connections justifications"), connectionData);
 }
 
-// Clear Form Fields
 function clearFormFields() {
     document.getElementById('node1').value = '';
     document.getElementById('node2').value = '';
@@ -143,21 +136,18 @@ function clearFormFields() {
     document.getElementById('output').textContent = 'No output yet...';
 }
 
-// Reset Default Values
 function resetDefaults() {
     document.getElementById('polarity').value = '+';
     document.getElementById('strength').value = 0.5;
     document.getElementById('output').textContent = 'Defaults reset. Please update other fields.';
 }
 
-// Handle Errors
 function handleError(error, outputElement) {
     console.error("Error:", error.message);
     outputElement.textContent = `Error: ${error.message}`;
     alert("An error occurred. Please try again.");
 }
 
-// Fetch Database Entries with Filtering
 async function fetchDatabaseEntries(filterNodes = [], filterByGraph = false) {
     const tableBody = document.querySelector('#databaseTable tbody');
     tableBody.innerHTML = ''; // Clear previous data
@@ -259,8 +249,6 @@ async function fetchMatchingNodes(filterNodes = []) {
     }
 }
 
-
-// Fetch edges from graph that aren't in the database
 async function loadGraphEdgesToTable() {
     const tableSection = document.getElementById("graphTable");
     const tableHeaderSection = document.getElementById("graphTableHeader");
@@ -302,14 +290,12 @@ async function loadGraphEdgesToTable() {
         return;
     } else {
         tableSection.style.display = "table";
-        tableSection.style.display = "h3";
-
+        tableHeaderSection.style.display = "table-header-group"; // Correct display for table header
     }
 
     // Populate table with filtered edges
     edgesToAdd.forEach(edge => {
         const row = document.createElement("tr");
-
         row.innerHTML = `
             <td>${edge.node1}</td>
             <td>${edge.node2}</td>
@@ -317,16 +303,13 @@ async function loadGraphEdgesToTable() {
             <td>${edge.strength}</td>
             <td><button class="fillButton">Autofill</button></td>
         `;
-
         row.querySelector('.fillButton').addEventListener('click', () => {
             autofillForm(edge);
         });
-
         tableBody.appendChild(row);
     });
 }
 
-// Autofill form fields
 function autofillForm(edge) {
     document.getElementById('node1').value = edge.node1;
     document.getElementById('node2').value = edge.node2;
@@ -334,34 +317,27 @@ function autofillForm(edge) {
     document.getElementById('strength').value = edge.strength;
 }
 
-
-
-
-// Initialize Tabs
+// Initialize event listeners once and attach UI refresh separately
 document.addEventListener('DOMContentLoaded', () => {
-    // Document layout and table
-    document.getElementById('nodeConnectionsTab').addEventListener('click', () => {
-        initNodeConnectionsTab();
-        loadGraphEdgesToTable();
-    });
-    
-    // For the actual database
+    initNodeConnectionsTab();
+
+    // Every time the node connections tab is clicked, refresh the table data
+    document.getElementById('nodeConnectionsTab').addEventListener('click', loadGraphEdgesToTable);
+
+    // Database-related event listeners
     document.getElementById('refreshDatabaseButton').addEventListener('click', () => fetchDatabaseEntries());
     document.getElementById('viewDatabaseTab').addEventListener('click', () => fetchDatabaseEntries());
+
     // Filter button functionality
     document.getElementById('filterDatabaseButton').addEventListener('click', () => {
         const filterInput = document.getElementById('nodeFilter').value.trim();
-    
-        // Split input into an array of node names (comma-separated)
         const filterNodes = filterInput
             .split(',')
             .map(node => node.trim())
-            .filter(node => node.length > 0); // Remove empty entries
-    
-        fetchDatabaseEntries(filterNodes); // Pass the array to the function
+            .filter(node => node.length > 0);
+        fetchDatabaseEntries(filterNodes);
     });
     
-
     document.getElementById('filterGraphButton').addEventListener('click', () => {
         fetchDatabaseEntries([], true);
     });
