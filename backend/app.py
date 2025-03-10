@@ -28,14 +28,13 @@ load_dotenv()
 
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+CORS(app, resources={r"/*": {"origins": "https://loopy-v2.vercel.app"}}, supports_credentials=True)
+
+
 
 stripe.api_key = 'sk_test_51QY9jPD0q75cxrZOPTBljKMlpDort35Y1EUIdO6GG3gqx3Bee9kOnUzvCfAnNJAjfXXhK0tcdeH4YVx8Xfm6r5So00Eal3kb6r'
 
 
-# # Load variables from .env file
-
-# app = Flask(__name__)
 
 @app.route('/')
 def index():
