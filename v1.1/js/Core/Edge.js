@@ -36,7 +36,7 @@ function Edge(model, config){
 		rotation: 0,
 		radius: Edge.DEFAULT_RADIUS,
 		lag: Edge.defaultLag,
-		decay: Edge.defaultStrength,
+		strength: Edge.defaultStrength,
 		strengthMultiplier: Edge.defaultStrengthMultiplier,
 		confidence: Edge.defaultConfidence,
 		damper: Edge.damper
@@ -47,10 +47,10 @@ function Edge(model, config){
 	self.to = model.getNode(self.to);
 
 
-	// Each edge has its own lag and its own decay, and its own damper, initalized from the sidebar.js file
+	// Each edge has its own lag and its own strength, and its own damper, initalized from the sidebar.js file
 	var lag = self.lag;
 	var damper = self.damper;
-	var decay = self.decay;
+	var strength = self.strength;
 	// var strengthMultiplier = self.strengthMultiplier
 
 	// We have signals!
@@ -73,7 +73,7 @@ function Edge(model, config){
         if (delta === 0) delta = 0.00001;
         if (age <= 0) return;
 
-        var newSignal = { delta, decay, position: 0, scaleX: Math.abs(delta), scaleY: delta, age };
+        var newSignal = { delta, strength, position: 0, scaleX: Math.abs(delta), scaleY: delta, age };
 
         // Place the signal in the delay buffer
         self.delayBuffer.push(newSignal);
@@ -104,7 +104,7 @@ function Edge(model, config){
     //     // Pass signals to target node when they reach the end
     //     var lastSignal = self.signals[self.signals.length - 1];
     //     while (lastSignal && lastSignal.position >= 1) {
-    //         lastSignal.delta *= decay; // Apply edge decay to signal
+    //         lastSignal.delta *= strength; // Apply edge strength to signal
     //         self.to.takeSignal(lastSignal); // Pass signal to target node
     //         self.removeSignal(lastSignal); // Remove after passing
     //         lastSignal = self.signals[self.signals.length - 1];
@@ -138,7 +138,7 @@ function Edge(model, config){
 
 	// 	var newSignal = {
 	// 		delta: delta,
-	// 		decay: decay,
+	// 		strength: strength,
 	// 		position: 0,
 	// 		scaleX: Math.abs(delta),
 	// 		scaleY: delta,
@@ -178,7 +178,7 @@ function Edge(model, config){
 		while(lastSignal && lastSignal.position>=1){
 
 
-			lastSignal.delta *= (1 - self.decay);
+			lastSignal.delta *= (self.strength);
 			self.to.takeSignal(lastSignal);
 	  
 			// Map to store accumulated signals for each node
@@ -188,7 +188,7 @@ function Edge(model, config){
 			const accumulateSignals = () => {
 			  self.model.edges.forEach(edge => {
 				  // Calculate the incoming signal from the edge
-				  let incomingSignal = edge.from.value * edge.damper * stochasticValueSelection(edge.decay, -1, 1, edge.confidence);
+				  let incomingSignal = edge.from.value * edge.damper * stochasticValueSelection(edge.strength, -1, 1, edge.confidence);
 	  
 				  // Check if this is a pass node
 				  if (edge.to.pass) {
@@ -271,8 +271,8 @@ function Edge(model, config){
 			}
 			var signalColor = _blendColors(fromColor, toColor, blend);
 
-			// Also, tween the scaleY, flipping, IF decay<0
-			if(self.decay<0){
+			// Also, tween the scaleY, flipping, IF STRENGTH<0
+			if(self.strength<0){
 				// sin/cos-animate it for niceness.
 				var flip = Math.cos(blend*Math.PI); // (0,1) -> (1,-1)
 				ctx.scale(1, flip);
@@ -403,7 +403,7 @@ function Edge(model, config){
 		aa = end + Math.TAU/4;
 
 		// My label is...
-		var s = self.decay;
+		var s = self.strength;
 		var l;
 		if(s>0) l="+";
 		else if(s==0) l="?";
@@ -440,7 +440,7 @@ function Edge(model, config){
 
 		// When actually playing the simulation...
 		/*if(self.loopy.mode==Loopy.MODE_PLAY){
-			self.to.nextValue += self.from.value * self.decay * speed;
+			self.to.nextValue += self.from.value * self.strength * speed;
 		}*/
 
 		// Update signals
@@ -509,7 +509,7 @@ function Edge(model, config){
 	// 	aa = end + Math.TAU/4;
 
 	// 	// My label is...
-	// 	var s = self.decay;
+	// 	var s = self.strength;
 	// 	var l;
 	// 	if(s>=3) l="+++";
 	// 	else if(s>=2) l="++";
@@ -541,7 +541,7 @@ function Edge(model, config){
 
 	// 	// When actually playing the simulation...
 	// 	/*if(self.loopy.mode==Loopy.MODE_PLAY){
-	// 		self.to.nextValue += self.from.value * self.decay * speed;
+	// 		self.to.nextValue += self.from.value * self.strength * speed;
 	// 	}*/
 
 	// 	// Update signals
@@ -608,7 +608,7 @@ function Edge(model, config){
 	// Draw
 	self.draw = function(ctx){
 		// Width & Color for the arc
-		ctx.lineWidth = 13 * Math.abs(self.decay);
+		ctx.lineWidth = 13 * Math.abs(self.strength);
 		ctx.strokeStyle = "#666";
 		ctx.setLineDash([10, lag]);
 
@@ -641,7 +641,7 @@ function Edge(model, config){
 		ctx.stroke();
 
 		ctx.save();
-		ctx.lineWidth = 13 * Math.abs(self.decay); // Restore the dynamic linewidth for the arrow
+		ctx.lineWidth = 13 * Math.abs(self.strength); // Restore the dynamic linewidth for the arrow
 		ctx.translate(ax, ay);
 		if (self.arc < 0) ctx.scale(-1, -1);
 		ctx.rotate(aa);
