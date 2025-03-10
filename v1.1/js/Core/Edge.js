@@ -11,7 +11,7 @@ Edge.defaultStrength = 1;
 Edge.defaultStrengthMultiplier = 1
 Edge.defaultConfidence = 0.5
 Edge.radius = 60;
-Edge.damper = 1;
+Edge.damper = 0;
 Edge.DEFAULT_SIGNAL = false;
 
 Edge.defaultLag = 0;
@@ -159,7 +159,7 @@ function Edge(model, config){
 		// Speed?
 		var speed = Math.pow(2,self.loopy.signalSpeed);
 		lag = self.lag;
-		damper = (1-self.damper);
+		damper = (self.damper);
 		
 		self.signalSpeed = (lag==0) ? speed/300 : (speed/(3000 * lag));
 
@@ -188,7 +188,7 @@ function Edge(model, config){
 			const accumulateSignals = () => {
 			  self.model.edges.forEach(edge => {
 				  // Calculate the incoming signal from the edge
-				  let incomingSignal = edge.from.value * edge.damper * stochasticValueSelection(edge.strength, -1, 1, edge.confidence);
+				  let incomingSignal = edge.from.value * (1-edge.damper) * stochasticValueSelection(edge.strength, -1, 1, edge.confidence);
 	  
 				  // Check if this is a pass node
 				  if (edge.to.pass) {
