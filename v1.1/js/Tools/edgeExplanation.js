@@ -1,5 +1,10 @@
+let nodeConnectionsTabInitialized = false;
+
 // ExplanationTab Initialization
 function initNodeConnectionsTab() {
+    if (nodeConnectionsTabInitialized) return;
+    nodeConnectionsTabInitialized = true;
+
     const generateButton = document.getElementById('generateButton');
     const saveButton = document.getElementById('saveButton');
     const clearButton = document.getElementById('clearButton');
