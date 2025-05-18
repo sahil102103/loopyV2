@@ -224,15 +224,16 @@ function Node(model, config){
 		// do not know if this is bad i commented it out
 		// self.value += signal.delta;
 
-		// if (self.value > self.ceiling) {
-		// 	self.value = Math.min(self.ceiling, self.value)
+		if (self.value > self.ceiling) {
+			self.value = Math.min(self.ceiling, self.value)
+		}
+		
 		if (self.value < self.floor) {
-			self.value = (Math.max(self.floor, self.value) * self.retention)
+			self.value = Math.max(self.floor, self.value)
 		}
-		else {
-			self.value *= self.retention;
-		}
-	
+
+		self.value *= self.retention;
+
 		// Propagate signal
 		self.sendSignal(signal);
 
