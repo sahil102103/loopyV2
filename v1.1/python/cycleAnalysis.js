@@ -210,6 +210,8 @@ document.getElementById('cycleAnalysisTab').onclick = async () => {
             duplicateNodesWithEdgesWarningId.innerHTML += `<span>${label}; </span>`;
         });
 
+        // CLD cycle analysis moved to dedicated CLD Analysis tab
+
     } catch (error) {
         console.error("Error fetching cycle analysis data:", error);
     } finally {
@@ -258,6 +260,8 @@ document.getElementById('crisisAnalysisTab').addEventListener('click', async (ev
         img.alt = "Crisis Analysis Plot";
         container.appendChild(img);
 
+        // CLD behavior classification moved to dedicated CLD Analysis tab
+
     } catch (error) {
         console.error("Error:", error);
         alert(`Error: ${error.message}`);
@@ -266,6 +270,11 @@ document.getElementById('crisisAnalysisTab').addEventListener('click', async (ev
         console.log('Done');
     }
 });
+
+// CLD Analysis is now integrated into existing analysis tabs
+// No separate tab needed
+
+// CLD analysis functions are now integrated into existing analysis tabs
 
 document.getElementById('degreeCentralityTab').onclick = async () => {
     showLoadingSpinner();

@@ -28,30 +28,6 @@ Node.COLORS = {
 };
 
 
-// Node.COLORS = {
-// 	0: "#F5F5F5", // White
-// 	1: "#FFEB3B", // Yellow
-// 	2: "#FFC107", // Amber
-// 	3: "#FF9800", // Orange
-// 	4: "#FF5722", // Deep Orange
-// 	5: "#F44336", // Red
-// 	6: "#E91E63", // Pink
-// 	7: "#9C27B0", // Purple
-// 	8: "#673AB7", // Deep Purple
-// 	9: "#3F51B5", // Indigo
-// 	10: "#2196F3", // Blue
-// 	11: "#03A9F4", // Light Blue
-// 	12: "#00BCD4", // Cyan
-// 	13: "#009688", // Teal
-// 	14: "#4CAF50", // Green
-// 	15: "#8BC34A", // Light Green
-// 	16: "#CDDC39", // Lime
-// 	17: "#607D8B", // Blue Gray
-// 	18: "#9E9E9E", // Gray
-// 	19: "#795548", // Brown
-//   };
-  
-
 
 Node.defaultValue = 0.4;
 Node.defaultHue = 0;
@@ -117,6 +93,9 @@ function Node(model, config){
 		if(self.value<-buffer) self.value=-buffer;
 		if(self.value>1+buffer) self.value=1+buffer;*/
 	};
+
+	// Add formula property
+	self.formula = config.formula || null;
 
 	// MOUSE.
 	var _controlsVisible = false;
@@ -217,9 +196,13 @@ function Node(model, config){
 
 
 	self.takeSignal = function(signal) {
+		// Skip edge-based updates for formula nodes
+		if (self.formula) {
+			return;
+		}
+
 		// Change value
 		// self.value += self.flow
-
 
 		// do not know if this is bad i commented it out
 		// self.value += signal.delta;
@@ -261,6 +244,44 @@ function Node(model, config){
 	// UPDATE & DRAW /////////////////////
 	//////////////////////////////////////
 
+	// Compute next value for two-phase update
+	self.computeNextValue = function(speed) {
+		var _isPlaying = (self.loopy.mode==Loopy.MODE_PLAY);
+
+		if (self.loopy.mode==Loopy.MODE_EDIT){
+			self.nextValue = self.init;
+			return;
+		}
+
+		// Formula-based update (if formula is present and in play mode)
+		if (_isPlaying && self.formula && typeof math !== 'undefined') {
+			try {
+				var scope = {};
+				scope.t = (typeof tick !== 'undefined') ? tick : 0;
+				scope.Y0 = self.init;
+				if (self.model && self.model.nodes) {
+					self.model.nodes.forEach(function(node) {
+						if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(node.label)) {
+							scope[node.label] = node.value;
+						}
+					});
+				}
+				var result = math.evaluate(self.formula, scope);
+				if (!isNaN(result) && isFinite(result)) {
+					self.nextValue = result;
+					if (self.nextValue > self.ceiling) self.nextValue = Math.min(self.ceiling, self.nextValue);
+					if (self.nextValue < self.floor) self.nextValue = Math.max(self.floor, self.nextValue);
+				}
+			} catch (e) {
+				console.warn('Formula evaluation error for node', self.label, ':', e);
+			}
+			return;
+		}
+
+		// For non-formula nodes, default to current value (or you can implement edge-based logic here if needed)
+		self.nextValue = self.value;
+	};
+
 	// Update!
 	var _offset = 0;
 	var _offsetGoto = 0;
@@ -277,6 +298,44 @@ function Node(model, config){
 		if (self.loopy.mode==Loopy.MODE_EDIT){
 			self.value = self.init;
 		}
+
+		// Formula-based update (if formula is present and in play mode)
+		if (_isPlaying && self.formula && typeof math !== 'undefined') {
+			try {
+				// Build scope for formula: t, Y0, all node labels as variables
+				var scope = {};
+				scope.t = (typeof tick !== 'undefined') ? tick : 0;
+				scope.Y0 = self.init;
+				// Add all node values by label (if label is a valid variable name)
+				if (self.model && self.model.nodes) {
+					self.model.nodes.forEach(function(node) {
+						// Only add if label is a valid JS identifier
+						if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(node.label)) {
+							scope[node.label] = node.value;
+						}
+					});
+				}
+				// Evaluate formula
+				var result = math.evaluate(self.formula, scope);
+				if (!isNaN(result) && isFinite(result)) {
+					self.value = result;
+					
+					// Apply bounds after formula evaluation
+					if (self.value > self.ceiling) {
+						self.value = Math.min(self.ceiling, self.value);
+					}
+					if (self.value < self.floor) {
+						self.value = Math.max(self.floor, self.value);
+					}
+				}
+			} catch (e) {
+				// If formula fails, do not update value
+				console.warn('Formula evaluation error for node', self.label, ':', e);
+			}
+			// Skip edge-based update for formula nodes
+			return;
+		}
+
 		// updateNodeData();
 
 		// Cursor!

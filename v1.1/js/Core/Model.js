@@ -334,9 +334,10 @@ function Model(loopy){
 		var label = new Label(self,config);
 		self.labels.push(label);
 		self.update();
-		if (!self.restoringState) {
-			self.saveState()
-		}
+		// Temporarily disable state saving for labels to fix canvas clearing issue
+		// if (!self.restoringState) {
+		//	self.saveState()
+		// }
 		return label;
 	};
 
@@ -364,9 +365,20 @@ function Model(loopy){
 
 	self.update = function(){
 
-		// Update edges THEN nodes
+		// Update edges first
 		for(var i=0;i<self.edges.length;i++) self.edges[i].update(self.speed);
-		for(var i=0;i<self.nodes.length;i++) self.nodes[i].update(self.speed);
+
+		// Phase 1: Compute next value for all nodes
+		for(var i=0;i<self.nodes.length;i++) if (typeof self.nodes[i].computeNextValue === 'function') self.nodes[i].computeNextValue(self.speed);
+
+		// Phase 2: Assign nextValue to value for all nodes
+		for(var i=0;i<self.nodes.length;i++) {
+			if (typeof self.nodes[i].nextValue !== 'undefined') {
+				self.nodes[i].value = self.nodes[i].nextValue;
+			}
+			// Optionally, clean up nextValue
+			delete self.nodes[i].nextValue;
+		}
 
 		// Dirty!
 		_canvasDirty = true;
@@ -589,6 +601,286 @@ function Model(loopy){
 		while(self.labels.length>0){
 			self.labels[0].kill();
 		}
+	};
+
+	/////////////////////
+	// CLD ANALYSIS /////
+	/////////////////////
+
+	// Initialize CLD Engine for this model
+	self.cldEngine = null;
+	self.cldHistory = {};
+	self.cldAnalysisResults = {};
+
+	// Initialize CLD Engine
+	self.initCLDEngine = function() {
+		if (typeof CLDEngine !== 'undefined' && !self.cldEngine) {
+			try {
+				self.cldEngine = new CLDEngine();
+				// Only initialize graph if we have nodes and edges
+				if (self.nodes.length > 0 || self.edges.length > 0) {
+					self.cldEngine.initializeGraph(self.toCLDGraph());
+				}
+			} catch (error) {
+				console.warn('CLD Engine initialization failed:', error);
+				self.cldEngine = null;
+			}
+		} else if (!self.cldEngine) {
+			console.warn('CLD Engine not available');
+		}
+	};
+
+	// Convert current model to CLD Engine format
+	self.toCLDGraph = function() {
+		const graph = {
+			nodes: {},
+			edges: []
+		};
+
+		// Convert nodes
+		for (const node of self.nodes) {
+			graph.nodes[node.id] = {
+				startAmount: node.init || node.value || 0.5,
+				retention: node.retention || 1.0,
+				floor: node.floor !== undefined ? node.floor : -Infinity,
+				ceiling: node.ceiling !== undefined ? node.ceiling : Infinity,
+				formula: node.formula || null,
+				sinkFormula: node.sinkFormula || null,
+				sourceFormula: node.sourceFormula || null
+			};
+		}
+
+		// Convert edges
+		for (const edge of self.edges) {
+			graph.edges.push({
+				from: edge.from.id,
+				to: edge.to.id,
+				correlation: edge.strength || 1.0,
+				decay: edge.damper || 0.0,
+				confidence: edge.confidence || 1.0,
+				delay: edge.lag || 0
+			});
+		}
+
+		return graph;
+	};
+
+	// Run CLD simulation
+	self.runCLDSimulation = function(options = {}) {
+		if (!self.cldEngine) {
+			self.initCLDEngine();
+		}
+
+		if (!self.cldEngine) {
+			throw new Error('CLD Engine not available');
+		}
+
+		const config = {
+			steps: options.steps || 100,
+			initialValues: options.initialValues || {},
+			...options
+		};
+
+		// Update engine with current model state
+		self.cldEngine.initializeGraph(self.toCLDGraph());
+
+		// Run simulation
+		const results = self.cldEngine.simulateTwoPhase(config);
+		self.cldHistory = results.history;
+
+		return results;
+	};
+
+	// Classify behavior using CLD Engine
+	self.classifyBehavior = function(options = {}) {
+		if (!self.cldEngine) {
+			self.initCLDEngine();
+		}
+
+		if (!self.cldEngine || !self.cldHistory) {
+			// Run simulation first if no history
+			self.runCLDSimulation(options);
+		}
+
+		if (!self.cldEngine) {
+			throw new Error('CLD Engine not available');
+		}
+
+		const behavior = self.cldEngine.classifyBehavior(self.cldHistory, options);
+		self.cldAnalysisResults.behavior = behavior;
+
+		return behavior;
+	};
+
+	// Run Monte Carlo analysis
+	self.runMonteCarloAnalysis = function(options = {}) {
+		if (!self.cldEngine) {
+			self.initCLDEngine();
+		}
+
+		if (!self.cldEngine) {
+			throw new Error('CLD Engine not available');
+		}
+
+		const config = {
+			runs: options.runs || 500,
+			fanPaths: options.fanPaths || 10,
+			sigmaBase: options.sigmaBase || 0.1,
+			steps: options.steps || 100,
+			...options
+		};
+
+		// Update engine with current model state
+		self.cldEngine.initializeGraph(self.toCLDGraph());
+
+		// Run Monte Carlo
+		const results = self.cldEngine.simulateFanPaths(config);
+		self.cldAnalysisResults.monteCarlo = results;
+
+		return results;
+	};
+
+	// Run parameter space analysis
+	self.runParameterSpaceAnalysis = function(options = {}) {
+		if (!self.cldEngine) {
+			self.initCLDEngine();
+		}
+
+		if (!self.cldEngine) {
+			throw new Error('CLD Engine not available');
+		}
+
+		const config = {
+			retentionRange: options.retentionRange || [0.5, 1.0],
+			decayRange: options.decayRange || [0.0, 0.3],
+			delayRange: options.delayRange || [0, 5],
+			gridSize: options.gridSize || 10,
+			steps: options.steps || 100,
+			...options
+		};
+
+		// Update engine with current model state
+		self.cldEngine.initializeGraph(self.toCLDGraph());
+
+		// Run parameter space analysis
+		const results = self.cldEngine.analyzeParameterSpace(config);
+		self.cldAnalysisResults.parameterSpace = results;
+
+		return results;
+	};
+
+	// Get graph analysis (centrality, cycles, etc.)
+	self.getGraphAnalysis = function() {
+		if (!self.cldEngine) {
+			self.initCLDEngine();
+		}
+
+		if (!self.cldEngine) {
+			throw new Error('CLD Engine not available');
+		}
+
+		// Update engine with current model state
+		self.cldEngine.initializeGraph(self.toCLDGraph());
+
+		const analysis = {
+			centrality: self.cldEngine.calculateCentrality('degree'),
+			adjacencyMatrix: self.cldEngine.generateAdjacencyMatrix(),
+			cycles: self.cldEngine.detectFeedbackCycles()
+		};
+
+		self.cldAnalysisResults.graphAnalysis = analysis;
+
+		return analysis;
+	};
+
+	// Run complete CLD analysis
+	self.runCompleteCLDAnalysis = function(options = {}) {
+		if (!self.cldEngine) {
+			self.initCLDEngine();
+		}
+
+		if (!self.cldEngine) {
+			throw new Error('CLD Engine not available');
+		}
+
+		const config = {
+			steps: options.steps || 100,
+			monteCarloRuns: options.monteCarloRuns || 500,
+			gridSize: options.gridSize || 10,
+			...options
+		};
+
+		// Update engine with current model state
+		self.cldEngine.initializeGraph(self.toCLDGraph());
+
+		// Run all analyses
+		const simulation = self.runCLDSimulation({ steps: config.steps });
+		const behavior = self.classifyBehavior();
+		const monteCarlo = self.runMonteCarloAnalysis({ 
+			runs: config.monteCarloRuns,
+			steps: config.steps 
+		});
+		const parameterSpace = self.runParameterSpaceAnalysis({ 
+			gridSize: config.gridSize,
+			steps: config.steps 
+		});
+		const graphAnalysis = self.getGraphAnalysis();
+
+		const results = {
+			simulation,
+			behavior,
+			monteCarlo,
+			parameterSpace,
+			graphAnalysis,
+			metadata: {
+				timestamp: new Date().toISOString(),
+				nodeCount: self.nodes.length,
+				edgeCount: self.edges.length
+			}
+		};
+
+		self.cldAnalysisResults = results;
+
+		return results;
+	};
+
+	// Get CLD analysis results
+	self.getCLDAnalysisResults = function() {
+		return self.cldAnalysisResults;
+	};
+
+	// Export CLD results
+	self.exportCLDResults = function(format = 'json') {
+		if (!self.cldAnalysisResults || Object.keys(self.cldAnalysisResults).length === 0) {
+			throw new Error('No CLD analysis results to export. Run analysis first.');
+		}
+
+		if (format === 'json') {
+			return JSON.stringify(self.cldAnalysisResults, null, 2);
+		} else if (format === 'csv') {
+			// Convert to CSV format
+			const lines = [];
+			lines.push('Type,Node,Step,Value');
+			
+			if (self.cldAnalysisResults.simulation && self.cldAnalysisResults.simulation.history) {
+				for (const [nodeId, series] of Object.entries(self.cldAnalysisResults.simulation.history)) {
+					for (let i = 0; i < series.length; i++) {
+						lines.push(`timeSeries,${nodeId},${i},${series[i]}`);
+					}
+				}
+			}
+
+			if (self.cldAnalysisResults.behavior) {
+				lines.push('Type,Node,Behavior,Confidence');
+				for (const [nodeId, classification] of Object.entries(self.cldAnalysisResults.behavior)) {
+					lines.push(`behavior,${nodeId},${classification.behavior},${classification.confidence}`);
+				}
+			}
+
+			return lines.join('\n');
+		}
+
+		return self.cldAnalysisResults;
 	};
 
 

@@ -332,6 +332,8 @@ function openPage(pageName) {
     }
 }
 
+// CLD behavior analysis moved to dedicated CLD Analysis tab
+
 function updateTimeSeriesChart(currentAmount, iter) {
     // Before updating, push current state for undo
     pushUndoState();

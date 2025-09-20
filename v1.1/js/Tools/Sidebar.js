@@ -38,8 +38,18 @@ function Sidebar(loopy){
 
 	// Edit
 	self.edit = function(object){
+		if (!object || !object._CLASS_) {
+			console.warn('Sidebar.edit: Invalid object provided');
+			return;
+		}
+		
 		self.showPage(object._CLASS_);
-		self.currentPage.edit(object);
+		
+		if (self.currentPage && typeof self.currentPage.edit === 'function') {
+			self.currentPage.edit(object);
+		} else {
+			console.warn('Sidebar.edit: No current page or edit method available for', object._CLASS_);
+		}
 	};
 
 	// Go back to main when the thing you're editing is killed
@@ -149,6 +159,14 @@ function Sidebar(loopy){
 			}
 		}))
 
+		page.addComponent(new ComponentButton({
+			label: "Create/Edit Formula",
+			onclick: function(node){
+				publish("modal", ["formula_editor"]);
+				// Store the current node for the modal to access
+				window.currentFormulaNode = node;
+			}
+		}));
 
 		// page.addComponent(new ComponentButton({
 		// 	label: "delete node",
@@ -283,48 +301,51 @@ function Sidebar(loopy){
 	})();
 
 	// Label!
-	// (function(){
-	// 	var page = new SidebarPage();
-	// 	page.addComponent(new ComponentButton({
-	// 		header: true,
-	// 		label: "back to top",
-	// 		onclick: function(){
-	// 			self.showPage("Edit");
-	// 		}
-	// 	}));
-	// 	page.addComponent("text", new ComponentInput({
-	// 		label: "<br><br>Label:",
-	// 		id: 'text',
-	// 		textarea: true
-	// 	}));
-	// 	page.onshow = function(){
-	// 		// Focus on the text field
-	// 		page.getComponent("text").select();
-	// 	};
-	// 	page.onhide = function(){
-			
-	// 		// If you'd just edited it...
-	// 		var label = page.target;
-	// 		if(!page.target) return;
+	(function(){
+		var page = new SidebarPage();
+		page.addComponent(new ComponentButton({
+			header: true,
+			label: "back to top",
+			onclick: function(){
+				self.showPage("Edit");
+			}
+		}));
+		page.addComponent("text", new ComponentInput({
+			label: "<br><br>Label:",
+			id: 'text',
+			textarea: true
+		}));
+		page.onshow = function(){
+			// Focus on the text field
+			page.getComponent("text").select();
+		};
+		page.onhide = function(){
+			// If you'd just edited it...
+			var label = page.target;
+			if(!page.target) return;
 
-	// 		// If text is "" or all spaces, DELETE.
-	// 		var text = label.text;
-	// 		if(/^\s*$/.test(text)){
-	// 			// that was all whitespace, KILL.
-	// 			page.target = null;
-	// 			label.kill();
-	// 		}
+			// If text is "" or all spaces, DELETE.
+			var text = label.text;
+			if(/^\s*$/.test(text)){
+				// that was all whitespace, KILL.
+				page.target = null;
+				label.kill();
+			}
 
-	// 	};
-	// 	page.addComponent(new ComponentButton({
-	// 		label: "delete label",
-	// 		onclick: function(label){
-	// 			label.kill();
-	// 			self.showPage("Edit");
-	// 		}
-	// 	}));
-	// 	self.addPage("Label", page);
-	// })();
+		};
+		page.onedit = function(label){
+			page.target = label;
+			page.getComponent("text").setValue(label.text);
+		};
+		page.addComponent(new ComponentButton({
+			label: "delete label",
+			onclick: function(label){
+				label.kill();
+				self.showPage("Edit");
+			}
+		}));
+		self.addPage("Label", page);
+	})();
 
     // Global Node!
 	// (function(){
@@ -441,39 +462,6 @@ function Sidebar(loopy){
 			"</div>"
 		}));
 
-		// Function to Add Node Connection
-function addNodeConnection() {
-    const node1Id = document.getElementById("node1").value.trim();
-    const node2Id = document.getElementById("node2").value.trim();
-    const strength = parseFloat(document.getElementById("strength").value);
-
-    if (!node1Id || !node2Id || isNaN(strength)) {
-        alert("Please fill out all fields correctly.");
-        return;
-    }
-
-    // Assuming you have access to your model or a graph object
-    const node1 = loopy.model.getNodeById(node1Id);
-    const node2 = loopy.model.getNodeById(node2Id);
-
-    if (!node1 || !node2) {
-        alert("One or both nodes not found. Please check the IDs.");
-        return;
-    }
-
-    // Create a new edge between the nodes
-    const newEdge = new Edge({
-        from: node1,
-        to: node2,
-        strength: strength,
-    });
-    loopy.model.edges.push(newEdge);
-
-    // Trigger re-render
-    publish("model/changed");
-    alert(`Connection added between ${node1Id} and ${node2Id} with strength ${strength}`);
-}
-	
 		// Add the Set Global Parameters button correctly using ComponentButton
 		page.addComponent(new ComponentButton({
 			label: "Set Global Edge Parameters",

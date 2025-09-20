@@ -28,6 +28,13 @@ function Modal(loopy){
 	document.getElementById("modal_bg").onclick = self.hide;
 	document.getElementById("modal_close").onclick = self.hide;
 
+	// Handle ESC key globally
+	document.addEventListener('keydown', function(event) {
+		if (event.key === 'Escape' && self.isShowing) {
+			self.hide();
+		}
+	});
+
 	// Show... what page?
 	subscribe("modal", function(pageName){
 
@@ -335,6 +342,345 @@ function Modal(loopy){
 			height: 350
 		}))
 		self.addPage("save_gif", page);
+	})();
+
+	// Formula Editor
+	(function(){
+		var page = new Page();
+		page.width = 600;
+		page.height = 700;
+
+		// Inject modern styles for the formula editor modal
+		if (!document.getElementById('formula-editor-styles')) {
+			var style = document.createElement('style');
+			style.id = 'formula-editor-styles';
+			style.innerHTML = `
+			#modal[show="yes"] .formula-editor-root {
+			  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+			  background: #f8fafb;
+			  border-radius: 16px;
+			  box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+			  padding: 16px 12px 12px 12px;
+			  max-width: 340px;
+			  margin: 0 auto;
+			  display: flex;
+			  flex-direction: column;
+			  align-items: center;
+			}
+			.formula-editor-root h3 {
+			  font-size: 1.15rem;
+			  font-weight: 700;
+			  margin-bottom: 0.2em;
+			  color: #222;
+			  text-align: center;
+			}
+			.formula-editor-root p {
+			  color: #555;
+			  margin-bottom: 0.7em;
+			  font-size: 0.98rem;
+			  text-align: center;
+			}
+			.formula-editor-root .formula-input-row {
+			  width: 100%;
+			  margin-bottom: 0.7em;
+			  display: flex;
+			  flex-direction: column;
+			  align-items: center;
+			}
+			.formula-editor-root input[type="text"] {
+			  width: 100%;
+			  font-size: 1rem;
+			  padding: 0.32em 0.6em;
+			  border: 1.5px solid #bbb;
+			  border-radius: 7px;
+			  margin-top: 0.12em;
+			  margin-bottom: 0.2em;
+			  background: #f7f7fa;
+			  transition: border 0.2s;
+			}
+			.formula-editor-root input[type="text"]:focus {
+			  border: 1.5px solid #4CAF50;
+			  outline: none;
+			}
+			.formula-editor-root .calc-outer {
+			  width: 100%;
+			  display: flex;
+			  flex-direction: column;
+			  align-items: center;
+			  margin-bottom: 0.5em;
+			}
+			.formula-editor-root .calc-grid {
+			  display: grid;
+			  grid-template-columns: repeat(6, 32px);
+			  gap: 6px;
+			  margin: 0 auto;
+			  justify-content: center;
+			}
+			.formula-editor-root .calc-btn {
+			  width: 32px;
+			  height: 32px;
+			  font-size: 0.93rem;
+			  border: none;
+			  border-radius: 7px;
+			  background: #f3f4f6;
+			  color: #222;
+			  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+			  cursor: pointer;
+			  transition: background 0.13s, box-shadow 0.13s;
+			  font-weight: 500;
+			  display: flex;
+			  align-items: center;
+			  justify-content: center;
+			}
+			.formula-editor-root .calc-btn:hover, .formula-editor-root .calc-btn:focus {
+			  background: #e0f7e9;
+			  box-shadow: 0 2px 8px rgba(76,175,80,0.07);
+			}
+			.formula-editor-root .calc-btn:active {
+			  background: #b2dfdb;
+			}
+			.formula-editor-root .vars-constants {
+			  background: #f4faff;
+			  border-radius: 10px;
+			  padding: 8px 0 4px 0;
+			  margin: 0.7em 0 0.5em 0;
+			  width: 100%;
+			  box-sizing: border-box;
+			  display: flex;
+			  flex-direction: column;
+			  align-items: center;
+			}
+			.formula-editor-root .vars-constants h4 {
+			  font-size: 0.98rem;
+			  font-weight: 600;
+			  margin-bottom: 0.3em;
+			  color: #333;
+			  width: 90%;
+			  text-align: left;
+			}
+			.formula-editor-root .vars-row {
+			  display: flex;
+			  flex-wrap: wrap;
+			  gap: 5px;
+			  margin-bottom: 0.2em;
+			  width: 90%;
+			  justify-content: flex-start;
+			}
+			.formula-editor-root .vars-btn {
+			  padding: 4px 9px;
+			  font-size: 0.92rem;
+			  border: none;
+			  border-radius: 5px;
+			  background: #e6f3ff;
+			  color: #1a237e;
+			  cursor: pointer;
+			  transition: background 0.13s;
+			}
+			.formula-editor-root .vars-btn:hover, .formula-editor-root .vars-btn:focus {
+			  background: #b3e5fc;
+			}
+			.formula-editor-root .action-row {
+			  display: flex;
+			  gap: 8px;
+			  margin-top: 0.7em;
+			  justify-content: center;
+			  width: 100%;
+			}
+			.formula-editor-root .action-btn {
+			  flex: 1 1 0;
+			  padding: 7px 0;
+			  font-size: 0.98rem;
+			  border: none;
+			  border-radius: 7px;
+			  font-weight: 600;
+			  cursor: pointer;
+			  transition: background 0.13s;
+			  margin: 0;
+			}
+			.formula-editor-root .action-btn.save {
+			  background: #4CAF50;
+			  color: #fff;
+			}
+			.formula-editor-root .action-btn.save:hover, .formula-editor-root .action-btn.save:focus {
+			  background: #388e3c;
+			}
+			.formula-editor-root .action-btn.clear {
+			  background: #f44336;
+			  color: #fff;
+			}
+			.formula-editor-root .action-btn.clear:hover, .formula-editor-root .action-btn.clear:focus {
+			  background: #b71c1c;
+			}
+			.formula-editor-root .action-btn.cancel {
+			  background: #888;
+			  color: #fff;
+			}
+			.formula-editor-root .action-btn.cancel:hover, .formula-editor-root .action-btn.cancel:focus {
+			  background: #444;
+			}
+		`;
+			document.head.appendChild(style);
+		}
+
+		// Root container for formula editor
+		var root = document.createElement('div');
+		root.className = 'formula-editor-root';
+		page.dom.appendChild(root);
+
+		// Title
+		var title = document.createElement('h3');
+		title.textContent = 'Formula Editor';
+		root.appendChild(title);
+
+		var desc = document.createElement('p');
+		desc.textContent = "Create a mathematical formula for this node's value";
+		root.appendChild(desc);
+
+		// Formula input row
+		var formulaRow = document.createElement('div');
+		formulaRow.className = 'formula-input-row';
+		root.appendChild(formulaRow);
+
+		var formulaLabel = document.createElement('label');
+		formulaLabel.textContent = 'Formula:';
+		formulaLabel.style.fontWeight = '500';
+		formulaLabel.style.marginBottom = '0.2em';
+		formulaLabel.style.alignSelf = 'flex-start';
+		formulaRow.appendChild(formulaLabel);
+
+		var formulaInput = document.createElement('input');
+		formulaInput.type = 'text';
+		formulaInput.placeholder = 'e.g., Y0 * Math.exp(k * t)';
+		formulaInput.style.marginTop = '0.1em';
+		formulaRow.appendChild(formulaInput);
+
+		// Calculator grid (centered, compact)
+		var calcOuter = document.createElement('div');
+		calcOuter.className = 'calc-outer';
+		root.appendChild(calcOuter);
+
+		var calcGrid = document.createElement('div');
+		calcGrid.className = 'calc-grid';
+		calcOuter.appendChild(calcGrid);
+
+		[
+			7, 8, 9, '/', '(', ')',
+			4, 5, 6, '*', '^', 'sqrt',
+			1, 2, 3, '-', 'exp', 'log',
+			0, '.', '=', '+', 'sin', 'cos'
+		].forEach(function(symbol) {
+			var btn = document.createElement('button');
+			btn.className = 'calc-btn';
+			btn.textContent = symbol;
+			btn.onclick = function() {
+				if (symbol === 'sqrt') insertToFormula('Math.sqrt(');
+				else if (symbol === 'exp') insertToFormula('Math.exp(');
+				else if (symbol === 'log') insertToFormula('Math.log(');
+				else if (symbol === 'sin') insertToFormula('Math.sin(');
+				else if (symbol === 'cos') insertToFormula('Math.cos(');
+				else insertToFormula(symbol);
+			};
+			calcGrid.appendChild(btn);
+		});
+
+		// Variables & Constants (aligned to keypad width)
+		var varsBox = document.createElement('div');
+		varsBox.className = 'vars-constants';
+		root.appendChild(varsBox);
+
+		var varsTitle = document.createElement('h4');
+		varsTitle.textContent = 'Variables & Constants';
+		varsBox.appendChild(varsTitle);
+
+		var constantsRow = document.createElement('div');
+		constantsRow.className = 'vars-row';
+		['t', 'Y0', 'pi', 'e'].forEach(function(constant) {
+			var btn = document.createElement('button');
+			btn.className = 'vars-btn';
+			btn.textContent = constant;
+			btn.onclick = function() {
+				if (constant === 'pi') insertToFormula('Math.PI');
+				else if (constant === 'e') insertToFormula('Math.E');
+				else insertToFormula(constant);
+			};
+			constantsRow.appendChild(btn);
+		});
+		varsBox.appendChild(constantsRow);
+
+		// Node variables (populated on show)
+		var nodeVarsRow = document.createElement('div');
+		nodeVarsRow.className = 'vars-row';
+		nodeVarsRow.id = 'node-vars-row';
+		varsBox.appendChild(nodeVarsRow);
+
+		// Action buttons (aligned, compact)
+		var actionRow = document.createElement('div');
+		actionRow.className = 'action-row';
+		root.appendChild(actionRow);
+
+		var saveBtn = document.createElement('button');
+		saveBtn.className = 'action-btn save';
+		saveBtn.textContent = 'Save Formula';
+		saveBtn.onclick = function() {
+			if (window.currentFormulaNode) {
+				window.currentFormulaNode.formula = formulaInput.value;
+				publish('model/changed');
+				self.hide();
+			}
+		};
+		actionRow.appendChild(saveBtn);
+
+		var clearBtn = document.createElement('button');
+		clearBtn.className = 'action-btn clear';
+		clearBtn.textContent = 'Clear Formula';
+		clearBtn.onclick = function() {
+			formulaInput.value = '';
+		};
+		actionRow.appendChild(clearBtn);
+
+		var cancelBtn = document.createElement('button');
+		cancelBtn.className = 'action-btn cancel';
+		cancelBtn.textContent = 'Cancel';
+		cancelBtn.onclick = function() {
+			self.hide();
+		};
+		actionRow.appendChild(cancelBtn);
+
+		// Helper: insert text at cursor
+		function insertToFormula(text) {
+			var input = formulaInput;
+			var start = input.selectionStart;
+			var end = input.selectionEnd;
+			var currentValue = input.value;
+			input.value = currentValue.substring(0, start) + text + currentValue.substring(end);
+			input.setSelectionRange(start + text.length, start + text.length);
+			input.focus();
+		}
+
+		// Populate node variables on show
+		page.onshow = function() {
+			if (window.currentFormulaNode && window.currentFormulaNode.formula) {
+				formulaInput.value = window.currentFormulaNode.formula;
+			} else {
+				formulaInput.value = '';
+			}
+			nodeVarsRow.innerHTML = '';
+			if (window.currentFormulaNode && window.currentFormulaNode.model) {
+				window.currentFormulaNode.model.nodes.forEach(function(node) {
+					if (node !== window.currentFormulaNode && /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(node.label)) {
+						var btn = document.createElement('button');
+						btn.className = 'vars-btn';
+						btn.textContent = node.label;
+						btn.onclick = function() { insertToFormula(node.label); };
+						nodeVarsRow.appendChild(btn);
+					}
+				});
+			}
+		};
+
+
+
+		self.addPage("formula_editor", page);
 	})();
 
 }
