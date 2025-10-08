@@ -28,7 +28,7 @@ load_dotenv()
 
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "https://loopy-v2.vercel.app"}}, supports_credentials=True)
+CORS(app, resources={r"/*": {"origins": ["https://loopy-v2.vercel.app", "http://127.0.0.1:5501", "http://localhost:5501", "http://127.0.0.1:3000", "http://localhost:3000"]}}, supports_credentials=True)
 
 
 

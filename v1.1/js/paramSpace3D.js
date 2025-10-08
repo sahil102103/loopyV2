@@ -278,9 +278,9 @@ class ParamSpace3D {
                         
                         // Combined score
                         const combinedScore = (
-                            params.distanceWeight * distance +
-                            params.zScoreWeight * zScore +
-                            params.shapeWeight * shape
+                            params.weights.distance * distance +
+                            params.weights.zScore * zScore +
+                            params.weights.shape * shape
                         );
 
                         results.push({
@@ -411,8 +411,8 @@ class ParamSpace3D {
         let nodeCount = 0;
         
         for (const [nodeId, series] of Object.entries(history)) {
-            if (series.length >= params.zScoreWindow) {
-                const zScores = this.calculateRollingZScores(series, params.zScoreWindow);
+            if (series.length >= params.simulation.zWindow) {
+                const zScores = this.calculateRollingZScores(series, params.simulation.zWindow);
                 const maxZScore = Math.max(...zScores.map(Math.abs));
                 totalZScore += maxZScore;
                 nodeCount++;
@@ -834,8 +834,19 @@ fig2d.update_layout(xaxis_title="Decay Factor", yaxis_title="Retention")
     }
 
     create3DPlotData(results) {
-        // Sort results by stability score (best first)
-        const sortedResults = results.sort((a, b) => b.stability - a.stability);
+        // Sort results by combined score (best first)
+        const sortedResults = results.sort((a, b) => a.metrics.combinedScore - b.metrics.combinedScore);
+        
+        // Calculate color range based on combined scores for better color variation
+        const scores = sortedResults.map(r => r.metrics.combinedScore);
+        const minScore = Math.min(...scores);
+        const maxScore = Math.max(...scores);
+        const scoreRange = maxScore - minScore;
+        
+        // Normalize scores to 0-1 range for better color mapping
+        const normalizedScores = scores.map(score => 
+            scoreRange > 0 ? (score - minScore) / scoreRange : 0.5
+        );
         
         return {
             x: sortedResults.map(r => r.retention),
@@ -845,11 +856,19 @@ fig2d.update_layout(xaxis_title="Decay Factor", yaxis_title="Retention")
             type: 'scatter3d',
             marker: {
                 size: 8,
-                color: sortedResults.map(r => r.stability),
+                color: normalizedScores,
                 colorscale: 'Viridis',
                 opacity: 0.8,
                 colorbar: {
-                    title: "Stability Score"
+                    title: "Combined Score",
+                    tickvals: [0, 0.25, 0.5, 0.75, 1],
+                    ticktext: [
+                        minScore.toFixed(3),
+                        (minScore + scoreRange * 0.25).toFixed(3),
+                        (minScore + scoreRange * 0.5).toFixed(3),
+                        (minScore + scoreRange * 0.75).toFixed(3),
+                        maxScore.toFixed(3)
+                    ]
                 }
             },
             text: sortedResults.map(r => 
@@ -857,6 +876,10 @@ fig2d.update_layout(xaxis_title="Decay Factor", yaxis_title="Retention")
                 `Decay: ${r.decay.toFixed(3)}<br>` +
                 `Delay: ${r.delay}<br>` +
                 `Stability: ${r.stability.toFixed(3)}<br>` +
+                `Combined Score: ${r.metrics.combinedScore.toFixed(3)}<br>` +
+                `Distance: ${r.metrics.distance.toFixed(3)}<br>` +
+                `Z-Score: ${r.metrics.zScore.toFixed(3)}<br>` +
+                `Shape: ${r.metrics.shape.toFixed(3)}<br>` +
                 `Behavior: ${Object.keys(r.behavior).map(nodeId => 
                     `${nodeId}: ${r.behavior[nodeId].behavior}`
                 ).join(', ')}`
