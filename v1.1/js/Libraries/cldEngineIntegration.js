@@ -5,6 +5,100 @@
  * Loopy system. It can be included in your HTML to add advanced analysis capabilities.
  */
 
+/**
+ * LoopyCLDIntegration class for integrating CLD Engine with Loopy
+ */
+class LoopyCLDIntegration {
+    constructor(loopyInstance) {
+        this.loopy = loopyInstance;
+        this.cldEngine = null;
+    }
+
+    /**
+     * Initialize CLD Engine with current model
+     */
+    async initializeCLDEngine() {
+        if (!this.cldEngine) {
+            this.cldEngine = new CLDEngine();
+        }
+        
+        // Get current graph from Loopy
+        const graph = this.getCurrentGraph();
+        if (graph && graph.nodes && graph.nodes.length > 0) {
+            this.cldEngine.initializeGraph(graph);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Get current graph from Loopy model
+     */
+    getCurrentGraph() {
+        if (!this.loopy || !this.loopy.model) {
+            return null;
+        }
+        
+        const model = this.loopy.model;
+        const nodes = [];
+        const edges = [];
+        
+        // Convert Loopy nodes to CLD format
+        for (const nodeId in model.nodes) {
+            const node = model.nodes[nodeId];
+            nodes.push({
+                id: nodeId,
+                startAmount: node.init || node.value || 0.5,
+                retention: node.retention || 0.9,
+                floor: node.floor !== undefined ? node.floor : -Infinity,
+                ceiling: node.ceiling !== undefined ? node.ceiling : Infinity,
+                formula: node.formula || null,
+                sinkFormula: node.sinkFormula || null,
+                sourceFormula: node.sourceFormula || null
+            });
+        }
+        
+        // Convert Loopy edges to CLD format
+        for (const edgeId in model.edges) {
+            const edge = model.edges[edgeId];
+            edges.push({
+                from: edge.from.id,
+                to: edge.to.id,
+                correlation: edge.strength || 1.0,
+                decay: edge.decay || 0.1,
+                confidence: edge.confidence || 1.0,
+                delay: edge.delay || 0
+            });
+        }
+        
+        return { nodes, edges };
+    }
+
+    /**
+     * Analyze current model
+     */
+    async analyzeCurrentModel(options = {}) {
+        const initialized = await this.initializeCLDEngine();
+        if (!initialized) {
+            throw new Error('Failed to initialize CLD Engine with current model');
+        }
+        
+        // Run simulation
+        const simulation = this.cldEngine.simulateTwoPhase({
+            steps: options.steps || 100
+        });
+        
+        // Classify behavior
+        const behavior = this.cldEngine.classifyBehavior(simulation.history);
+        
+        return {
+            simulation,
+            behavior,
+            history: simulation.history
+        };
+    }
+}
+
 // Integration function to add CLD Engine capabilities to existing Loopy
 function integrateCLDEngine(loopyInstance) {
     if (!loopyInstance) {

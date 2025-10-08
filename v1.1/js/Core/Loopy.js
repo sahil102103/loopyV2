@@ -112,6 +112,11 @@ function Loopy(config){
 	self.wobbleControls = -1;
 	self.setMode = function(mode){
 
+		// Store current zoom state before mode change
+		var currentScale = self.offsetScale;
+		var currentOffsetX = self.offsetX;
+		var currentOffsetY = self.offsetY;
+
 		self.mode = mode;
 		publish("loopy/mode");
 
@@ -147,6 +152,22 @@ function Loopy(config){
 			self.toolbar.dom.setAttribute("mode","edit");
 			document.getElementById("canvasses").setAttribute("cursor", self.toolbar.currentTool); // TODO: EVENT BASED
 		}
+
+		// Restore zoom state after mode change
+		self.offsetScale = currentScale;
+		self.offsetX = currentOffsetX;
+		self.offsetY = currentOffsetY;
+		
+		// Sync with Model object
+		self.model.scale = currentScale;
+		self.model.offsetX = currentOffsetX;
+		self.model.offsetY = currentOffsetY;
+		
+		// Ensure proper synchronization
+		self.model.syncZoomState();
+		
+		// Mark canvas as dirty to redraw with restored zoom
+		self.model.dirty();
 
 	};
 

@@ -217,8 +217,8 @@ class ParamSpace3D {
             throw new Error('Graph must have at least 2 nodes for parameter space analysis.');
         }
 
-        // Run the analysis using CLD Engine
-        const results = await this.runCLDEngineAnalysis(params, retentionVals, decayVals, delayVals, graph);
+        // Run the Python-style stack-of-2D-maps analysis
+        const results = await this.runStackOf2DMapsAnalysis(params, retentionVals, decayVals, delayVals, graph);
         
         return {
             retentionVals,
@@ -229,13 +229,131 @@ class ParamSpace3D {
         };
     }
 
+    /**
+     * Python-style stack-of-2D-maps approach for 3D parameter space analysis
+     * This is much more efficient than the nested loop approach
+     */
+    async runStackOf2DMapsAnalysis(params, retentionVals, decayVals, delayVals, graph) {
+        const results = [];
+        const totalRetentionSteps = retentionVals.length;
+        
+        console.log(`Running stack-of-2D-maps analysis: ${totalRetentionSteps} retention slices`);
+        
+        // For each retention value, run a full 2D analysis across decay and delay
+        for (let rIdx = 0; rIdx < retentionVals.length; rIdx++) {
+            const retention = retentionVals[rIdx];
+            
+            // Update progress
+            const progress = ((rIdx + 1) / totalRetentionSteps) * 100;
+            const statusDiv = document.getElementById('paramSpace3DStatus');
+            if (statusDiv) {
+                statusDiv.innerHTML = `<div class="loading">Processing retention slice ${rIdx + 1}/${totalRetentionSteps} (${progress.toFixed(1)}%)...</div>`;
+            }
+            
+            console.log(`Processing retention slice ${rIdx + 1}/${totalRetentionSteps}: retention=${retention}`);
+            
+            // Run 2D analysis for this retention value
+            const sliceResults = await this.run2DSliceAnalysis(params, retention, decayVals, delayVals, graph);
+            results.push(...sliceResults);
+        }
+        
+        return results;
+    }
+
+    /**
+     * Run 2D analysis for a single retention value
+     */
+    async run2DSliceAnalysis(params, retention, decayVals, delayVals, graph) {
+        const results = [];
+        const totalCombinations = decayVals.length * delayVals.length;
+        let currentCombination = 0;
+        
+        // Create CLD Engine instance for this slice
+        const cldEngine = new CLDEngine();
+        
+        for (const decay of decayVals) {
+            for (const delay of delayVals) {
+                currentCombination++;
+                
+                try {
+                    // Create modified graph with current parameters
+                    const modifiedGraph = this.createModifiedGraph(graph, retention, decay, delay);
+                    
+                    // Initialize CLD Engine with modified graph
+                    cldEngine.initializeGraph(modifiedGraph);
+                    
+                    // Run simulation
+                    const simulation = cldEngine.simulateTwoPhase({
+                        steps: params.simulation.iterations || 100
+                    });
+                    
+                    // Compute stability metrics using the new methods
+                    const { matrix } = cldEngine.computeAdjacencyMatrixStability(decay);
+                    const { distanceMetric, maxMagnitude } = cldEngine.analyzeEigenvaluesStability(matrix);
+                    
+                    // Compute Z-score metrics
+                    let maxZScore = 0;
+                    let avgShapePenalty = 0;
+                    let nodeCount = 0;
+                    
+                    for (const [nodeId, series] of Object.entries(simulation.history)) {
+                        if (series.length >= params.simulation.zWindow) {
+                            const zScores = cldEngine.rollingZ(series, params.simulation.zWindow);
+                            const maxAbsZ = Math.max(...zScores.map(z => Math.abs(z)));
+                            maxZScore = Math.max(maxZScore, maxAbsZ);
+                            
+                            const shapePenalty = cldEngine.computeShapePenalty(zScores);
+                            avgShapePenalty += shapePenalty;
+                            nodeCount++;
+                        }
+                    }
+                    
+                    avgShapePenalty = nodeCount > 0 ? avgShapePenalty / nodeCount : 0;
+                    
+                    // Flatness penalty
+                    const flatPenalty = maxZScore < 0.05 ? 2.0 : 0.0;
+                    
+                    // Combined score (matching Python implementation)
+                    const combinedScore = (
+                        params.weights.distance * distanceMetric +
+                        params.weights.zScore * maxZScore +
+                        params.weights.shape * avgShapePenalty +
+                        flatPenalty
+                    );
+                    
+                    // Classify behavior
+                    const behavior = cldEngine.classifyBehavior(simulation.history);
+                    
+                    results.push({
+                        retention,
+                        decay,
+                        delay,
+                        metrics: {
+                            distance: distanceMetric,
+                            zScore: maxZScore,
+                            shape: avgShapePenalty,
+                            flat: flatPenalty,
+                            combined: combinedScore
+                        },
+                        behavior,
+                        simulation: simulation.history,
+                        maxMagnitude
+                    });
+                    
+                } catch (error) {
+                    console.warn(`Error processing combination retention=${retention}, decay=${decay}, delay=${delay}:`, error);
+                    // Continue with next combination
+                }
+            }
+        }
+        
+        return results;
+    }
+
     async runCLDEngineAnalysis(params, retentionVals, decayVals, delayVals, graph) {
         const results = [];
         const totalCombinations = retentionVals.length * decayVals.length * delayVals.length;
         let currentCombination = 0;
-
-        // Create CLD Engine instance
-        const cldEngine = new CLDEngine();
         
         for (const retention of retentionVals) {
             for (const decay of decayVals) {
@@ -252,6 +370,13 @@ class ParamSpace3D {
                     try {
                         // Create modified graph with current parameters
                         const modifiedGraph = this.createModifiedGraph(graph, retention, decay, delay);
+                        
+                        // Debug: Log parameter values being used
+                        console.log(`Parameter combination ${currentCombination}: retention=${retention}, decay=${decay}, delay=${delay}`);
+                        
+                        // Create NEW CLD Engine instance for each parameter combination
+                        // This prevents state persistence between simulations
+                        const cldEngine = new CLDEngine();
                         
                         // Initialize CLD Engine with modified graph
                         cldEngine.initializeGraph(modifiedGraph);
@@ -331,9 +456,11 @@ class ParamSpace3D {
         };
 
         // Convert nodes with modified retention
-        for (const node of originalGraph.nodes) {
+        // Handle both array format (from getCurrentGraph) and object format
+        const nodes = Array.isArray(originalGraph.nodes) ? originalGraph.nodes : Object.values(originalGraph.nodes);
+        for (const node of nodes) {
             modifiedGraph.nodes[node.id] = {
-                startAmount: node.init || node.value || 0.5,
+                startAmount: node.start_amount || node.init || node.value || 0.5,
                 retention: retention, // Use parameter value
                 floor: node.floor !== undefined ? node.floor : -Infinity,
                 ceiling: node.ceiling !== undefined ? node.ceiling : Infinity,
@@ -342,17 +469,37 @@ class ParamSpace3D {
                 sourceFormula: node.sourceFormula || null
             };
         }
+        
+        // Debug: Log first node to verify retention is applied
+        const firstNodeId = Object.keys(modifiedGraph.nodes)[0];
+        if (firstNodeId) {
+            console.log(`Node ${firstNodeId} retention set to: ${modifiedGraph.nodes[firstNodeId].retention}`);
+        }
 
         // Convert edges with modified decay and delay
-        for (const edge of originalGraph.edges) {
-            modifiedGraph.edges.push({
-                from: edge.from.id,
-                to: edge.to.id,
-                correlation: edge.strength || 1.0,
-                decay: decay, // Use parameter value
-                confidence: edge.confidence || 1.0,
-                delay: delay // Use parameter value
-            });
+        // Handle both array format (from getCurrentGraph) and object format
+        const edges = Array.isArray(originalGraph.edges) ? originalGraph.edges : originalGraph.edges;
+        for (const edge of edges) {
+            // Handle different edge formats
+            const fromId = edge.from?.id || edge.from;
+            const toId = edge.to?.id || edge.to;
+            
+            if (fromId && toId) {
+                modifiedGraph.edges.push({
+                    from: fromId,
+                    to: toId,
+                    correlation: edge.strength || 1.0,
+                    decay: decay, // Use parameter value
+                    confidence: edge.confidence || 1.0,
+                    delay: delay // Use parameter value
+                });
+            }
+        }
+        
+        // Debug: Log first edge to verify decay and delay are applied
+        if (modifiedGraph.edges.length > 0) {
+            const firstEdge = modifiedGraph.edges[0];
+            console.log(`Edge ${firstEdge.from}->${firstEdge.to}: decay=${firstEdge.decay}, delay=${firstEdge.delay}`);
         }
 
         return modifiedGraph;
@@ -787,8 +934,11 @@ fig2d.update_layout(xaxis_title="Decay Factor", yaxis_title="Retention")
             return;
         }
 
-        // Create 3D scatter plot data
-        const plotData = this.create3DPlotData(results.results);
+        // Apply ranking and binning system (matching Python implementation)
+        const rankedResults = this.applyRankingAndBinning(results.results);
+        
+        // Create 3D scatter plot data with ranked results
+        const plotData = this.create3DPlotData(rankedResults);
         
         // Display 3D plot
         const plot3DHTML = `
@@ -804,19 +954,37 @@ fig2d.update_layout(xaxis_title="Decay Factor", yaxis_title="Retention")
                 <h3>Analysis Summary</h3>
                 <div class="summary-stats">
                     <p><strong>Total Combinations:</strong> ${results.results.length}</p>
-                    <p><strong>Best Stability Score:</strong> ${Math.max(...results.results.map(r => r.stability)).toFixed(3)}</p>
-                    <p><strong>Worst Stability Score:</strong> ${Math.min(...results.results.map(r => r.stability)).toFixed(3)}</p>
-                    <p><strong>Average Stability Score:</strong> ${(results.results.reduce((sum, r) => sum + r.stability, 0) / results.results.length).toFixed(3)}</p>
+                    <p><strong>Best Combined Score:</strong> ${Math.min(...results.results.map(r => r.metrics?.combined || r.stability || 0)).toFixed(3)}</p>
+                    <p><strong>Worst Combined Score:</strong> ${Math.max(...results.results.map(r => r.metrics?.combined || r.stability || 0)).toFixed(3)}</p>
+                    <p><strong>Average Combined Score:</strong> ${(results.results.reduce((sum, r) => sum + (r.metrics?.combined || r.stability || 0), 0) / results.results.length).toFixed(3)}</p>
+                    <p><strong>Excellent Bin:</strong> ${results.results.filter(r => r.bin === 'excellent').length} combinations</p>
+                    <p><strong>Very Good Bin:</strong> ${results.results.filter(r => r.bin === 'very_good').length} combinations</p>
+                    <p><strong>Good Bin:</strong> ${results.results.filter(r => r.bin === 'good').length} combinations</p>
+                    <p><strong>Fair Bin:</strong> ${results.results.filter(r => r.bin === 'fair').length} combinations</p>
+                    <p><strong>Poor Bin:</strong> ${results.results.filter(r => r.bin === 'poor').length} combinations</p>
                 </div>
             </div>
         `;
         
-        plotsDiv.innerHTML = plot3DHTML + summaryHTML;
+        // Add animated 2D slices visualization
+        const slicesHTML = `
+            <div class="slices-container">
+                <h3>Animated 2D Slices</h3>
+                <div class="slice-controls">
+                    <label>Retention Slice:</label>
+                    <input type="range" id="retentionSlice" min="0" max="${results.retentionVals.length - 1}" value="0" step="1">
+                    <span id="retentionValue">${results.retentionVals[0].toFixed(3)}</span>
+                </div>
+                <div id="slicePlot" style="width: 100%; height: 400px;"></div>
+            </div>
+        `;
+        
+        plotsDiv.innerHTML = plot3DHTML + summaryHTML + slicesHTML;
         
         // Render 3D plot using Plotly
         if (typeof Plotly !== 'undefined') {
             const layout = {
-                title: '3D Parameter Space Analysis',
+                title: '3D Parameter Space Analysis (Python-style Ranking)',
                 scene: {
                     xaxis: { title: 'Retention' },
                     yaxis: { title: 'Decay' },
@@ -827,26 +995,90 @@ fig2d.update_layout(xaxis_title="Decay Factor", yaxis_title="Retention")
             };
             
             Plotly.newPlot('plot3d', [plotData], layout, {responsive: true});
+            
+            // Initialize animated slices
+            this.initializeAnimatedSlices(rankedResults, results);
         }
         
         // Display top results table
         this.displayTopResultsTable(results.results, tableDiv);
     }
 
+    /**
+     * Apply ranking and binning system to match Python implementation
+     * @param {Array} results - Raw analysis results
+     * @returns {Array} Ranked and binned results
+     */
+    applyRankingAndBinning(results) {
+        if (!results || results.length === 0) {
+            return results;
+        }
+        
+        // Extract combined scores for ranking (use metrics.combined if available, otherwise stability)
+        const scores = results.map(r => r.metrics?.combined || r.stability || 0);
+        
+        // Sort by combined score (lower is better for stability)
+        const sortedIndices = results.map((_, i) => i)
+            .sort((a, b) => scores[a] - scores[b]);
+        
+        // Apply ranking (1 = best, N = worst)
+        const rankedResults = results.map((result, index) => {
+            const rank = sortedIndices.indexOf(index) + 1;
+            const percentile = (rank / results.length) * 100;
+            
+            // Determine bin based on percentile
+            let bin = 'excellent';
+            if (percentile > 80) bin = 'poor';
+            else if (percentile > 60) bin = 'fair';
+            else if (percentile > 40) bin = 'good';
+            else if (percentile > 20) bin = 'very_good';
+            
+            return {
+                ...result,
+                rank,
+                percentile,
+                bin,
+                // Normalize scores for visualization
+                normalizedScore: this.normalizeScore(result.metrics?.combined || result.stability || 0, scores)
+            };
+        });
+        
+        console.log(`Applied ranking: ${rankedResults.length} results ranked`);
+        console.log(`Score range: ${Math.min(...scores).toFixed(3)} to ${Math.max(...scores).toFixed(3)}`);
+        
+        return rankedResults;
+    }
+
+    /**
+     * Normalize score for visualization (0-1 scale)
+     * @param {number} score - Raw score
+     * @param {Array} allScores - All scores for min-max normalization
+     * @returns {number} Normalized score
+     */
+    normalizeScore(score, allScores) {
+        const minScore = Math.min(...allScores);
+        const maxScore = Math.max(...allScores);
+        const range = maxScore - minScore;
+        
+        if (range === 0) return 0.5; // All scores are the same
+        
+        return (score - minScore) / range;
+    }
+
     create3DPlotData(results) {
-        // Sort results by combined score (best first)
-        const sortedResults = results.sort((a, b) => a.metrics.combinedScore - b.metrics.combinedScore);
+        // Use the ranked results (already sorted by rank)
+        const sortedResults = results.sort((a, b) => a.rank - b.rank);
         
-        // Calculate color range based on combined scores for better color variation
-        const scores = sortedResults.map(r => r.metrics.combinedScore);
-        const minScore = Math.min(...scores);
-        const maxScore = Math.max(...scores);
-        const scoreRange = maxScore - minScore;
+        // Create color mapping based on bins
+        const binColors = {
+            'excellent': '#00ff00',    // Green
+            'very_good': '#80ff00',    // Light green
+            'good': '#ffff00',         // Yellow
+            'fair': '#ff8000',         // Orange
+            'poor': '#ff0000'          // Red
+        };
         
-        // Normalize scores to 0-1 range for better color mapping
-        const normalizedScores = scores.map(score => 
-            scoreRange > 0 ? (score - minScore) / scoreRange : 0.5
-        );
+        const colors = sortedResults.map(r => binColors[r.bin] || '#808080');
         
         return {
             x: sortedResults.map(r => r.retention),
@@ -856,36 +1088,155 @@ fig2d.update_layout(xaxis_title="Decay Factor", yaxis_title="Retention")
             type: 'scatter3d',
             marker: {
                 size: 8,
-                color: normalizedScores,
-                colorscale: 'Viridis',
-                opacity: 0.8,
-                colorbar: {
-                    title: "Combined Score",
-                    tickvals: [0, 0.25, 0.5, 0.75, 1],
-                    ticktext: [
-                        minScore.toFixed(3),
-                        (minScore + scoreRange * 0.25).toFixed(3),
-                        (minScore + scoreRange * 0.5).toFixed(3),
-                        (minScore + scoreRange * 0.75).toFixed(3),
-                        maxScore.toFixed(3)
-                    ]
-                }
+                color: colors,
+                opacity: 0.8
             },
-            text: sortedResults.map(r => 
-                `Retention: ${r.retention.toFixed(3)}<br>` +
-                `Decay: ${r.decay.toFixed(3)}<br>` +
-                `Delay: ${r.delay}<br>` +
-                `Stability: ${r.stability.toFixed(3)}<br>` +
-                `Combined Score: ${r.metrics.combinedScore.toFixed(3)}<br>` +
-                `Distance: ${r.metrics.distance.toFixed(3)}<br>` +
-                `Z-Score: ${r.metrics.zScore.toFixed(3)}<br>` +
-                `Shape: ${r.metrics.shape.toFixed(3)}<br>` +
-                `Behavior: ${Object.keys(r.behavior).map(nodeId => 
-                    `${nodeId}: ${r.behavior[nodeId].behavior}`
-                ).join(', ')}`
-            ),
+            text: sortedResults.map(r => {
+                const metrics = r.metrics || {};
+                return `Retention: ${r.retention.toFixed(3)}<br>` +
+                       `Decay: ${r.decay.toFixed(3)}<br>` +
+                       `Delay: ${r.delay.toFixed(3)}<br>` +
+                       `Rank: ${r.rank}/${results.length}<br>` +
+                       `Percentile: ${r.percentile.toFixed(1)}%<br>` +
+                       `Bin: ${r.bin}<br>` +
+                       `Distance: ${metrics.distance?.toFixed(3) || 'N/A'}<br>` +
+                       `Z-Score: ${metrics.zScore?.toFixed(3) || 'N/A'}<br>` +
+                       `Shape: ${metrics.shape?.toFixed(3) || 'N/A'}<br>` +
+                       `Combined: ${metrics.combined?.toFixed(3) || r.stability?.toFixed(3) || 'N/A'}`;
+            }),
             hovertemplate: '%{text}<extra></extra>'
         };
+    }
+
+    /**
+     * Initialize animated 2D slices visualization
+     * @param {Array} rankedResults - Ranked analysis results
+     * @param {Object} results - Full results object with parameter values
+     */
+    initializeAnimatedSlices(rankedResults, results) {
+        const slider = document.getElementById('retentionSlice');
+        const valueSpan = document.getElementById('retentionValue');
+        const plotDiv = document.getElementById('slicePlot');
+        
+        if (!slider || !valueSpan || !plotDiv) {
+            console.warn('Animated slices elements not found');
+            return;
+        }
+        
+        // Create initial slice
+        this.updateSlicePlot(rankedResults, results, 0);
+        
+        // Add event listener for slider
+        slider.addEventListener('input', (e) => {
+            const sliceIndex = parseInt(e.target.value);
+            this.updateSlicePlot(rankedResults, results, sliceIndex);
+        });
+        
+        // Auto-animate option
+        const autoAnimateBtn = document.createElement('button');
+        autoAnimateBtn.textContent = 'Auto Animate';
+        autoAnimateBtn.style.marginLeft = '10px';
+        autoAnimateBtn.addEventListener('click', () => {
+            this.startAutoAnimation(rankedResults, results, slider, valueSpan);
+        });
+        
+        slider.parentNode.appendChild(autoAnimateBtn);
+    }
+
+    /**
+     * Update the 2D slice plot for a specific retention value
+     * @param {Array} rankedResults - Ranked analysis results
+     * @param {Object} results - Full results object
+     * @param {number} sliceIndex - Index of the retention slice
+     */
+    updateSlicePlot(rankedResults, results, sliceIndex) {
+        const retentionValue = results.retentionVals[sliceIndex];
+        const valueSpan = document.getElementById('retentionValue');
+        
+        if (valueSpan) {
+            valueSpan.textContent = retentionValue.toFixed(3);
+        }
+        
+        // Filter results for this retention slice
+        const sliceResults = rankedResults.filter(r => 
+            Math.abs(r.retention - retentionValue) < 1e-6
+        );
+        
+        if (sliceResults.length === 0) {
+            console.warn(`No results found for retention slice ${sliceIndex}`);
+            return;
+        }
+        
+        // Create bin colors
+        const binColors = {
+            'excellent': '#00ff00',
+            'very_good': '#80ff00',
+            'good': '#ffff00',
+            'fair': '#ff8000',
+            'poor': '#ff0000'
+        };
+        
+        const colors = sliceResults.map(r => binColors[r.bin] || '#808080');
+        
+        // Create 2D scatter plot data
+        const plotData = {
+            x: sliceResults.map(r => r.decay),
+            y: sliceResults.map(r => r.delay),
+            mode: 'markers',
+            type: 'scatter',
+            marker: {
+                size: 12,
+                color: colors,
+                opacity: 0.8,
+                line: {
+                    color: 'rgba(0,0,0,0.3)',
+                    width: 1
+                }
+            },
+            text: sliceResults.map(r => {
+                const metrics = r.metrics || {};
+                return `Decay: ${r.decay.toFixed(3)}<br>` +
+                       `Delay: ${r.delay.toFixed(3)}<br>` +
+                       `Rank: ${r.rank}/${rankedResults.length}<br>` +
+                       `Bin: ${r.bin}<br>` +
+                       `Combined: ${metrics.combined?.toFixed(3) || r.stability?.toFixed(3) || 'N/A'}`;
+            }),
+            hovertemplate: '%{text}<extra></extra>',
+            name: `Retention = ${retentionValue.toFixed(3)}`
+        };
+        
+        const layout = {
+            title: `2D Slice: Retention = ${retentionValue.toFixed(3)}`,
+            xaxis: { title: 'Decay' },
+            yaxis: { title: 'Delay' },
+            width: 600,
+            height: 400
+        };
+        
+        Plotly.newPlot('slicePlot', [plotData], layout, {responsive: true});
+    }
+
+    /**
+     * Start auto-animation of 2D slices
+     * @param {Array} rankedResults - Ranked analysis results
+     * @param {Object} results - Full results object
+     * @param {HTMLElement} slider - Slider element
+     * @param {HTMLElement} valueSpan - Value display element
+     */
+    startAutoAnimation(rankedResults, results, slider, valueSpan) {
+        let currentIndex = 0;
+        const maxIndex = results.retentionVals.length - 1;
+        
+        const animate = () => {
+            slider.value = currentIndex;
+            this.updateSlicePlot(rankedResults, results, currentIndex);
+            
+            currentIndex = (currentIndex + 1) % results.retentionVals.length;
+            
+            setTimeout(animate, 1000); // 1 second per frame
+        };
+        
+        animate();
     }
 
     displayTopResultsTable(topResults, container) {
@@ -978,15 +1329,21 @@ fig2d.update_layout(xaxis_title="Decay Factor", yaxis_title="Retention")
 }
 
 // Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    window.paramSpace3D = new ParamSpace3D();
-});
-
-// Also initialize if DOM is already loaded
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
-        window.paramSpace3D = new ParamSpace3D();
+        initParamSpace3D();
     });
 } else {
-    window.paramSpace3D = new ParamSpace3D();
+    initParamSpace3D();
+}
+
+// Initialize ParamSpace3D when CLD Engine is available
+function initParamSpace3D() {
+    if (typeof CLDEngine !== 'undefined') {
+        window.paramSpace3D = new ParamSpace3D();
+        console.log('3D Parameter Space initialized successfully');
+    } else {
+        console.log('Waiting for CLD Engine to be available...');
+        setTimeout(initParamSpace3D, 100);
+    }
 }

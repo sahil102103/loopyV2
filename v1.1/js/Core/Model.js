@@ -25,6 +25,13 @@ function Model(loopy){
     self.scale = 1;
     self.offsetX = 0;
     self.offsetY = 0;
+    self.minScale = 0.1;
+    self.maxScale = 5.0;
+    
+    // Initialize sync with Loopy object
+    loopy.offsetScale = self.scale;
+    loopy.offsetX = self.offsetX;
+    loopy.offsetY = self.offsetY;
 
 	// Update canvas size on window resize
 	// function resizeCanvas() {
@@ -35,40 +42,21 @@ function Model(loopy){
     // resizeCanvas();
 
 
-	// Handle zoom with scroll
-	// window.addEventListener('wheel', function(event) {
-	// 	// event.preventDefault();
-	// 	const zoomSpeed = 0.01;
-	// 	const scaleDelta = event.deltaY > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
+    // Handle zoom with scroll
+    canvas.addEventListener('wheel', function(event) {
+        event.preventDefault();
+        const zoomSpeed = 0.1;
+        const scaleDelta = event.deltaY > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
 
-	// 	// Update scale
-	// 	self.scale *= scaleDelta;
-
-	// 	// Adjust the offset to keep the zoom centered on the cursor
-	// 	const mouseX = event.clientX;
-	// 	const mouseY = event.clientY;
-	// 	self.offsetX = mouseX - (mouseX) * scaleDelta;
-	// 	self.offsetY = mouseY - (mouseY) * scaleDelta;
-
-	// 	self.update();
-	// });
-
-	// canvas.addEventListener('wheel', function(event) {
-	// 	// event.preventDefault();
-	// 	const zoomSpeed = 0.001;
-	// 	const scaleDelta = event.deltaY > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
-
-	// 	// Update scale
-	// 	self.scale *= scaleDelta;
-
-	// 	// Adjust the offset to keep the zoom centered on the cursor
-	// 	const mouseX = event.clientX - canvas.offsetLeft;
-	// 	const mouseY = event.clientY - canvas.offsetTop;
-	// 	self.offsetX = mouseX - (mouseX - self.offsetX) * scaleDelta;
-	// 	self.offsetY = mouseY - (mouseY - self.offsetY) * scaleDelta;
-
-	// 	self.update();
-	// });
+        // Update scale
+        var newScale = self.scale * scaleDelta;
+        if (newScale >= self.minScale && newScale <= self.maxScale) {
+            self.scale = newScale;
+            // Sync with Loopy object for mouse coordinates
+            loopy.offsetScale = self.scale;
+            self.dirty();
+        }
+    });
 
 	self.restoringState = false;
 	// Inside Loopy or Model initialization
@@ -145,6 +133,7 @@ function Model(loopy){
 	// Combined subscription for model changes
 	subscribe("model/changed", function () {
 		// self.saveState(); // Save the new state
+		self.dirty(); // Mark canvas as dirty for redraw
 	});
 	
 
@@ -363,6 +352,10 @@ function Model(loopy){
 
 	var _canvasDirty = false;
 
+	self.dirty = function(){
+		_canvasDirty = true;
+	};
+
 	self.update = function(){
 
 		// Update edges first
@@ -419,8 +412,8 @@ function Model(loopy){
 
         // Apply transformations for panning and zooming
         ctx.save();
-        ctx.translate(self.offsetX, self.offsetY);
-        ctx.scale(self.scale, self.scale);
+        ctx.translate(loopy.offsetX, loopy.offsetY);
+        ctx.scale(loopy.offsetScale, loopy.offsetScale);
 
         // Draw labels THEN edges THEN nodes
         for (var i = 0; i < self.labels.length; i++) self.labels[i].draw(ctx);
@@ -428,6 +421,54 @@ function Model(loopy){
         for (var i = 0; i < self.nodes.length; i++) self.nodes[i].draw(ctx);
 
         ctx.restore();
+    };
+
+    // Zoom methods
+    self.zoomIn = function() {
+        var newScale = self.scale * 1.2;
+        if (newScale <= self.maxScale) {
+            self.scale = newScale;
+            // Sync with Loopy object for mouse coordinates
+            loopy.offsetScale = self.scale;
+            self.dirty();
+        }
+    };
+
+    self.zoomOut = function() {
+        var newScale = self.scale / 1.2;
+        if (newScale >= self.minScale) {
+            self.scale = newScale;
+            // Sync with Loopy object for mouse coordinates
+            loopy.offsetScale = self.scale;
+            self.dirty();
+        }
+    };
+
+    self.resetZoom = function() {
+        self.scale = 1;
+        self.offsetX = 0;
+        self.offsetY = 0;
+        // Sync with Loopy object for mouse coordinates
+        loopy.offsetScale = self.scale;
+        loopy.offsetX = self.offsetX;
+        loopy.offsetY = self.offsetY;
+        self.dirty();
+    };
+
+    // Sync zoom state with Loopy object
+    self.syncZoomState = function() {
+        loopy.offsetScale = self.scale;
+        loopy.offsetX = self.offsetX;
+        loopy.offsetY = self.offsetY;
+    };
+
+    self.setZoom = function(scale) {
+        if (scale >= self.minScale && scale <= self.maxScale) {
+            self.scale = scale;
+            // Sync with Loopy object for mouse coordinates
+            loopy.offsetScale = self.scale;
+            self.dirty();
+        }
     };
 
 

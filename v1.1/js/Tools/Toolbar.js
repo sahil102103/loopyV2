@@ -115,6 +115,72 @@ function Toolbar(loopy) {
         }
     });
 
+    // Zoom controls
+    self.addZoomButton = function(options) {
+        var id = options.id;
+        var tooltip = options.tooltip;
+        var callback = options.callback;
+        var text = options.text;
+
+        // Create custom zoom button
+        var button = document.createElement("div");
+        button.setAttribute("class", "toolbar_button zoom_button");
+        button.setAttribute("data-balloon", tooltip);
+        button.setAttribute("data-balloon-pos", "right");
+        button.textContent = text;
+        button.style.fontSize = "16px";
+        button.style.fontWeight = "bold";
+        button.style.display = "flex";
+        button.style.alignItems = "center";
+        button.style.justifyContent = "center";
+        button.style.backgroundColor = "#ddd";
+        button.style.border = "2px solid #ddd";
+        button.style.cursor = "pointer";
+        
+        button.onclick = function() {
+            callback();
+        };
+        
+        self.dom.appendChild(button);
+        buttons.push({dom: button, select: function(){}, deselect: function(){}});
+    };
+
+    self.addZoomButton({
+        id: "zoom_in",
+        tooltip: "Zoom In (+)",
+        text: "+",
+        callback: function() {
+            loopy.model.zoomIn();
+        }
+    });
+    self.addZoomButton({
+        id: "zoom_out",
+        tooltip: "Zoom Out (-)",
+        text: "-",
+        callback: function() {
+            loopy.model.zoomOut();
+        }
+    });
+    self.addZoomButton({
+        id: "zoom_reset",
+        tooltip: "Reset Zoom (0)",
+        text: "0",
+        callback: function() {
+            loopy.model.resetZoom();
+        }
+    });
+
+    // Keyboard shortcuts for zoom
+    subscribe("key/zoom_in", function() {
+        loopy.model.zoomIn();
+    });
+    subscribe("key/zoom_out", function() {
+        loopy.model.zoomOut();
+    });
+    subscribe("key/zoom_reset", function() {
+        loopy.model.resetZoom();
+    });
+
     // Select the default button
     buttonsByID.ink.callback();
 }

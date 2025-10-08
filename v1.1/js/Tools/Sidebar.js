@@ -333,9 +333,10 @@ function Sidebar(loopy){
 			}
 
 		};
-		page.onedit = function(label){
-			page.target = label;
-			page.getComponent("text").setValue(label.text);
+		page.onedit = function(){
+			// page.target is already set by SidebarPage.edit()
+			// Don't call setValue here - it creates a circular reference
+			// The component will get the value via getValue() when it's shown
 		};
 		page.addComponent(new ComponentButton({
 			label: "delete label",
@@ -704,11 +705,15 @@ function Component(){
 		// TO IMPLEMENT
 	};
 	self.getValue = function(){
+		if (!self.page.target) {
+			return "";
+		}
+		if (!self.propName) {
+			return "";
+		}
 		return self.page.target[self.propName];
 	};
 	self.setValue = function(value){
-		// console.log(self)
-		
 		// Model's been changed!
 		publish("model/changed");
 

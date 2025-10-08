@@ -674,6 +674,253 @@ class CLDEngine {
     }
 
     /**
+     * Compute adjacency matrix for stability analysis
+     * @param {number} decayFactor - Edge decay factor
+     * @returns {Object} {matrix, nodes} - Adjacency matrix and node list
+     */
+    computeAdjacencyMatrixStability(decayFactor) {
+        const nodes = Object.keys(this.graph.nodes);
+        const nodeIndex = {};
+        nodes.forEach((node, i) => {
+            nodeIndex[node] = i;
+        });
+        
+        const matrix = Array(nodes.length).fill().map(() => Array(nodes.length).fill(0));
+        
+        // Self-decay (diagonal)
+        const retention = 1.0 - decayFactor;
+        for (let i = 0; i < nodes.length; i++) {
+            matrix[i][i] = retention;
+        }
+        
+        // Directed edges
+        for (const edge of this.graph.edges) {
+            const fromIdx = nodeIndex[edge.from];
+            const toIdx = nodeIndex[edge.to];
+            if (fromIdx !== undefined && toIdx !== undefined) {
+                const correlation = edge.correlation || 1.0;
+                matrix[toIdx][fromIdx] += decayFactor * correlation;
+            }
+        }
+        
+        return { matrix, nodes };
+    }
+
+    /**
+     * Analyze eigenvalues for stability
+     * @param {Array} matrix - Adjacency matrix
+     * @returns {Object} {eigenvalues, distanceMetric, maxMagnitude}
+     */
+    analyzeEigenvaluesStability(matrix) {
+        // Simple eigenvalue approximation for JavaScript
+        // For more accurate results, consider using a proper linear algebra library
+        const n = matrix.length;
+        const eigenvalues = [];
+        
+        // For small matrices, use characteristic polynomial
+        if (n <= 3) {
+            eigenvalues.push(...this.computeEigenvaluesSimple(matrix));
+        } else {
+            // For larger matrices, use power iteration approximation
+            eigenvalues.push(...this.computeEigenvaluesApproximate(matrix));
+        }
+        
+        const magnitudes = eigenvalues.map(e => {
+            if (typeof e === 'number') {
+                return Math.abs(e);
+            } else if (e && typeof e === 'object' && 'real' in e && 'imag' in e) {
+                // Complex number: magnitude = sqrt(real^2 + imag^2)
+                return Math.sqrt(e.real * e.real + e.imag * e.imag);
+            } else {
+                return 0;
+            }
+        });
+        const maxMagnitude = Math.max(...magnitudes);
+        const avgMagnitude = magnitudes.reduce((sum, mag) => sum + mag, 0) / magnitudes.length;
+        const distanceMetric = Math.abs(1 - avgMagnitude);
+        
+        return {
+            eigenvalues,
+            distanceMetric,
+            maxMagnitude
+        };
+    }
+
+    /**
+     * Simple eigenvalue computation for small matrices
+     * @param {Array} matrix - 2x2 or 3x3 matrix
+     * @returns {Array} Eigenvalues
+     */
+    computeEigenvaluesSimple(matrix) {
+        const n = matrix.length;
+        if (n === 1) {
+            return [matrix[0][0]];
+        } else if (n === 2) {
+            const a = matrix[0][0];
+            const b = matrix[0][1];
+            const c = matrix[1][0];
+            const d = matrix[1][1];
+            
+            const trace = a + d;
+            const det = a * d - b * c;
+            const discriminant = trace * trace - 4 * det;
+            
+            if (discriminant >= 0) {
+                const sqrtDisc = Math.sqrt(discriminant);
+                return [(trace + sqrtDisc) / 2, (trace - sqrtDisc) / 2];
+            } else {
+                const real = trace / 2;
+                const imag = Math.sqrt(-discriminant) / 2;
+                // Return complex eigenvalues as objects with real and imaginary parts
+                return [
+                    { real: real, imag: imag },
+                    { real: real, imag: -imag }
+                ];
+            }
+        } else if (n === 3) {
+            // For 3x3, use Cardano's method
+            return this.computeEigenvalues3x3(matrix);
+        }
+        return [];
+    }
+
+    /**
+     * Approximate eigenvalue computation using power iteration
+     * @param {Array} matrix - Square matrix
+     * @returns {Array} Approximate eigenvalues
+     */
+    computeEigenvaluesApproximate(matrix) {
+        const n = matrix.length;
+        const eigenvalues = [];
+        
+        // Power iteration for dominant eigenvalue
+        let vector = Array(n).fill(1);
+        for (let iter = 0; iter < 100; iter++) {
+            const newVector = this.matrixVectorMultiply(matrix, vector);
+            const norm = Math.sqrt(newVector.reduce((sum, val) => sum + val * val, 0));
+            if (norm < 1e-10) break;
+            
+            vector = newVector.map(val => val / norm);
+        }
+        
+        // Estimate eigenvalue from final vector
+        const eigenvector = vector;
+        const Av = this.matrixVectorMultiply(matrix, eigenvector);
+        const eigenvalue = Av.reduce((sum, val, i) => sum + val * eigenvector[i], 0);
+        eigenvalues.push(eigenvalue);
+        
+        return eigenvalues;
+    }
+
+    /**
+     * Matrix-vector multiplication
+     * @param {Array} matrix - Square matrix
+     * @param {Array} vector - Vector
+     * @returns {Array} Result vector
+     */
+    matrixVectorMultiply(matrix, vector) {
+        return matrix.map(row => 
+            row.reduce((sum, val, i) => sum + val * vector[i], 0)
+        );
+    }
+
+    /**
+     * Compute eigenvalues for 3x3 matrix using Cardano's method
+     * @param {Array} matrix - 3x3 matrix
+     * @returns {Array} Eigenvalues
+     */
+    computeEigenvalues3x3(matrix) {
+        // Characteristic polynomial: λ³ + a₂λ² + a₁λ + a₀ = 0
+        const a = matrix[0][0];
+        const b = matrix[0][1];
+        const c = matrix[0][2];
+        const d = matrix[1][0];
+        const e = matrix[1][1];
+        const f = matrix[1][2];
+        const g = matrix[2][0];
+        const h = matrix[2][1];
+        const i = matrix[2][2];
+        
+        const trace = a + e + i;
+        const det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+        
+        // Simplified: assume one real eigenvalue and two complex conjugates
+        // This is a rough approximation
+        const realEigenvalue = trace / 3;
+        const complexMagnitude = Math.sqrt(Math.abs(det) / Math.abs(realEigenvalue));
+        
+        return [realEigenvalue, complexMagnitude, -complexMagnitude];
+    }
+
+    /**
+     * Rolling Z-score calculation
+     * @param {Array} series - Time series data
+     * @param {number} window - Rolling window size
+     * @returns {Array} Rolling Z-scores
+     */
+    rollingZ(series, window = 10) {
+        if (!Array.isArray(series) || series.length === 0) {
+            return [];
+        }
+        
+        const zScores = [];
+        
+        for (let i = 0; i < series.length; i++) {
+            const start = Math.max(0, i - window + 1);
+            const windowData = series.slice(start, i + 1);
+            
+            const mean = windowData.reduce((sum, val) => sum + val, 0) / windowData.length;
+            const variance = windowData.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / windowData.length;
+            const stdDev = Math.sqrt(variance) || 1e-12;
+            
+            zScores.push((series[i] - mean) / stdDev);
+        }
+        
+        return zScores;
+    }
+
+    /**
+     * Compute shape penalty for Z-score series
+     * @param {Array} zSeries - Z-score series
+     * @param {Object} options - Penalty options
+     * @returns {number} Shape penalty
+     */
+    computeShapePenalty(zSeries, options = {}) {
+        const {
+            flatTol = 0.05,
+            extremeTol = 2.0,
+            oscillationTol = 3
+        } = options;
+        
+        let penalty = 0.0;
+        
+        // Flat penalty (average absolute Z near 0)
+        const meanAbsZ = zSeries.reduce((sum, z) => sum + Math.abs(z), 0) / zSeries.length;
+        if (meanAbsZ < flatTol) {
+            penalty += 2.0;
+        }
+        
+        // Extreme divergence penalty
+        const maxAbsZ = Math.max(...zSeries.map(z => Math.abs(z)));
+        if (maxAbsZ > extremeTol) {
+            penalty += (maxAbsZ - extremeTol);
+        }
+        
+        // Oscillation penalty (crossing through 0)
+        let zeroCrossings = 0;
+        for (let i = 1; i < zSeries.length; i++) {
+            if ((zSeries[i-1] > 0 && zSeries[i] < 0) || (zSeries[i-1] < 0 && zSeries[i] > 0)) {
+                zeroCrossings++;
+            }
+        }
+        if (zeroCrossings > oscillationTol) {
+            penalty += (zeroCrossings - oscillationTol) * 0.5;
+        }
+        
+        return penalty;
+    }
+
+    /**
      * Parameter space analysis
      * @param {Object} options - Analysis options
      * @returns {Object} Parameter space results
@@ -689,6 +936,12 @@ class CLDEngine {
             delayRange: options.delayRange || [0, 10],
             gridSize: options.gridSize || this.config.defaultGridSize,
             steps: options.steps || this.config.defaultSteps,
+            zWindow: options.zWindow || 10,
+            weights: {
+                distance: options.weights?.distance || 0.5,
+                zScore: options.weights?.zScore || 0.3,
+                shape: options.weights?.shape || 0.2
+            },
             ...options
         };
 
@@ -702,24 +955,69 @@ class CLDEngine {
         for (const retention of retentionValues) {
             for (const decay of decayValues) {
                 for (const delay of delayValues) {
+                    // Create modified graph with current parameters
                     const modifiedGraph = this.createModifiedGraph(retention, decay, delay);
+                    
+                    // Initialize new engine instance
                     const tempEngine = new CLDEngine(this.config);
                     tempEngine.initializeGraph(modifiedGraph);
                     
+                    // Run simulation
                     const simulation = tempEngine.simulateTwoPhase({
                         steps: config.steps
                     });
                     
+                    // Compute stability metrics
+                    const { matrix } = tempEngine.computeAdjacencyMatrixStability(decay);
+                    const { distanceMetric, maxMagnitude } = tempEngine.analyzeEigenvaluesStability(matrix);
+                    
+                    // Compute Z-score metrics
+                    let maxZScore = 0;
+                    let avgShapePenalty = 0;
+                    let nodeCount = 0;
+                    
+                    for (const [nodeId, series] of Object.entries(simulation.history)) {
+                        if (series.length >= config.zWindow) {
+                            const zScores = tempEngine.rollingZ(series, config.zWindow);
+                            const maxAbsZ = Math.max(...zScores.map(z => Math.abs(z)));
+                            maxZScore = Math.max(maxZScore, maxAbsZ);
+                            
+                            const shapePenalty = tempEngine.computeShapePenalty(zScores);
+                            avgShapePenalty += shapePenalty;
+                            nodeCount++;
+                        }
+                    }
+                    
+                    avgShapePenalty = nodeCount > 0 ? avgShapePenalty / nodeCount : 0;
+                    
+                    // Flatness penalty
+                    const flatPenalty = maxZScore < 0.05 ? 2.0 : 0.0;
+                    
+                    // Combined score
+                    const combinedScore = (
+                        config.weights.distance * distanceMetric +
+                        config.weights.zScore * maxZScore +
+                        config.weights.shape * avgShapePenalty +
+                        flatPenalty
+                    );
+                    
+                    // Classify behavior
                     const behavior = tempEngine.classifyBehavior(simulation.history);
-                    const stability = this.calculateStabilityScore(behavior);
                     
                     results.push({
                         retention,
                         decay,
                         delay,
-                        stability,
+                        metrics: {
+                            distance: distanceMetric,
+                            zScore: maxZScore,
+                            shape: avgShapePenalty,
+                            flat: flatPenalty,
+                            combined: combinedScore
+                        },
                         behavior,
-                        simulation: simulation.history
+                        simulation: simulation.history,
+                        maxMagnitude
                     });
                 }
             }

@@ -18,6 +18,11 @@
 		84: "label", // (T)ext
 		83: "save", // (S)ave
 
+		// Zoom controls
+		187: "zoom_in", // + key
+		189: "zoom_out", // - key
+		48: "zoom_reset", // 0 key
+
 	};
 
 	// Event Handling

@@ -52,6 +52,11 @@ function Ink(loopy){
 		ctx.clearRect(0,0,canvas.width,canvas.height); // Clear canvas
 		self.strokeData = []; // Reset stroke data
 	};
+	
+	// Clear ink when zoom changes
+	subscribe("model/reset", function(){
+		self.reset();
+	});
 	subscribe("mousedown",function(){
 
 		// ONLY WHEN EDITING w INK

@@ -15,10 +15,10 @@ canvas{
 
 #canvasses{
 	position:absolute;
-	top:0; left:0;
+	top:60px; left:0;
 	width: calc(100% - 300px);
-	margin-top: 10%;
-	height: 80%;
+	height: calc(100% - 60px);
+	box-sizing: border-box;
 }
 #canvasses[fullscreen=yes]{
 	width: 100%;
@@ -45,7 +45,7 @@ canvas{
 #playbar{
 	position: absolute;
 	bottom: 15px;
-	left: calc(50% - 275px); /* 50% - half of (playbar width + sidebar width)*/
+	left: calc(50% - 275px); /* 50% - half of (playbar width + sidebar width) */
 
 	width: 250px;
 	height: 75px;
@@ -134,6 +134,8 @@ div[big=yes] .play_button_label{
 
 #toolbar{
 	position: absolute;
+	left: 20px;
+	top: 80px; /* Lower the toolbar to be below tabs */
 	background-color: #ddd;
 	z-index: 1;
 
@@ -151,13 +153,19 @@ div[big=yes] .play_button_label{
 
 .toolbar-toggle-button {
     position: absolute;
-    top: 20px;
+    top: 60px; /* Position at top of canvas area */
     left: 0px;
     background-color: lightgray;
     color: white;
     border: none;
-    padding: 0px 10px;
+    padding: 5px 8px;
     cursor: pointer;
+    z-index: 2;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 #toolbar[mode=play]{
@@ -183,11 +191,12 @@ div[big=yes] .play_button_label{
 
 #sidebar{
 	position: absolute;
-	right:0;
+	right: 0; /* Show sidebar by default */
 	margin-top: -20px;
 	width: 300px;
 	height: 100%;
 	background: #ddd;
+	transition: right 0.3s ease; /* Smooth transition when toggling */
 
 	font-weight: 100;
 	font-size: 17px;
@@ -315,13 +324,19 @@ div[big=yes] .play_button_label{
 /* Toggle button styles */
 .sidebar-toggle-button {
     position: absolute;
-    top:-20px;
+    top: 60px; /* Position at top of canvas area */
     left: -42px; /* Positioned outside the sidebar */
     background-color: lightgray;
     color: white;
     border: none;
     padding: 5px;
     cursor: pointer;
+    z-index: 2;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .sidebar-toggle-button:hover {
@@ -330,7 +345,11 @@ div[big=yes] .play_button_label{
 
 /* Sidebar hidden state */
 #sidebar.hidden {
-    transform: translateX(-100%);
+    right: -300px;
+}
+
+#sidebar.visible {
+    right: 0;
 }
 
 #main-content.expanded {
