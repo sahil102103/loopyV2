@@ -344,6 +344,19 @@ function Modal(loopy){
 		self.addPage("save_gif", page);
 	})();
 
+	// My Models (content populated dynamically by SavedModels.js)
+	(function(){
+		var page = new Page();
+		page.width = 600;
+		page.height = 500;
+		page.onshow = function(){
+			if (loopy.savedModels) {
+				loopy.savedModels.showMyModelsModal();
+			}
+		};
+		self.addPage("my_models", page);
+	})();
+
 	// Formula Editor
 	(function(){
 		var page = new Page();

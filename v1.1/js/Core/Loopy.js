@@ -57,6 +57,7 @@ function Loopy(config){
 	// self.undo = new Undo(self);
 	// self.redo = new Redo(self);
 	self.multipleselect = new MultipleSelect(self);
+	self.savedModels = new SavedModels(self);
 
 	
 	

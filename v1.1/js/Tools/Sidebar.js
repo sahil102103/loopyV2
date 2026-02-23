@@ -445,6 +445,9 @@ function Sidebar(loopy){
 
 			"<hr/><br>" +
 
+			"<span class='mini_button' onclick='loopy.savedModels.promptSave()'>save model</span> " +
+			"<span class='mini_button' onclick='publish(\"modal\",[\"my_models\"])'>my models</span> <br><br>" +
+
 			"<span class='mini_button' onclick='publish(\"modal\",[\"save_link\"])'>save as link</span> <br><br>" +
 			"<span class='mini_button' onclick='publish(\"export/file\")'>save as file</span> " +
 			"<span class='mini_button' onclick='publish(\"import/file\")'>load from file</span> <br><br>" +
