@@ -515,7 +515,7 @@ function Node(model, config){
 		model.removeNode(self);
 
 		// Remove from selected nodes
-		selectedNodes = loopy.multipleselect.getSelectedNodes().filter(node => node !== self);
+		loopy.multipleselect.removeNode(self);
 
 		// Killed!
 		publish("kill",[self]);

@@ -33,6 +33,13 @@ function Ink(loopy){
 		// Last point
 		var lastPoint = self.strokeData[self.strokeData.length-1];
 
+		// Convert world coordinates to retina screen coordinates
+		// retina_pos = offsetX + offsetScale * world * 2
+		var lx = loopy.offsetX + loopy.offsetScale * lastPoint[0] * 2;
+		var ly = loopy.offsetY + loopy.offsetScale * lastPoint[1] * 2;
+		var cx = loopy.offsetX + loopy.offsetScale * Mouse.x * 2;
+		var cy = loopy.offsetY + loopy.offsetScale * Mouse.y * 2;
+
 		// Style
 		ctx.strokeStyle = "#ccc";
 		ctx.lineWidth = 5;
@@ -40,8 +47,8 @@ function Ink(loopy){
 
 		// Draw line from last to current
 		ctx.beginPath();
-		ctx.moveTo(lastPoint[0]*2, lastPoint[1]*2);
-		ctx.lineTo(Mouse.x*2, Mouse.y*2);
+		ctx.moveTo(lx, ly);
+		ctx.lineTo(cx, cy);
 		ctx.stroke();
 
 		// Update last point

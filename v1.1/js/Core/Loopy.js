@@ -14,7 +14,8 @@ Loopy.TOOL_ERASE = 2;
 Loopy.TOOL_LABEL = 3;
 Loopy.TOOL_UNDO = 4;
 Loopy.TOOL_REDO = 5;
-Loopy.TOOL_MULTIPLESELECT = 6;
+Loopy.TOOL_MULTISELECT = 6;
+Loopy.TOOL_PAN = 7;
 
 function Loopy(config){
 

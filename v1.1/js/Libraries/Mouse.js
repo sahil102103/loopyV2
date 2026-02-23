@@ -22,38 +22,16 @@ Mouse.init = function(target){
 
 	var _onmousemove = function(event){
 
-		// DO THE INVERSE
-		var canvasses = document.getElementById("canvasses");
-		var tx = 0;
-		var ty = 0;
-		var s = 1/loopy.offsetScale;
-		var CW = canvasses.clientWidth - _PADDING - _PADDING;
-		var CH = canvasses.clientHeight - _PADDING_BOTTOM - _PADDING;
+		// Raw CSS-space coords (needed for panning, which modifies the transform itself)
+		Mouse.rawX = event.x;
+		Mouse.rawY = event.y;
 
-		if(loopy.embedded){
-			tx -= _PADDING/2; // dunno why but this is needed
-			ty -= _PADDING/2; // dunno why but this is needed
-		}
-		
-		tx -= (CW+_PADDING)/2;
-		ty -= (CH+_PADDING)/2;
-		
-		tx = s*tx;
-		ty = s*ty;
-
-		tx += (CW+_PADDING)/2;
-		ty += (CH+_PADDING)/2;
-
-		tx -= loopy.offsetX;
-		ty -= loopy.offsetY;
-
-		// Mutliply by Mouse vector
-		var mx = event.x*s + tx;
-		var my = event.y*s + ty;
-
-		// Mouse!
-		Mouse.x = mx;
-		Mouse.y = my;
+		// Inverse of drawing transform: ctx.translate(offsetX, offsetY) then ctx.scale(scale, scale)
+		// Drawing uses retina (2x) coords: retina_pos = offsetX + scale * (world * 2)
+		// CSS = retina / 2, so: css = offsetX/2 + scale * world
+		// Therefore: world = (css - offsetX/2) / scale
+		Mouse.x = (event.x - loopy.offsetX / 2) / loopy.offsetScale;
+		Mouse.y = (event.y - loopy.offsetY / 2) / loopy.offsetScale;
 
 		Mouse.moved = true;
 		publish("mousemove");

@@ -25,6 +25,15 @@ import matplotlib.colors as mcolors
 from dotenv import load_dotenv
 load_dotenv()
 
+# Import advanced analysis module
+from advanced_analysis import (
+    run_advanced_simulation,
+    run_stability_analysis,
+    simulate_two_phase,
+    initialize_gmms,
+    generate_gmm_samples
+)
+
 
 
 app = Flask(__name__)
@@ -795,6 +804,93 @@ def simulation2():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ADVANCED ANALYSIS ENDPOINTS (from Jupyter notebook)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/advanced-simulation', methods=['POST'])
+def advanced_simulation():
+    """
+    Run advanced two-phase simulation with full stability analysis.
+    
+    Expected JSON:
+    {
+        "nodes": [
+            {"name": "node1", "start_amount": 0.1, "retention": 0.9, "floor": -inf, "ceiling": inf},
+            ...
+        ],
+        "edges": [
+            {"source": "node1", "target": "node2", "correlation": 0.5, "decay": 0.1, "delay": 1, "confidence": 0.8},
+            ...
+        ],
+        "iterations": 200
+    }
+    
+    Returns:
+    {
+        "time_series_data": {...},
+        "classifications": {...},
+        "plots": {
+            "time_series": "base64...",
+            "z_scores": "base64..."
+        }
+    }
+    """
+    try:
+        data = request.json
+        iterations = data.get('iterations', 200)
+        
+        result = run_advanced_simulation(data, iterations=iterations)
+        return jsonify(result), 200
+        
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        print(error_trace)
+        return jsonify({"error": str(e), "trace": error_trace}), 500
+
+
+@app.route('/advanced-stability-map', methods=['POST'])
+def advanced_stability_map():
+    """
+    Generate advanced stability parameter space map.
+    
+    Expected JSON:
+    {
+        "nodes": [...],
+        "edges": [...],
+        "decay_range": [min, max, steps],
+        "delay_range": [min, max, steps],
+        "iterations": 200
+    }
+    
+    Returns:
+    {
+        "stability_matrix": [[...]],
+        "decay_values": [...],
+        "delay_values": [...],
+        "plot": "base64..."
+    }
+    """
+    try:
+        data = request.json
+        decay_range = data.get('decay_range', [0.0, 1.0, 11])
+        delay_range = data.get('delay_range', [0, 10, 11])
+        iterations = data.get('iterations', 200)
+        
+        result = run_stability_analysis(
+            data,
+            decay_range=decay_range,
+            delay_range=delay_range,
+            iterations=iterations
+        )
+        return jsonify(result), 200
+        
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        print(error_trace)
+        return jsonify({"error": str(e), "trace": error_trace}), 500
 
 
 @app.route('/boxplots', methods=['POST'])

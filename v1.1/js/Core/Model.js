@@ -42,17 +42,23 @@ function Model(loopy){
     // resizeCanvas();
 
 
-    // Handle zoom with scroll
+    // Handle zoom with scroll, centered on the viewport
     canvas.addEventListener('wheel', function(event) {
         event.preventDefault();
         const zoomSpeed = 0.1;
         const scaleDelta = event.deltaY > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
 
-        // Update scale
         var newScale = self.scale * scaleDelta;
         if (newScale >= self.minScale && newScale <= self.maxScale) {
+            // Zoom around the center of the canvas
+            var cx = canvas.width / 2;
+            var cy = canvas.height / 2;
+            loopy.offsetX = cx - scaleDelta * (cx - loopy.offsetX);
+            loopy.offsetY = cy - scaleDelta * (cy - loopy.offsetY);
+            self.offsetX = loopy.offsetX;
+            self.offsetY = loopy.offsetY;
+
             self.scale = newScale;
-            // Sync with Loopy object for mouse coordinates
             loopy.offsetScale = self.scale;
             self.dirty();
         }
@@ -70,17 +76,25 @@ function Model(loopy){
 				id: node.id,
 				x: node.x,
 				y: node.y,
+				init: node.init,
 				value: node.value,
 				label: node.label,
+				hue: node.hue,
 				radius: node.radius,
+				flow: node.flow,
+				pass: node.pass,
+				floor: node.floor,
+				ceiling: node.ceiling,
 			})),
 			edges: self.edges.map(edge => ({
 				id: edge.id,
-				from: edge.from,
-				to: edge.to,
+				from: edge.from.id,
+				to: edge.to.id,
 				arc: edge.arc,
+				rotation: edge.rotation,
 				lag: edge.lag,
 				strength: edge.strength,
+				damper: edge.damper,
 			})),
 			labels: self.labels.map(label => ({
 				id: label.id,
@@ -88,45 +102,52 @@ function Model(loopy){
 				x: label.x,
 				y: label.y,
 			})),
+			nodeUID: Node._UID,
 		};
-	
 
 		self.undoStack.push(serializedState);
-		
+		self.redoStack = [];
 	};
 	
 	
 
 	// Restore a state
 	self.restoreState = function (state) {
-		self.restoringState = true; // Set flag to indicate restoration
+		self.restoringState = true;
 
-		self.clear(); // Clear current state before restoring
-	
-		// Recreate nodes
-		const idToNodeMap = {};
-		state.nodes.forEach(node => {
-			const newNode = self.addNode(node);
-			idToNodeMap[node.id] = newNode; // Map node ID to object for edge reconstruction
+		self.clear();
+
+		// Restore UID counter so future nodes don't collide
+		if (state.nodeUID !== undefined) {
+			Node._UID = state.nodeUID;
+		}
+
+		// Recreate nodes (addNode handles nodeByID registration)
+		state.nodes.forEach(function(node) {
+			self.addNode(node);
 		});
-	
-		// Recreate edges
-		state.edges.forEach(edge => {
+
+		// Recreate edges — from/to are now IDs, which Edge constructor resolves via model.getNode()
+		state.edges.forEach(function(edge) {
 			self.addEdge({
-				from: idToNodeMap[edge.from], // Resolve node object from ID
-				to: idToNodeMap[edge.to], // Resolve node object from ID
+				from: edge.from,
+				to: edge.to,
 				arc: edge.arc,
+				rotation: edge.rotation,
 				lag: edge.lag,
 				strength: edge.strength,
+				damper: edge.damper,
 			});
 		});
-	
-		// Recreate labels
-		state.labels.forEach(label => self.addLabel(label));
-	
-		self.update(); // Refresh the canvas
 
-		self.restoringState = false; // Reset flag after restoration
+		// Recreate labels
+		state.labels.forEach(function(label) {
+			self.addLabel(label);
+		});
+
+		self.update();
+
+		self.restoringState = false;
 	};
 
 
@@ -139,9 +160,7 @@ function Model(loopy){
 
 	// Handle model reset
 	subscribe("model/reset", function () {
-		// self.undoStack = [];
-		// self.redoStack = [];
-		self.saveState(); // Save the blank state after reset
+		self.saveState();
 	});
 
 	// Undo functionality
@@ -346,6 +365,9 @@ function Model(loopy){
 
 
 
+	// Save initial blank state so the very first action can be undone
+	self.saveState();
+
 	///////////////////
 	// UPDATE & DRAW //
 	///////////////////
@@ -423,12 +445,19 @@ function Model(loopy){
         ctx.restore();
     };
 
-    // Zoom methods
+    // Zoom methods — all zoom around the canvas center
     self.zoomIn = function() {
         var newScale = self.scale * 1.2;
         if (newScale <= self.maxScale) {
+            var scaleDelta = 1.2;
+            var cx = canvas.width / 2;
+            var cy = canvas.height / 2;
+            loopy.offsetX = cx - scaleDelta * (cx - loopy.offsetX);
+            loopy.offsetY = cy - scaleDelta * (cy - loopy.offsetY);
+            self.offsetX = loopy.offsetX;
+            self.offsetY = loopy.offsetY;
+
             self.scale = newScale;
-            // Sync with Loopy object for mouse coordinates
             loopy.offsetScale = self.scale;
             self.dirty();
         }
@@ -437,8 +466,15 @@ function Model(loopy){
     self.zoomOut = function() {
         var newScale = self.scale / 1.2;
         if (newScale >= self.minScale) {
+            var scaleDelta = 1 / 1.2;
+            var cx = canvas.width / 2;
+            var cy = canvas.height / 2;
+            loopy.offsetX = cx - scaleDelta * (cx - loopy.offsetX);
+            loopy.offsetY = cy - scaleDelta * (cy - loopy.offsetY);
+            self.offsetX = loopy.offsetX;
+            self.offsetY = loopy.offsetY;
+
             self.scale = newScale;
-            // Sync with Loopy object for mouse coordinates
             loopy.offsetScale = self.scale;
             self.dirty();
         }
@@ -448,7 +484,6 @@ function Model(loopy){
         self.scale = 1;
         self.offsetX = 0;
         self.offsetY = 0;
-        // Sync with Loopy object for mouse coordinates
         loopy.offsetScale = self.scale;
         loopy.offsetX = self.offsetX;
         loopy.offsetY = self.offsetY;
@@ -925,6 +960,87 @@ function Model(loopy){
 	};
 
 
+
+	//////////////////////
+	// AUTO-SAVE /////////
+	//////////////////////
+
+	var AUTO_SAVE_KEY = 'flowcld_autosave';
+	var AUTO_SAVE_TS_KEY = 'flowcld_autosave_ts';
+	var AUTO_SAVE_VIEW_KEY = 'flowcld_autosave_view';
+	var AUTO_SAVE_DEBOUNCE_MS = 3000;
+	var AUTO_SAVE_INTERVAL_MS = 30000;
+	var _autoSaveTimer = null;
+
+	self.autoSave = function() {
+		try {
+			var data = self.serialize();
+			localStorage.setItem(AUTO_SAVE_KEY, data);
+			localStorage.setItem(AUTO_SAVE_TS_KEY, Date.now().toString());
+			localStorage.setItem(AUTO_SAVE_VIEW_KEY, JSON.stringify({
+				scale: self.scale,
+				offsetX: loopy.offsetX,
+				offsetY: loopy.offsetY
+			}));
+		} catch(e) {
+			console.warn('Auto-save failed:', e);
+		}
+	};
+
+	self.loadAutoSave = function() {
+		try {
+			return localStorage.getItem(AUTO_SAVE_KEY);
+		} catch(e) {
+			console.warn('Failed to load auto-save:', e);
+			return null;
+		}
+	};
+
+	self.loadAutoSaveView = function() {
+		try {
+			var raw = localStorage.getItem(AUTO_SAVE_VIEW_KEY);
+			return raw ? JSON.parse(raw) : null;
+		} catch(e) { return null; }
+	};
+
+	self.clearAutoSave = function() {
+		try {
+			localStorage.removeItem(AUTO_SAVE_KEY);
+			localStorage.removeItem(AUTO_SAVE_TS_KEY);
+			localStorage.removeItem(AUTO_SAVE_VIEW_KEY);
+		} catch(e) { /* ignore */ }
+	};
+
+	self.getAutoSaveTimestamp = function() {
+		try {
+			var ts = localStorage.getItem(AUTO_SAVE_TS_KEY);
+			return ts ? new Date(parseInt(ts)) : null;
+		} catch(e) { return null; }
+	};
+
+	// Debounced auto-save on model change
+	subscribe("model/changed", function() {
+		if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
+		_autoSaveTimer = setTimeout(function() {
+			if (self.nodes.length > 0 || self.edges.length > 0) {
+				self.autoSave();
+			}
+		}, AUTO_SAVE_DEBOUNCE_MS);
+	});
+
+	// Periodic auto-save as safety net
+	setInterval(function() {
+		if (self.nodes.length > 0 || self.edges.length > 0) {
+			self.autoSave();
+		}
+	}, AUTO_SAVE_INTERVAL_MS);
+
+	// Save before page unload
+	window.addEventListener('beforeunload', function() {
+		if (self.nodes.length > 0 || self.edges.length > 0) {
+			self.autoSave();
+		}
+	});
 
 	////////////////////
 	// HELPER METHODS //

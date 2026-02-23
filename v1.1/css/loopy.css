@@ -35,6 +35,12 @@ canvas{
 #canvasses[cursor=label]{
 	cursor: url('cursors/label.png') 15 15, auto;
 }
+#canvasses[cursor=pan]{
+	cursor: grab;
+}
+#canvasses[cursor=pan]:active{
+	cursor: grabbing;
+}
 
 
 

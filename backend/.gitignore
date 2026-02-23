@@ -108,6 +108,9 @@ __pypackages__/
 
 # Generated files
 *.ipynb_export.py
+plots/*_visual.png
+*.png
+!*.png.placeholder
 
 # Temporary files created during development
 *.tmp

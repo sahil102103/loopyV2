@@ -203,9 +203,10 @@
 			<button class="tablink hidden" id='generateTab' onclick="openPage('Generate')">Generate</button>
 			<button class="tablink hidden" id='degreeCentralityTab' onclick="openPage('DegreeCentrality')">Graph Centralities</button>
 			<button class="tablink hidden" id='correlationTab' onclick="openPage('Correlation')">Correlation</button>
-			<button class="tablink hidden" id='stabilityMapTab' onclick="openPage('StabilityMap')">Stability Map</button>
-			<button class="tablink" id='paramSpace3DTab' onclick="openPage('ParamSpace3D')">3D Parameter Space</button>
-			<button class="tablink" id='generateDiagramTab' onclick="openPage('Generate')">Generate Diagram</button>
+		<button class="tablink hidden" id='stabilityMapTab' onclick="openPage('StabilityMap')">Stability Map</button>
+		<button class="tablink" id='advancedAnalysisTab' onclick="openPage('AdvancedAnalysis')">⭐ Advanced Analysis</button>
+		<button class="tablink" id='paramSpace3DTab' onclick="openPage('ParamSpace3D')">3D Parameter Space</button>
+		<button class="tablink" id='generateDiagramTab' onclick="openPage('Generate')">Generate Diagram</button>
 
 
 
@@ -497,6 +498,85 @@
 			</div>
 		</div>
 
+		<!-- Advanced Analysis Section -->
+		<div id="AdvancedAnalysis" class="tabcontent">
+			<h2>⭐ Advanced Two-Phase Simulation</h2>
+			<p>Sophisticated analysis using the high-fidelity notebook algorithms with delay-aware propagation, stability classification, and rolling Z-scores.</p>
+			
+			<div id="advancedControls" style="margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 8px;">
+				<h3>Simulation Parameters</h3>
+				<div style="margin-bottom: 15px;">
+					<label for="advancedIterations" style="display: inline-block; width: 150px;">Iterations:</label>
+					<input type="number" id="advancedIterations" value="200" min="50" max="1000" step="50" style="width: 100px;">
+					<span style="margin-left: 10px; color: #666; font-size: 0.9em;">(More iterations = longer time)</span>
+				</div>
+				<button id="runAdvancedSimulation" class="button" style="background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">
+					▶ Run Advanced Simulation
+				</button>
+			</div>
+
+			<div id="advancedSimulationResults" style="margin-top: 20px;">
+				<p style="color: #666; font-style: italic;">Results will appear here after running the simulation...</p>
+			</div>
+
+			<hr style="margin: 40px 0;">
+
+			<h2>Advanced Stability Map</h2>
+			<p>Comprehensive parameter space analysis with behavior classification across decay and delay dimensions.</p>
+			
+			<div id="advancedStabilityControls" style="margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 8px;">
+				<h3>Parameter Ranges</h3>
+				
+				<div style="margin-bottom: 15px;">
+					<h4 style="margin: 10px 0;">Decay Factor Range:</h4>
+					<label style="display: inline-block; width: 80px;">Min:</label>
+					<input type="number" id="advDecayMin" value="0.0" min="0" max="1" step="0.1" style="width: 80px;">
+					<label style="display: inline-block; width: 80px; margin-left: 15px;">Max:</label>
+					<input type="number" id="advDecayMax" value="1.0" min="0" max="1" step="0.1" style="width: 80px;">
+					<label style="display: inline-block; width: 80px; margin-left: 15px;">Steps:</label>
+					<input type="number" id="advDecaySteps" value="11" min="3" max="20" step="1" style="width: 80px;">
+				</div>
+				
+				<div style="margin-bottom: 15px;">
+					<h4 style="margin: 10px 0;">Delay Range:</h4>
+					<label style="display: inline-block; width: 80px;">Min:</label>
+					<input type="number" id="advDelayMin" value="0" min="0" max="20" step="1" style="width: 80px;">
+					<label style="display: inline-block; width: 80px; margin-left: 15px;">Max:</label>
+					<input type="number" id="advDelayMax" value="10" min="0" max="50" step="1" style="width: 80px;">
+					<label style="display: inline-block; width: 80px; margin-left: 15px;">Steps:</label>
+					<input type="number" id="advDelaySteps" value="11" min="3" max="20" step="1" style="width: 80px;">
+				</div>
+				
+				<div style="margin-bottom: 15px;">
+					<label for="advMapIterations" style="display: inline-block; width: 150px;">Iterations per point:</label>
+					<input type="number" id="advMapIterations" value="100" min="50" max="500" step="50" style="width: 100px;">
+					<span style="margin-left: 10px; color: #666; font-size: 0.9em;">(Lower for faster results)</span>
+				</div>
+				
+				<button id="runAdvancedStabilityMap" class="button" style="background: #FF9800; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">
+					📊 Generate Stability Map
+				</button>
+				<p style="color: #d9534f; margin-top: 10px; font-size: 0.9em;">⚠️ Note: Full 11×11 grid may take 30-60 seconds</p>
+			</div>
+
+			<div id="advancedStabilityMapResults" style="margin-top: 20px;">
+				<p style="color: #666; font-style: italic;">Stability map will appear here...</p>
+			</div>
+
+			<hr style="margin: 40px 0;">
+
+			<div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 20px;">
+				<h3>📚 About Advanced Analysis</h3>
+				<ul style="line-height: 1.8;">
+					<li><strong>Two-Phase Propagation:</strong> Models stock and flow dynamics with delay-aware updates</li>
+					<li><strong>Behavior Classification:</strong> Over-damped (sluggish), Optimal (balanced), or Unconstrained (unstable)</li>
+					<li><strong>Rolling Z-Scores:</strong> Detects oscillations and instability patterns over time</li>
+					<li><strong>Parameter Space Maps:</strong> Shows stability regions across decay and delay values</li>
+				</ul>
+				<p><strong>Tip:</strong> Select specific nodes before running to analyze just part of your system.</p>
+			</div>
+		</div>
+
 		<!-- 3D Parameter Space Section -->
 		<div id="ParamSpace3D" class="tabcontent">
 			<h2>3D Parameter Space Analysis</h2>
@@ -644,6 +724,7 @@
 <script src="python/generateDiagram.js" defer></script>
 <script src="python/degreeCentrality.js" defer></script>
 <script src="python/crisisAnalysis.js" defer></script>
+<script src="python/advancedAnalysis.js" defer></script>
 <script src="python/cldAnalysis.js" defer></script>
 <script src="js/paramSpace3D.js" defer></script>
 
@@ -707,9 +788,40 @@
 			try {
 				const cldIntegration = integrateCLDEngine(window.loopy);
 				console.log('CLD Engine successfully integrated with existing analysis tabs');
-				
 			} catch (error) {
 				console.error('Failed to integrate CLD Engine:', error);
+			}
+
+			// Offer to restore auto-saved work (only if no URL data was loaded)
+			var urlData = new URLSearchParams(window.location.search).get("data");
+			if (!urlData) {
+				var savedData = window.loopy.model.loadAutoSave();
+				if (savedData) {
+					var ts = window.loopy.model.getAutoSaveTimestamp();
+					var timeStr = ts ? ts.toLocaleString() : 'unknown time';
+					if (confirm('Auto-saved work found from ' + timeStr + '. Restore it?')) {
+						try {
+							var decoded = decodeURIComponent(savedData);
+							window.loopy.model.deserialize(decoded);
+							// Restore zoom/pan view state
+							var view = window.loopy.model.loadAutoSaveView();
+							if (view) {
+								window.loopy.offsetScale = view.scale;
+								window.loopy.offsetX = view.offsetX;
+								window.loopy.offsetY = view.offsetY;
+								window.loopy.model.scale = view.scale;
+								window.loopy.model.offsetX = view.offsetX;
+								window.loopy.model.offsetY = view.offsetY;
+								window.loopy.model.dirty();
+							}
+						} catch (e) {
+							console.warn('Failed to restore auto-save:', e);
+							window.loopy.model.clearAutoSave();
+						}
+					} else {
+						window.loopy.model.clearAutoSave();
+					}
+				}
 			}
 			
 			document.body.style.opacity = '1'; // Make the body visible

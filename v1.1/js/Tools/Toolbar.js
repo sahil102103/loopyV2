@@ -46,19 +46,22 @@ function Toolbar(loopy) {
     // Set Tool
     self.currentTool = "ink";
     self.setTool = function(tool) {
+        // Clear multi-select when switching away
+        if (self.currentTool === "multiselect" && tool !== "multiselect") {
+            if (loopy.multipleselect) loopy.multipleselect.clearSelection();
+        }
         self.currentTool = tool;
         var name = "TOOL_" + tool.toUpperCase();
-        console.log(name)
         loopy.tool = Loopy[name];
         document.getElementById("canvasses").setAttribute("cursor", tool);
     };
 
-    // Switch from eraser to draw tool on mouseup
+    // Switch from eraser to draw tool on mouseup (only when eraser is active)
     document.addEventListener("mouseup", function() {
-        if (self.currentTool === "erase") {
-            self.setTool("ink"); // Switch back to draw tool
-            buttonsByID["erase"].deselect(); // Deselect the eraser button
-            buttonsByID["ink"].select(); // Select the ink/draw button
+        if (self.currentTool === "erase" && loopy.mode === Loopy.MODE_EDIT) {
+            self.setTool("ink");
+            buttonsByID["erase"].deselect();
+            buttonsByID["ink"].select();
         }
     });
 
@@ -169,6 +172,14 @@ function Toolbar(loopy) {
             loopy.model.resetZoom();
         }
     });
+    self.addZoomButton({
+        id: "pan",
+        tooltip: "(P)an Canvas",
+        text: "✋",
+        callback: function() {
+            self.setTool("pan");
+        }
+    });
 
     // Keyboard shortcuts for zoom
     subscribe("key/zoom_in", function() {
@@ -179,6 +190,10 @@ function Toolbar(loopy) {
     });
     subscribe("key/zoom_reset", function() {
         loopy.model.resetZoom();
+    });
+    subscribe("key/pan", function() {
+        loopy.ink.reset();
+        self.setTool("pan");
     });
 
     // Select the default button
