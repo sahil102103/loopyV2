@@ -12,6 +12,7 @@ function SavedModels(loopy) {
     var self = this;
     self.loopy = loopy;
     var COLLECTION = "savedModels";
+    var LOCAL_KEY = "flowcld_saved_models";
 
     function getUserId() {
         return window.currentUserId || null;
@@ -21,13 +22,27 @@ function SavedModels(loopy) {
         return window.firebase;
     }
 
-    // Save current model to Firestore
+    function useLocal() {
+        return !getUserId();
+    }
+
+    // ── localStorage helpers ──
+
+    function _getLocalModels() {
+        try {
+            return JSON.parse(localStorage.getItem(LOCAL_KEY) || "[]");
+        } catch(e) { return []; }
+    }
+
+    function _setLocalModels(models) {
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(models));
+    }
+
+    // ── Save ──
+
     self.saveModel = function(name, callback) {
-        var userId = getUserId();
-        if (!userId) { alert("You must be logged in to save."); return; }
         if (!name || !name.trim()) { alert("Please enter a model name."); return; }
 
-        var f = fb();
         var modelData = loopy.model.serialize();
         var viewState = JSON.stringify({
             scale: loopy.model.scale,
@@ -35,8 +50,25 @@ function SavedModels(loopy) {
             offsetY: loopy.offsetY
         });
 
+        if (useLocal()) {
+            var models = _getLocalModels();
+            var id = "local_" + Date.now();
+            models.unshift({
+                id: id,
+                name: name.trim(),
+                data: modelData,
+                viewState: viewState,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            });
+            _setLocalModels(models);
+            if (callback) callback(null, id);
+            return;
+        }
+
+        var f = fb();
         f.addDoc(f.collection(f.db, COLLECTION), {
-            userId: userId,
+            userId: getUserId(),
             name: name.trim(),
             data: modelData,
             viewState: viewState,
@@ -51,12 +83,9 @@ function SavedModels(loopy) {
         });
     };
 
-    // Overwrite an existing saved model
-    self.updateModel = function(docId, name, callback) {
-        var userId = getUserId();
-        if (!userId) { alert("You must be logged in to save."); return; }
+    // ── Update ──
 
-        var f = fb();
+    self.updateModel = function(docId, name, callback) {
         var modelData = loopy.model.serialize();
         var viewState = JSON.stringify({
             scale: loopy.model.scale,
@@ -64,6 +93,26 @@ function SavedModels(loopy) {
             offsetY: loopy.offsetY
         });
 
+        if (useLocal() || (docId && docId.indexOf("local_") === 0)) {
+            var models = _getLocalModels();
+            for (var i = 0; i < models.length; i++) {
+                if (models[i].id === docId) {
+                    models[i].data = modelData;
+                    models[i].viewState = viewState;
+                    models[i].updatedAt = new Date().toISOString();
+                    if (name) models[i].name = name.trim();
+                    break;
+                }
+            }
+            _setLocalModels(models);
+            if (callback) callback(null);
+            return;
+        }
+
+        var userId = getUserId();
+        if (!userId) { alert("You must be logged in to save."); return; }
+
+        var f = fb();
         var updates = {
             data: modelData,
             viewState: viewState,
@@ -81,11 +130,23 @@ function SavedModels(loopy) {
         });
     };
 
-    // List all models for the current user
-    self.listModels = function(callback) {
-        var userId = getUserId();
-        if (!userId) { callback(new Error("Not logged in")); return; }
+    // ── List ──
 
+    self.listModels = function(callback) {
+        if (useLocal()) {
+            var models = _getLocalModels().map(function(m) {
+                return {
+                    id: m.id,
+                    name: m.name,
+                    createdAt: m.createdAt ? new Date(m.createdAt) : null,
+                    updatedAt: m.updatedAt ? new Date(m.updatedAt) : null
+                };
+            });
+            callback(null, models);
+            return;
+        }
+
+        var userId = getUserId();
         var f = fb();
         var q = f.query(
             f.collection(f.db, COLLECTION),
@@ -111,8 +172,39 @@ function SavedModels(loopy) {
         });
     };
 
-    // Load a model by document ID
+    // ── Load ──
+
     self.loadModel = function(docId, callback) {
+        if (docId && docId.indexOf("local_") === 0) {
+            var models = _getLocalModels();
+            var found = null;
+            for (var i = 0; i < models.length; i++) {
+                if (models[i].id === docId) { found = models[i]; break; }
+            }
+            if (!found) { callback(new Error("Model not found")); return; }
+            try {
+                var decoded = decodeURIComponent(found.data);
+                loopy.model.deserialize(decoded);
+                if (found.viewState) {
+                    var view = JSON.parse(found.viewState);
+                    loopy.offsetScale = view.scale;
+                    loopy.offsetX = view.offsetX;
+                    loopy.offsetY = view.offsetY;
+                    loopy.model.scale = view.scale;
+                    loopy.model.offsetX = view.offsetX;
+                    loopy.model.offsetY = view.offsetY;
+                    loopy.model.dirty();
+                }
+                self.currentModelId = docId;
+                self.currentModelName = found.name;
+                callback(null, found.name);
+            } catch(e) {
+                console.error("Load failed:", e);
+                callback(e);
+            }
+            return;
+        }
+
         var f = fb();
         f.getDoc(f.doc(f.db, COLLECTION, docId)).then(function(snap) {
             if (!snap.exists()) {
@@ -134,7 +226,6 @@ function SavedModels(loopy) {
                     loopy.model.offsetY = view.offsetY;
                     loopy.model.dirty();
                 }
-                // Track currently loaded model for "overwrite save"
                 self.currentModelId = docId;
                 self.currentModelName = d.name;
 
@@ -149,8 +240,20 @@ function SavedModels(loopy) {
         });
     };
 
-    // Delete a saved model
+    // ── Delete ──
+
     self.deleteModel = function(docId, callback) {
+        if (docId && docId.indexOf("local_") === 0) {
+            var models = _getLocalModels().filter(function(m) { return m.id !== docId; });
+            _setLocalModels(models);
+            if (self.currentModelId === docId) {
+                self.currentModelId = null;
+                self.currentModelName = null;
+            }
+            if (callback) callback(null);
+            return;
+        }
+
         var f = fb();
         f.deleteDoc(f.doc(f.db, COLLECTION, docId)).then(function() {
             console.log("Model deleted:", docId);
@@ -170,8 +273,8 @@ function SavedModels(loopy) {
     self.currentModelName = null;
 
     // Populate the "My Models" modal content (called by Modal.onshow, not directly)
-    self.showMyModelsModal = function() {
-        var container = document.getElementById("modal_page");
+    self.showMyModelsModal = function(targetDom) {
+        var container = targetDom || document.getElementById("modal_page");
         container.innerHTML = "<h2>My Saved Models</h2><p>Loading...</p>";
 
         self.listModels(function(err, models) {
@@ -237,21 +340,59 @@ function SavedModels(loopy) {
         });
     };
 
-    // Prompt user and save
+    // Prompt user and save (custom dialog to avoid browser blocking prompt())
     self.promptSave = function() {
         var defaultName = self.currentModelName || "";
-        var name = prompt("Model name:", defaultName);
-        if (name === null) return;
 
-        if (self.currentModelId && confirm("Overwrite '" + self.currentModelName + "'?\nClick Cancel to save as a new copy.")) {
-            self.updateModel(self.currentModelId, name, function(err) {
-                if (err) alert("Save failed: " + err.message);
-                else {
-                    self.currentModelName = name;
-                    alert("Model updated.");
+        var overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);z-index:99999;display:flex;align-items:center;justify-content:center;";
+
+        var dialog = document.createElement("div");
+        dialog.style.cssText = "background:#fff;border-radius:12px;padding:28px 32px 20px;min-width:340px;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,0.18);font-family:'Inter',sans-serif;";
+
+        dialog.innerHTML =
+            '<h3 style="margin:0 0 16px;font-size:17px;font-weight:600;">Save Model</h3>' +
+            '<input id="_save_name_input" type="text" placeholder="Enter model name" value="' + _escapeHtml(defaultName) + '" ' +
+                'style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #ccc;border-radius:7px;font-size:15px;font-family:inherit;outline:none;">' +
+            '<div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end;">' +
+                '<button id="_save_cancel_btn" style="padding:8px 18px;border:1px solid #ccc;border-radius:6px;background:#f5f5f5;cursor:pointer;font-size:14px;font-family:inherit;">Cancel</button>' +
+                '<button id="_save_ok_btn" style="padding:8px 18px;border:none;border-radius:6px;background:#4a7cff;color:#fff;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;">Save</button>' +
+            '</div>';
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        var input = document.getElementById("_save_name_input");
+        input.focus();
+        input.select();
+
+        function cleanup() {
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        }
+
+        function doSave() {
+            var name = input.value;
+            if (!name || !name.trim()) {
+                input.style.borderColor = "#e74c3c";
+                input.focus();
+                return;
+            }
+            cleanup();
+
+            if (self.currentModelId) {
+                var overwrite = confirm("Overwrite '" + self.currentModelName + "'?\nClick Cancel to save as a new copy.");
+                if (overwrite) {
+                    self.updateModel(self.currentModelId, name, function(err) {
+                        if (err) alert("Save failed: " + err.message);
+                        else {
+                            self.currentModelName = name;
+                            alert("Model updated.");
+                        }
+                    });
+                    return;
                 }
-            });
-        } else {
+            }
+
             self.saveModel(name, function(err, id) {
                 if (err) alert("Save failed: " + err.message);
                 else {
@@ -261,6 +402,16 @@ function SavedModels(loopy) {
                 }
             });
         }
+
+        document.getElementById("_save_ok_btn").onclick = doSave;
+        document.getElementById("_save_cancel_btn").onclick = cleanup;
+        overlay.addEventListener("click", function(e) {
+            if (e.target === overlay) cleanup();
+        });
+        input.addEventListener("keydown", function(e) {
+            if (e.key === "Enter") doSave();
+            if (e.key === "Escape") cleanup();
+        });
     };
 }
 

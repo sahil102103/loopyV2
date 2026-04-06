@@ -62,29 +62,63 @@ class CLDEngine {
             edges: []
         };
 
+        const nodesInput = graph?.nodes || {};
+        const nodeEntries = Array.isArray(nodesInput)
+            ? nodesInput.map((node, idx) => [node?.id ?? node?.name ?? String(idx), node || {}])
+            : Object.entries(nodesInput);
+
         // Validate and normalize nodes
-        for (const [nodeId, node] of Object.entries(graph.nodes || {})) {
+        for (const [nodeIdRaw, node] of nodeEntries) {
+            const nodeId = String(nodeIdRaw);
+            const floorValue = node.floor ?? node.min ?? node.lower ?? node.lower_bound ?? -Infinity;
+            const ceilingValue = node.ceiling ?? node.ceil ?? node.max ?? node.upper ?? node.upper_bound ?? Infinity;
+            const formulaValue = node.formula ?? node.expression ?? node.expr ?? null;
+            const sinkFormulaValue = node.sinkFormula ?? node.sink_formula ?? node.f_sink ?? null;
+            const sourceFormulaValue = node.sourceFormula ?? node.source_formula ?? node.f_source ?? null;
+
             normalized.nodes[nodeId] = {
                 id: nodeId,
-                startAmount: this.safeEvaluate(node.startAmount, 0.0),
-                retention: this.safeEvaluate(node.retention, 1.0),
-                floor: this.safeEvaluate(node.floor, -Infinity),
-                ceiling: this.safeEvaluate(node.ceiling, Infinity),
-                formula: node.formula || null,
-                sinkFormula: node.sinkFormula || null,
-                sourceFormula: node.sourceFormula || null,
+                startAmount: this.safeEvaluate(
+                    node.startAmount ?? node.start_amount ?? node.start ?? node.initial ?? node.init ?? node.value,
+                    0.0
+                ),
+                retention: this.safeEvaluate(node.retention ?? node.ret, 1.0),
+                floor: floorValue,
+                ceiling: ceilingValue,
+                formula: (typeof formulaValue === 'string' && formulaValue.trim()) ? formulaValue.trim() : null,
+                sinkFormula: (typeof sinkFormulaValue === 'string' && sinkFormulaValue.trim()) ? sinkFormulaValue.trim() : null,
+                sourceFormula: (typeof sourceFormulaValue === 'string' && sourceFormulaValue.trim()) ? sourceFormulaValue.trim() : null,
                 ...node
             };
         }
 
+        const edgesInput = graph?.edges || [];
         // Validate and normalize edges
-        for (const edge of graph.edges || []) {
+        for (const edge of edgesInput) {
+            const from = edge.from ?? edge.source ?? edge.src ?? edge.u;
+            const to = edge.to ?? edge.target ?? edge.tgt ?? edge.v;
+            if (from === undefined || to === undefined) {
+                continue;
+            }
+            let correlation = edge.correlation ?? edge.corr ?? edge.strength;
+            if (correlation === undefined || correlation === null) {
+                const weight = edge.weight ?? edge.w;
+                const polarity = edge.polarity ?? edge.sign;
+                if (weight !== undefined && weight !== null && polarity !== undefined && polarity !== null) {
+                    correlation = this.safeEvaluate(weight, 0) * this.safeEvaluate(polarity, 1);
+                } else if (weight !== undefined && weight !== null) {
+                    correlation = this.safeEvaluate(weight, 0);
+                } else {
+                    correlation = 1.0;
+                }
+            }
+
             normalized.edges.push({
-                from: edge.from,
-                to: edge.to,
-                correlation: this.safeEvaluate(edge.correlation, 1.0),
+                from,
+                to,
+                correlation: this.safeEvaluate(correlation, 1.0),
                 decay: this.safeEvaluate(edge.decay, 0.0),
-                confidence: this.safeEvaluate(edge.confidence, 1.0),
+                confidence: this.safeEvaluate(edge.confidence ?? edge.certainty, 1.0),
                 delay: this.safeEvaluate(edge.delay, 0),
                 ...edge
             });
@@ -99,14 +133,23 @@ class CLDEngine {
      * @param {*} defaultValue - Default if evaluation fails
      * @returns {number} Evaluated numeric value
      */
-    safeEvaluate(value, defaultValue = 0) {
+    safeEvaluate(value, defaultValue = 0, ctx = {}) {
         if (typeof value === 'number' && !isNaN(value)) {
             return value;
         }
         
         if (typeof value === 'string') {
             try {
-                // Simple expression evaluation (extend as needed)
+                const t = ctx.t !== undefined ? ctx.t : 0;
+                const x = ctx.x !== undefined ? ctx.x : 0;
+                const val = x;
+                const math = Math;
+                const np = this.getNumpyLikeHelpers();
+                const history = ctx.history || {};
+                const raw = ctx.raw || {};
+                const nxt = ctx.nxt || {};
+                const inputs = ctx.inputs || {};
+                const e = Math.E;
                 const result = eval(value);
                 return typeof result === 'number' && !isNaN(result) ? result : defaultValue;
             } catch (e) {
@@ -118,8 +161,40 @@ class CLDEngine {
         return defaultValue;
     }
 
+    getNumpyLikeHelpers() {
+        return {
+            exp: Math.exp,
+            log: Math.log,
+            sqrt: Math.sqrt,
+            abs: Math.abs,
+            sin: Math.sin,
+            cos: Math.cos,
+            tan: Math.tan,
+            min: Math.min,
+            max: Math.max,
+            floor: Math.floor,
+            ceil: Math.ceil,
+            pow: Math.pow
+        };
+    }
+
+    evaluateBound(bound, defaultValue, ctx = {}) {
+        if (typeof bound === 'number' && !Number.isNaN(bound)) {
+            return bound;
+        }
+        if (typeof bound === 'string' && bound.trim()) {
+            const result = this.safeEvaluate(bound, defaultValue, ctx);
+            return Number.isFinite(result) ? result : defaultValue;
+        }
+        return defaultValue;
+    }
+
     /**
-     * Two-phase simulation engine
+     * Four-phase simulation engine matching the Python simulate_two_phase.
+     * Phase A: retention + delayed inflows
+     * Phase B: commit stock nodes (retention > 0) with bounds; converters get null placeholder
+     * Phase C: evaluate converter nodes (retention === 0)
+     * Phase D: apply sink/source multipliers
      * @param {Object} options - Simulation options
      * @returns {Object} Simulation results
      */
@@ -137,11 +212,132 @@ class CLDEngine {
         };
 
         const history = this.initializeHistory(config.initialValues);
-        
+
+        const converters = [];
+        for (const [nodeId, node] of Object.entries(this.graph.nodes)) {
+            if (node.retention === 0) converters.push(nodeId);
+        }
+
         for (let t = 0; t < config.steps; t++) {
-            const nextValues = this.computePhaseA(history, t, config);
-            const finalValues = this.computePhaseB(nextValues, t, config);
-            this.commitValues(history, finalValues);
+            // Phase A: retention + delayed inflows
+            const nxt = {};
+            for (const [nodeId, node] of Object.entries(this.graph.nodes)) {
+                nxt[nodeId] = node.retention * history[nodeId][t];
+            }
+            for (const edge of this.graph.edges) {
+                if (!this.graph.nodes[edge.from] || !this.graph.nodes[edge.to]) continue;
+                const delayE = Math.max(0, Math.floor(edge.delay));
+                const srcT = t - delayE;
+                const srcV = (srcT >= 0 && history[edge.from][srcT] !== undefined)
+                    ? (history[edge.from][srcT] === null ? 0 : history[edge.from][srcT])
+                    : 0;
+                const factor = edge.correlation * (1.0 - edge.decay);
+                nxt[edge.to] = (nxt[edge.to] || 0) + srcV * factor;
+            }
+
+            // Phase B: commit stocks (retention > 0), converters get null placeholder
+            for (const [nodeId, node] of Object.entries(this.graph.nodes)) {
+                if (node.retention > 0) {
+                    let val = nxt[nodeId] || 0;
+                    if (config.applyBounds) {
+                        val = this.evaluateBounds(val, node.floor, node.ceiling, {
+                            t,
+                            history,
+                            raw: Object.fromEntries(
+                                Object.entries(history).map(([nid, series]) => [nid, series[t]])
+                            ),
+                            nxt
+                        });
+                    }
+                    history[nodeId].push(val);
+                } else {
+                    history[nodeId].push(null);
+                }
+            }
+
+            // Phase C: evaluate converters (retention === 0)
+            for (const nodeId of converters) {
+                const node = this.graph.nodes[nodeId];
+                const inputs = {};
+                for (const edge of this.graph.edges) {
+                    if (edge.to !== nodeId) continue;
+                    const delayE = Math.max(0, Math.floor(edge.delay));
+                    const srcT = t + 1 - delayE;
+                    let srcV = (srcT >= 0 && history[edge.from][srcT] !== undefined)
+                        ? history[edge.from][srcT] : 0;
+                    if (srcV === null) srcV = 0;
+                    inputs[edge.from] = srcV * edge.correlation * (1.0 - edge.decay);
+                }
+
+                let val;
+                if (config.applyFormulas && node.formula) {
+                    const previousValue = history[nodeId].length >= 2
+                        ? (history[nodeId][history[nodeId].length - 2] ?? 0)
+                        : 0;
+                    val = this.evaluateFormula(node.formula, previousValue, t, nodeId, history, {
+                        inputs,
+                        raw: Object.fromEntries(
+                            Object.entries(history).map(([nid, series]) => [nid, series[t]])
+                        ),
+                        nxt: Object.fromEntries(
+                            Object.entries(history).map(([nid, series]) => [nid, series[series.length - 1]])
+                        )
+                    });
+                } else {
+                    val = Object.values(inputs).reduce((s, v) => s + v, 0);
+                }
+                if (config.applyBounds) {
+                    val = this.evaluateBounds(val, node.floor, node.ceiling, {
+                        t,
+                        history,
+                        raw: Object.fromEntries(
+                            Object.entries(history).map(([nid, series]) => [nid, series[t]])
+                        ),
+                        nxt: Object.fromEntries(
+                            Object.entries(history).map(([nid, series]) => [nid, series[series.length - 1]])
+                        )
+                    });
+                }
+                history[nodeId][history[nodeId].length - 1] = val;
+            }
+
+            // Phase D: apply sink/source multipliers
+            for (const [nodeId, node] of Object.entries(this.graph.nodes)) {
+                if (node.sinkFormula) {
+                    const currentValue = history[nodeId][history[nodeId].length - 1];
+                    const ctx = {
+                        t,
+                        x: currentValue,
+                        val: currentValue,
+                        history,
+                        raw: Object.fromEntries(
+                            Object.entries(history).map(([nid, series]) => [nid, series[t]])
+                        ),
+                        nxt: Object.fromEntries(
+                            Object.entries(history).map(([nid, series]) => [nid, series[series.length - 1]])
+                        )
+                    };
+                    const factor = this.safeEvaluate(node.sinkFormula, 1.0, ctx);
+                    history[nodeId][history[nodeId].length - 1] *= factor;
+                }
+                if (node.sourceFormula) {
+                    const currentValue = history[nodeId][history[nodeId].length - 1];
+                    const ctx = {
+                        t,
+                        x: currentValue,
+                        val: currentValue,
+                        history,
+                        raw: Object.fromEntries(
+                            Object.entries(history).map(([nid, series]) => [nid, series[t]])
+                        ),
+                        nxt: Object.fromEntries(
+                            Object.entries(history).map(([nid, series]) => [nid, series[series.length - 1]])
+                        )
+                    };
+                    const factor = this.safeEvaluate(node.sourceFormula, 1.0, ctx);
+                    history[nodeId][history[nodeId].length - 1] *= factor;
+                }
+            }
         }
 
         return {
@@ -176,119 +372,39 @@ class CLDEngine {
     }
 
     /**
-     * Phase A: Retention + Delayed Inflows
-     * @param {Object} history - Current simulation history
-     * @param {number} t - Current time step
-     * @param {Object} config - Simulation configuration
-     * @returns {Object} Next values after Phase A
-     */
-    computePhaseA(history, t, config) {
-        const nextValues = {};
-        
-        // Apply retention to current values
-        for (const [nodeId, node] of Object.entries(this.graph.nodes)) {
-            const currentValue = history[nodeId][t];
-            const retention = node.retention;
-            nextValues[nodeId] = currentValue * retention;
-        }
-        
-        // Add delayed inflows from edges
-        for (const edge of this.graph.edges) {
-            const sourceNode = this.graph.nodes[edge.from];
-            const targetNode = this.graph.nodes[edge.to];
-            
-            if (!sourceNode || !targetNode) continue;
-            
-            const delay = Math.max(0, Math.floor(edge.delay));
-            const sourceTime = t - delay;
-            
-            if (sourceTime >= 0 && history[edge.from][sourceTime] !== undefined) {
-                const sourceValue = history[edge.from][sourceTime];
-                const correlation = edge.correlation;
-                const decay = edge.decay;
-                
-                const inflow = sourceValue * correlation * (1.0 - decay);
-                nextValues[edge.to] = (nextValues[edge.to] || 0) + inflow;
-            }
-        }
-        
-        return nextValues;
-    }
-
-    /**
-     * Phase B: Apply bounds and formulas
-     * @param {Object} nextValues - Values from Phase A
-     * @param {number} t - Current time step
-     * @param {Object} config - Simulation configuration
-     * @returns {Object} Final values after Phase B
-     */
-    computePhaseB(nextValues, t, config) {
-        const finalValues = {};
-        
-        for (const [nodeId, node] of Object.entries(this.graph.nodes)) {
-            let value = nextValues[nodeId] || 0;
-            
-            // Apply formulas if enabled
-            if (config.applyFormulas && node.formula) {
-                value = this.evaluateFormula(node.formula, value, t, nodeId);
-            }
-            
-            // Apply bounds if enabled
-            if (config.applyBounds) {
-                value = this.evaluateBounds(value, node.floor, node.ceiling);
-            }
-            
-            finalValues[nodeId] = value;
-        }
-        
-        return finalValues;
-    }
-
-    /**
-     * Evaluate formula with context
+     * Evaluate formula with context from the current simulation history
      * @param {string} formula - Formula expression
      * @param {number} currentValue - Current node value
      * @param {number} t - Time step
      * @param {string} nodeId - Node identifier
+     * @param {Object} history - Current simulation history
      * @returns {number} Evaluated result
      */
-    evaluateFormula(formula, currentValue, t, nodeId) {
+    evaluateFormula(formula, currentValue, t, nodeId, history, extraContext = {}) {
         try {
-            // Create evaluation context
+            const raw = extraContext.raw || {};
+            const nxt = extraContext.nxt || {};
+            const inputs = extraContext.inputs || {};
             const context = {
-                t: t,
+                t,
+                x: currentValue,
+                val: currentValue,
                 value: currentValue,
-                nodeId: nodeId,
-                // Add other node values if needed
-                ...this.getNodeContext(t)
+                raw,
+                nxt,
+                inputs,
+                history,
+                math: Math,
+                np: this.getNumpyLikeHelpers(),
+                Math
             };
-            
-            // Simple formula evaluation (extend for more complex expressions)
-            const result = eval(formula.replace(/\bvalue\b/g, 'context.value')
-                                      .replace(/\bt\b/g, 'context.t'));
-            
+
+            const result = new Function('ctx', `with(ctx){return (${formula})}`)(context);
             return typeof result === 'number' && !isNaN(result) ? result : currentValue;
         } catch (e) {
             console.warn(`Formula evaluation failed for node ${nodeId}:`, e);
             return currentValue;
         }
-    }
-
-    /**
-     * Get node context for formula evaluation
-     * @param {number} t - Time step
-     * @returns {Object} Node context
-     */
-    getNodeContext(t) {
-        const context = {};
-        
-        for (const [nodeId, history] of Object.entries(this.simulationHistory[0] || {})) {
-            if (history[t] !== undefined) {
-                context[nodeId] = history[t];
-            }
-        }
-        
-        return context;
     }
 
     /**
@@ -298,27 +414,16 @@ class CLDEngine {
      * @param {number} ceiling - Maximum value
      * @returns {number} Bounded value
      */
-    evaluateBounds(value, floor, ceiling) {
-        if (floor !== -Infinity && value < floor) {
-            return floor;
+    evaluateBounds(value, floor, ceiling, ctx = {}) {
+        const floorValue = this.evaluateBound(floor, -Infinity, ctx);
+        const ceilingValue = this.evaluateBound(ceiling, Infinity, ctx);
+        if (floorValue !== -Infinity && value < floorValue) {
+            return floorValue;
         }
-        if (ceiling !== Infinity && value > ceiling) {
-            return ceiling;
+        if (ceilingValue !== Infinity && value > ceilingValue) {
+            return ceilingValue;
         }
         return value;
-    }
-
-    /**
-     * Commit values to history
-     * @param {Object} history - Simulation history
-     * @param {Object} values - Values to commit
-     */
-    commitValues(history, values) {
-        for (const [nodeId, value] of Object.entries(values)) {
-            if (history[nodeId]) {
-                history[nodeId].push(value);
-            }
-        }
     }
 
     /**
@@ -386,90 +491,89 @@ class CLDEngine {
     }
 
     /**
-     * Classify behavior patterns in time series
+     * Classify behavior patterns in time series.
+     * Aligned with Python classify_behavior: uses final_abs, rel_range,
+     * growth_ratio, and log-slope to map to Over-damped / Optimal / Unconstrained.
      * @param {Object} history - Simulation history
      * @param {Object} options - Classification options
      * @returns {Object} Behavior classifications
      */
     classifyBehavior(history, options = {}) {
         const config = {
-            flatTolerance: options.flatTolerance || this.config.flatTolerance,
-            extremeTolerance: options.extremeTolerance || this.config.extremeTolerance,
-            oscillationTolerance: options.oscillationTolerance || this.config.oscillationTolerance,
+            dampTol: options.dampTol || 1e-3,
+            rangeRelTol: options.rangeRelTol || 0.01,
+            growthRatio: options.growthRatio || 300.0,
+            slopeThresh: options.slopeThresh || 0.2,
             ...options
         };
-        
+
         const classifications = {};
-        
+
         for (const [nodeId, series] of Object.entries(history)) {
-            const zScores = this.rollingZ(series);
-            const slopes = this.calculateSlope(series);
-            
-            const classification = this.analyzeBehaviorPattern(
-                series, zScores, slopes, config
-            );
-            
-            classifications[nodeId] = classification;
+            classifications[nodeId] = this.analyzeBehaviorPattern(series, config);
         }
-        
+
         return classifications;
     }
 
     /**
-     * Analyze behavior pattern for a single time series
+     * Analyze behavior pattern for a single time series.
+     * Matches Python classify_behavior logic.
      * @param {Array} series - Time series data
-     * @param {Array} zScores - Rolling Z-scores
-     * @param {Array} slopes - Slope values
      * @param {Object} config - Classification configuration
      * @returns {Object} Behavior analysis
      */
-    analyzeBehaviorPattern(series, zScores, slopes, config) {
-        const meanAbsZ = zScores.reduce((sum, z) => sum + Math.abs(z), 0) / zScores.length;
-        const maxAbsZ = Math.max(...zScores.map(z => Math.abs(z)));
-        
-        // Count zero crossings (oscillation indicator)
-        const zeroCrossings = this.countZeroCrossings(zScores);
-        
-        // Analyze slope patterns
-        const slopeVariance = this.calculateVariance(slopes);
-        const slopeSignChanges = this.countSignChanges(slopes);
-        
-        // Classification logic
-        let behavior = 'unknown';
-        let confidence = 0;
-        
-        if (meanAbsZ < config.flatTolerance) {
-            behavior = 'overdamped';
-            confidence = 0.9;
-        } else if (maxAbsZ > config.extremeTolerance) {
-            behavior = 'unconstrained';
-            confidence = 0.8;
-        } else if (zeroCrossings > config.oscillationTolerance) {
-            if (slopeVariance > 0.1 && slopeSignChanges > zeroCrossings * 0.5) {
-                behavior = 'oscillatory';
-                confidence = 0.7;
-            } else {
-                behavior = 'damped_oscillatory';
-                confidence = 0.6;
-            }
-        } else if (meanAbsZ >= 0.5 && meanAbsZ <= 1.2) {
-            behavior = 'optimal';
-            confidence = 0.8;
-        } else {
-            behavior = 'transitional';
-            confidence = 0.5;
+    analyzeBehaviorPattern(series, config) {
+        const values = series.filter(v => v !== null && v !== undefined);
+        if (values.length === 0) {
+            return { behavior: 'Over-damped', confidence: 1.0, metrics: {} };
         }
-        
+
+        const finalAbs = Math.abs(values[values.length - 1]);
+        const absValues = values.map(v => Math.abs(v));
+        const maxAbs = Math.max(...absValues);
+        const minVal = Math.min(...values);
+        const maxVal = Math.max(...values);
+        const absRange = maxVal - minVal;
+        const relRange = absRange / (maxAbs + 1e-12);
+
+        if (finalAbs < config.dampTol || relRange < config.rangeRelTol) {
+            return {
+                behavior: 'Over-damped',
+                confidence: 0.9,
+                metrics: { finalAbs, relRange, growthFact: 0, slope: 0 }
+            };
+        }
+
+        const earlyLen = Math.max(1, Math.floor(values.length / 5));
+        const earlySlice = absValues.slice(0, earlyLen);
+        const earlyMean = earlySlice.reduce((s, v) => s + v, 0) / earlySlice.length;
+        const growthFact = finalAbs / (earlyMean + 1e-12);
+
+        const logVals = absValues.map(v => Math.log(v + 1e-12));
+        const n = logVals.length;
+        const xMean = (n - 1) / 2;
+        const yMean = logVals.reduce((s, v) => s + v, 0) / n;
+        let num = 0, den = 0;
+        for (let i = 0; i < n; i++) {
+            num += (i - xMean) * (logVals[i] - yMean);
+            den += (i - xMean) * (i - xMean);
+        }
+        const slope = den !== 0 ? num / den : 0;
+
+        let behavior, confidence;
+        if (growthFact >= config.growthRatio && slope > config.slopeThresh) {
+            behavior = 'Unconstrained';
+            confidence = 0.85;
+        } else {
+            behavior = 'Optimal';
+            confidence = 0.8;
+        }
+
         return {
             behavior,
             confidence,
-            metrics: {
-                meanAbsZ,
-                maxAbsZ,
-                zeroCrossings,
-                slopeVariance,
-                slopeSignChanges
-            }
+            metrics: { finalAbs, relRange, growthFact, slope }
         };
     }
 
@@ -536,16 +640,18 @@ class CLDEngine {
         };
 
         const fanPaths = [];
+        const originalGraph = this.graph;
         
         for (let run = 0; run < config.runs; run++) {
             const perturbedGraph = this.perturbGraphByConfidence(config.sigmaBase);
+            this.graph = perturbedGraph;
             const result = this.simulateTwoPhase({
                 ...options,
                 steps: config.steps
             });
-            
             fanPaths.push(result.history);
         }
+        this.graph = originalGraph;
 
         return {
             fanPaths,
@@ -565,27 +671,27 @@ class CLDEngine {
      */
     perturbGraphByConfidence(sigmaBase) {
         const perturbedGraph = JSON.parse(JSON.stringify(this.graph)); // Deep copy
-        
-        // Perturb node parameters
-        for (const [nodeId, node] of Object.entries(perturbedGraph.nodes)) {
-            // Add small random perturbations to retention
-            const retentionPerturbation = this.gaussianRandom() * sigmaBase * 0.1;
-            node.retention = Math.max(0, Math.min(1, node.retention + retentionPerturbation));
-        }
-        
-        // Perturb edge parameters
+
+        // Perturb only edge correlations using confidence/certainty semantics.
         for (const edge of perturbedGraph.edges) {
-            // Perturb correlation based on confidence
-            const correlationPerturbation = this.gaussianRandom() * sigmaBase * (1 - edge.confidence);
-            edge.correlation = Math.max(-1, Math.min(1, edge.correlation + correlationPerturbation));
-            
-            // Perturb decay
-            const decayPerturbation = this.gaussianRandom() * sigmaBase * 0.05;
-            edge.decay = Math.max(0, Math.min(1, edge.decay + decayPerturbation));
-            
-            // Perturb delay (integer values)
-            const delayPerturbation = Math.round(this.gaussianRandom() * sigmaBase * 2);
-            edge.delay = Math.max(0, edge.delay + delayPerturbation);
+            const corr0 = Number(edge.correlation ?? 1.0);
+            const confRaw = edge.confidence ?? edge.certainty ?? 1.0;
+            const c = Math.max(0, Math.min(1, Number(confRaw)));
+
+            let newCorr;
+            if (c >= 1 - 1e-12) {
+                newCorr = corr0;
+            } else if (c <= 1e-12) {
+                newCorr = -1 + Math.random() * 2;
+            } else if (Math.random() < c) {
+                newCorr = corr0;
+            } else {
+                const sigma = Math.max(1e-6, sigmaBase * (1 - c));
+                newCorr = corr0 + this.gaussianRandom() * sigma;
+                newCorr = Math.max(-1, Math.min(1, newCorr));
+            }
+
+            edge.correlation = newCorr;
         }
         
         return perturbedGraph;
@@ -853,33 +959,6 @@ class CLDEngine {
     }
 
     /**
-     * Rolling Z-score calculation
-     * @param {Array} series - Time series data
-     * @param {number} window - Rolling window size
-     * @returns {Array} Rolling Z-scores
-     */
-    rollingZ(series, window = 10) {
-        if (!Array.isArray(series) || series.length === 0) {
-            return [];
-        }
-        
-        const zScores = [];
-        
-        for (let i = 0; i < series.length; i++) {
-            const start = Math.max(0, i - window + 1);
-            const windowData = series.slice(start, i + 1);
-            
-            const mean = windowData.reduce((sum, val) => sum + val, 0) / windowData.length;
-            const variance = windowData.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / windowData.length;
-            const stdDev = Math.sqrt(variance) || 1e-12;
-            
-            zScores.push((series[i] - mean) / stdDev);
-        }
-        
-        return zScores;
-    }
-
-    /**
      * Compute shape penalty for Z-score series
      * @param {Array} zSeries - Z-score series
      * @param {Object} options - Penalty options
@@ -1073,19 +1152,13 @@ class CLDEngine {
         
         for (const b of behaviors) {
             switch (b.behavior) {
-                case 'optimal':
+                case 'Optimal':
                     score += 1.0;
                     break;
-                case 'damped_oscillatory':
-                    score += 0.7;
-                    break;
-                case 'overdamped':
+                case 'Over-damped':
                     score += 0.5;
                     break;
-                case 'oscillatory':
-                    score += 0.3;
-                    break;
-                case 'unconstrained':
+                case 'Unconstrained':
                     score += 0.1;
                     break;
                 default:

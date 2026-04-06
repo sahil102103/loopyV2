@@ -394,21 +394,29 @@ def run_advanced_simulation(graph_data, iterations=200):
     
     # Add nodes
     for node_data in graph_data.get('nodes', []):
-        name = node_data['name']
+        name = node_data.get('name') or node_data.get('id') or node_data.get('label')
+        if not name:
+            continue
         G.add_node(name,
                    start_amount=node_data.get('start_amount', 0.1),
                    retention=node_data.get('retention', 0.9),
                    floor=node_data.get('floor', -math.inf),
-                   ceiling=node_data.get('ceiling', math.inf))
+                   ceiling=node_data.get('ceiling', math.inf),
+                   formula=node_data.get('formula'),
+                   sink_formula=node_data.get('sink_formula', node_data.get('sinkFormula')),
+                   source_formula=node_data.get('source_formula', node_data.get('sourceFormula')))
     
     # Add edges
     for edge_data in graph_data.get('edges', []):
-        u, v = edge_data['source'], edge_data['target']
+        u = edge_data.get('source', edge_data.get('from', edge_data.get('src')))
+        v = edge_data.get('target', edge_data.get('to', edge_data.get('tgt')))
+        if u is None or v is None:
+            continue
         G.add_edge(u, v,
                    correlation=edge_data.get('correlation', 1.0),
                    decay=edge_data.get('decay', 0.0),
                    delay=edge_data.get('delay', 0),
-                   confidence=edge_data.get('confidence', 1.0))
+                   confidence=edge_data.get('confidence', edge_data.get('certainty', 1.0)))
     
     # Initial values
     init_vals = {n: G.nodes[n]['start_amount'] for n in G.nodes}
@@ -465,20 +473,28 @@ def run_stability_analysis(graph_data, decay_range, delay_range, iterations=200)
     # Build graph
     G = nx.DiGraph()
     for node_data in graph_data.get('nodes', []):
-        name = node_data['name']
+        name = node_data.get('name') or node_data.get('id') or node_data.get('label')
+        if not name:
+            continue
         G.add_node(name,
                    start_amount=node_data.get('start_amount', 0.1),
                    retention=node_data.get('retention', 0.9),
                    floor=node_data.get('floor', -math.inf),
-                   ceiling=node_data.get('ceiling', math.inf))
+                   ceiling=node_data.get('ceiling', math.inf),
+                   formula=node_data.get('formula'),
+                   sink_formula=node_data.get('sink_formula', node_data.get('sinkFormula')),
+                   source_formula=node_data.get('source_formula', node_data.get('sourceFormula')))
     
     for edge_data in graph_data.get('edges', []):
-        u, v = edge_data['source'], edge_data['target']
+        u = edge_data.get('source', edge_data.get('from', edge_data.get('src')))
+        v = edge_data.get('target', edge_data.get('to', edge_data.get('tgt')))
+        if u is None or v is None:
+            continue
         G.add_edge(u, v,
                    correlation=edge_data.get('correlation', 1.0),
                    decay=0.0,  # Will be varied
                    delay=0,    # Will be varied
-                   confidence=edge_data.get('confidence', 1.0))
+                   confidence=edge_data.get('confidence', edge_data.get('certainty', 1.0)))
     
     # Create parameter grids
     decay_min, decay_max, decay_steps = decay_range

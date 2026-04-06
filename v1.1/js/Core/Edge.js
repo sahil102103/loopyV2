@@ -12,7 +12,7 @@ Edge.defaultStrengthMultiplier = 1
 Edge.defaultConfidence = 1
 Edge.radius = 60;
 Edge.damper = 0;
-Edge.DEFAULT_SIGNAL = false;
+Edge.DEFAULT_SIGNAL = true;
 
 Edge.defaultLag = 0;
 

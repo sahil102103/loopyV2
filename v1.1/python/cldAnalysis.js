@@ -11,7 +11,7 @@ let cldTimeSeriesData = {};
 
 // Utility functions (same as other analysis files)
 function showLoadingSpinner() {
-    document.getElementById('loading-spinner').style.display = 'block';
+    document.getElementById('loading-spinner').style.display = 'flex';
 }
 
 function hideLoadingSpinner() {

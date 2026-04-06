@@ -298,11 +298,28 @@ function openPage(pageName) {
 
     let tablinks = document.getElementsByClassName('tablink');
     for (let i = 0; i < tablinks.length; i++) {
+        tablinks[i].classList.remove('active');
         tablinks[i].style.backgroundColor = '';
     }
 
+    var dropdowns = document.querySelectorAll('.tab-dropdown');
+    for (var i = 0; i < dropdowns.length; i++) {
+        dropdowns[i].classList.remove('active');
+    }
+
     document.getElementById(pageName).style.display = 'block';
-    document.querySelector(`[onclick="openPage('${pageName}')"]`).style.backgroundColor = '#ccc';
+
+    var trigger = document.querySelector('[data-page="' + pageName + '"]');
+    if (!trigger) {
+        trigger = document.querySelector('[onclick="openPage(\'' + pageName + '\')"]');
+    }
+    if (trigger) {
+        trigger.classList.add('active');
+        var parentDropdown = trigger.closest('.tab-dropdown');
+        if (parentDropdown) {
+            parentDropdown.classList.add('active');
+        }
+    }
 
     if (pageName === 'TimeSeries') {
         if (!chart) {

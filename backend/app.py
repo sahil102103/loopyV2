@@ -3,6 +3,7 @@ import math
 import random
 import base64
 import traceback
+import re
 from io import BytesIO
 
 import numpy as np
@@ -30,6 +31,8 @@ from advanced_analysis import (
     run_advanced_simulation,
     run_stability_analysis,
     simulate_two_phase,
+    classify_behavior as classify_behavior_twophase,
+    rolling_z as rolling_z_advanced,
     initialize_gmms,
     generate_gmm_samples
 )
@@ -38,6 +41,7 @@ from advanced_analysis import (
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": ["https://loopy-v2.vercel.app", "http://127.0.0.1:5501", "http://localhost:5501", "http://127.0.0.1:3000", "http://localhost:3000"]}}, supports_credentials=True)
+
 
 
 
@@ -83,22 +87,64 @@ def calculate_rolling_z_score(series, window=10):
     return (series - rolling_mean) / rolling_std
 
 def classify_behavior(time_series_data):
-    classifications = {}
-    for node, series in time_series_data.items():
-        df = pd.DataFrame(series, columns=[node])
-        z_score = calculate_rolling_z_score(df[node])
-        peaks, _ = find_peaks(df[node], height=0.05, distance=10)
-        avg_z = z_score.abs().mean()
-        if len(peaks) > 8 and avg_z > 1.2:
-            classifications[node] = "Unconstrained"
-        elif 0.5 < avg_z < 1.2 and 3 <= len(peaks) <= 8:
-            classifications[node] = "Optimal"
-        else:
-            classifications[node] = "Over-damped"
-    return classifications
+    """Delegate to the advanced two-phase classifier for consistency."""
+    return classify_behavior_twophase(time_series_data)
 
 def stochastic_value_selection(mean, low, high, certainty):
     return blended_uniform_normal(mean, low, high, certainty, 1)[0]
+
+
+def build_twophase_graph_from_legacy(data):
+    """Convert legacy frontend format to a NetworkX graph for simulate_two_phase."""
+    G = nx.DiGraph()
+    edges = data.get('edges', [])
+    weights = data.get('edgeWeights', [])
+    polarities = data.get('edgePolarities', [])
+    delays = data.get('edgeDelays', [])
+    certainties = data.get('edgeCertainties', [])
+    passnodeList = data.get('passNodes', data.get('passnodeList', []))
+    floors = data.get('nodeFloors', {})
+    ceilings = data.get('nodeCeilings', {})
+
+    all_nodes = set()
+    for src, tgt in edges:
+        all_nodes.add(src)
+        all_nodes.add(tgt)
+
+    DEFAULT_BOUND = 1e6
+
+    def _safe_bound(val, fallback):
+        if val is None:
+            return fallback
+        try:
+            v = float(val)
+            return v if math.isfinite(v) else fallback
+        except (ValueError, TypeError):
+            return fallback
+
+    for n in all_nodes:
+        f = _safe_bound(floors.get(n), -DEFAULT_BOUND)
+        c = _safe_bound(ceilings.get(n), DEFAULT_BOUND)
+        G.add_node(n,
+            start_amount=0.1,
+            retention=0.0 if n in passnodeList else 1.0,
+            floor=f,
+            ceiling=c)
+
+    for i, (src, tgt) in enumerate(edges):
+        w = weights[i] if i < len(weights) else 1.0
+        pol = polarities[i] if i < len(polarities) else 1
+        if isinstance(pol, str):
+            pol_sign = 1.0 if pol == '+' else -1.0
+        else:
+            pol_sign = 1.0 if pol > 0 else -1.0
+        G.add_edge(src, tgt,
+            correlation=w * pol_sign,
+            decay=0.0,
+            delay=delays[i] if i < len(delays) else 0,
+            confidence=certainties[i] if i < len(certainties) else 1.0)
+
+    return G
 
 
 #########################
@@ -325,27 +371,20 @@ def crisis_analysis():
         time_series_data = data.get("time_series_data", {})
         start_iteration = data.get("start_iteration", 0)
 
-        def calculate_rolling_z_scores(values):
-            n = len(values)
-            mean_t, var_t, z_scores = np.zeros(n), np.zeros(n), np.zeros(n)
-            for t in range(1, n):
-                delta = values[t] - mean_t[t - 1]
-                mean_t[t] = mean_t[t - 1] + delta / (t + 1)
-                var_t[t] = var_t[t - 1] + delta * (values[t] - mean_t[t])
-                if var_t[t] > 0:
-                    z_scores[t] = (values[t] - mean_t[t]) / np.sqrt(var_t[t] / t)
-            return z_scores
-
-        fig, axes = plt.subplots(len(time_series_data), 1, figsize=(10, 5 * len(time_series_data)))
+        n_nodes = len(time_series_data)
+        fig, axes = plt.subplots(max(n_nodes, 1), 1, figsize=(10, 5 * max(n_nodes, 1)))
+        if n_nodes == 1:
+            axes = [axes]
         for idx, (node, values) in enumerate(time_series_data.items()):
-            z_scores = calculate_rolling_z_scores(values)
+            z_scores = rolling_z_advanced(values, window=10).values
             axes[idx].plot(range(start_iteration, len(z_scores)), z_scores[start_iteration:], color='red')
             axes[idx].set_title(f"Node {node}")
         plt.tight_layout()
-        plt.savefig("crisis_analysis.png")
+        buf = BytesIO()
+        plt.savefig(buf, format='png')
         plt.close()
-
-        return send_file("crisis_analysis.png", mimetype='image/png')
+        buf.seek(0)
+        return send_file(buf, mimetype='image/png')
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -381,89 +420,68 @@ def degree_centrality():
 def visual_analysis():
     try:
         data = request.json
-        edges = data.get("edges", [])
-        edge_polarities = data.get("edge_polarities", [])
 
-        G = create_graph(edges, edge_polarities)
-        cycles = list(nx.simple_cycles(G))
-        node_values = {node: random.uniform(-1, 1) for node in G.nodes()}
+        G = build_twophase_graph_from_legacy(data)
+        init_vals = {n: random.uniform(-1, 1) for n in G.nodes()}
+        hist = simulate_two_phase(G, init_vals, 200)
 
-        def simulate_node_values():
-            results = {node: [] for node in G.nodes()}
-            for _ in range(1000):
-                random.shuffle(cycles)
-                for cycle in cycles:
-                    polarity = '+' if random.choice([True, False]) else '-'
-                    change = random.uniform(0.5, 1) if polarity == '+' else random.uniform(-1, -0.5)
-                    for node in cycle:
-                        node_values[node] += change
-                        node_values[node] = modified_sigmoid(node_values[node])
-                for node in node_values:
-                    results[node].append(node_values[node])
-            return results
+        plot_images = []
 
-        results = simulate_node_values()
-        plot_files = []
-        os.makedirs('plots', exist_ok=True)
-
-        for node, values in results.items():
+        for idx, (node, values) in enumerate(hist.items()):
+            clean = [float(v) for v in values if v is not None and np.isfinite(float(v))]
+            if len(clean) == 0:
+                clean = [0.0]
             plt.figure()
-            plt.hist(values, bins=30, alpha=0.6)
+            plt.hist(clean, bins=30, alpha=0.6)
             plt.title(f"Node {node} Value Distribution")
-            filename = f"plots/{node}_visual.png"
-            plt.savefig(filename)
+            buf = BytesIO()
+            plt.savefig(buf, format='png')
             plt.close()
-            plot_files.append(filename)
+            buf.seek(0)
+            encoded = base64.b64encode(buf.read()).decode('utf-8')
+            plot_images.append(f"data:image/png;base64,{encoded}")
 
-        return jsonify({"plots": plot_files})
+        return jsonify({"plots": plot_images})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/get-plot/<path:filename>', methods=['GET'])
-def get_plot(filename):
-    return send_file(filename, mimetype='image/png')
+        error_trace = traceback.format_exc()
+        print(error_trace)
+        return jsonify({"error": str(e), "traceback": error_trace}), 500
 
 
 @app.route('/correlation-analysis', methods=['POST'])
 def correlation_analysis():
     try:
-        # Extract data from the request
         data = request.json
-        edges = data.get("edges", [])
-        time_points = data.get("time_points", 50)  # Default 50 time points
+        time_series_data = data.get("time_series_data", {})
 
-        # Ensure edges are provided
-        if not edges:
-            return jsonify({"error": "No edges provided for correlation analysis."}), 400
+        if not time_series_data:
+            return jsonify({"error": "No time series data provided. Please run the diagram first."}), 400
 
-        # Create a directed graph
-        G = nx.DiGraph(edges)
+        min_len = min(len(v) for v in time_series_data.values())
+        node_data = {node: values[:min_len] for node, values in time_series_data.items()}
 
-        # Ensure the graph has nodes
-        if not G.nodes():
-            return jsonify({"error": "Graph has no nodes to analyze."}), 400
-
-        # Generate synthetic time series data for each node
-        np.random.seed(0)  # For reproducibility
-        node_data = {node: np.random.rand(time_points) for node in G.nodes()}
-
-        # Create a dataframe for correlation analysis
         df = pd.DataFrame(node_data)
         correlation_matrix = df.corr()
 
-        # Plot the heatmap
-        plt.figure(figsize=(12, 8))
-        sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0)
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(
+            correlation_matrix,
+            annot=True,
+            fmt=".2f",
+            cmap='coolwarm',
+            center=0,
+            vmin=-1, vmax=1,
+            square=True,
+            linewidths=0.5
+        )
         plt.title("Correlation Analysis Heatmap")
-        
-        # Save the plot
-        output_file = "correlation_analysis.png"
-        plt.savefig(output_file)
-        plt.close()
+        plt.tight_layout()
 
-        # Send the file to the frontend
-        return send_file(output_file, mimetype='image/png')
+        buf = BytesIO()
+        plt.savefig(buf, format='png')
+        plt.close()
+        buf.seek(0)
+        return send_file(buf, mimetype='image/png')
 
     except Exception as e:
         print(f"Error in correlation-analysis: {e}")  # Log the error
@@ -474,26 +492,24 @@ def correlation_analysis():
 def generate_stability_map():
     try:
         data = request.json
-        build_graph_from_data(data)
+        G = build_twophase_graph_from_legacy(data)
 
         decay_min, decay_max, decay_steps = data["decayRange"]
         delay_min, delay_max, delay_steps = data["delayRange"]
 
-
         decay_factors = np.linspace(decay_min, decay_max, decay_steps)
         delays = np.linspace(delay_min, delay_max, delay_steps)
-        pass_nodes = set(data["passNodes"])
 
         stability_matrix = np.zeros((len(delays), len(decay_factors)))
 
-        for i, delay in enumerate(delays):
-            for j, decay in enumerate(decay_factors):
-                signal_map = {}
-                time_series_data = {node: [] for node in graph.nodes}
-                delay_buffers = {(edge[0], edge[1]): [0] * graph.edges[edge]['delay'] for edge in graph.edges} 
-                time_series_data = simulate_signal_transfer(iterations=100, decay_factor=decay, delay=int(delay), use_delay=True)
-                classification = classify_behavior(time_series_data)
-                # print(classification)
+        for i, delay_val in enumerate(delays):
+            for j, decay_val in enumerate(decay_factors):
+                G_tmp = G.copy()
+                nx.set_edge_attributes(G_tmp, float(decay_val), 'decay')
+                nx.set_edge_attributes(G_tmp, int(delay_val), 'delay')
+                init_vals = {n: G_tmp.nodes[n]['start_amount'] for n in G_tmp.nodes}
+                hist = simulate_two_phase(G_tmp, init_vals, 100)
+                classification = classify_behavior(hist)
                 if "Unconstrained" in classification.values():
                     stability_matrix[i, j] = 1.0
                 elif "Optimal" in classification.values():
@@ -509,18 +525,18 @@ def generate_stability_map():
             stability_matrix, cmap="coolwarm", 
             extent=[decay_min, decay_max, delay_min, delay_max],
             origin="lower", aspect="auto",
-            vmin=0.0,        # Force the minimum color scale to 0
-            vmax=1.0         # Force the maximum color scale to 1
+            vmin=0.0,
+            vmax=1.0
         )
         plt.colorbar(label="Stability Measure")
         plt.xlabel("Decay Factor")
         plt.ylabel("Delay")
         plt.title("Stability Map")
-        file_path = "stability_map.png"
-        plt.savefig(file_path)
+        buf = BytesIO()
+        plt.savefig(buf, format='png')
         plt.close()
-
-        return send_file(file_path, mimetype="image/png")
+        buf.seek(0)
+        return send_file(buf, mimetype='image/png')
     except Exception as e:
         error_trace = traceback.format_exc()
         print(error_trace)
@@ -531,7 +547,7 @@ def generate_stability_map():
 def generate_decay_retention_map():
     try:
         data = request.json
-        build_graph_from_data(data)
+        G = build_twophase_graph_from_legacy(data)
 
         decay_min, decay_max, decay_steps = data["decayRange"]
         retention_min, retention_max, retention_steps = data["retentionRange"]
@@ -539,16 +555,16 @@ def generate_decay_retention_map():
         decay_factors = np.linspace(decay_min, decay_max, decay_steps)
         retentions = np.linspace(retention_min, retention_max, retention_steps)
         stability_matrix = np.zeros((len(retentions), len(decay_factors)))
-        pass_nodes = set(data["passNodes"])
 
-        for i, retention in enumerate(retentions):
-            for j, decay_factor in enumerate(decay_factors):
-                time_series_data = {}
-                time_series_data = simulate_signal_transfer(
-                    iterations=100, decay_factor=decay_factor, delay=1, use_delay=True,
-                    node_retention=retention
-                )
-                classification = classify_behavior(time_series_data)
+        for i, retention_val in enumerate(retentions):
+            for j, decay_val in enumerate(decay_factors):
+                G_tmp = G.copy()
+                nx.set_edge_attributes(G_tmp, float(decay_val), 'decay')
+                nx.set_edge_attributes(G_tmp, 1, 'delay')
+                nx.set_node_attributes(G_tmp, float(retention_val), 'retention')
+                init_vals = {n: G_tmp.nodes[n]['start_amount'] for n in G_tmp.nodes}
+                hist = simulate_two_phase(G_tmp, init_vals, 100)
+                classification = classify_behavior(hist)
                 if "Unconstrained" in classification.values():
                     stability_matrix[i, j] = 1.0
                 elif "Optimal" in classification.values():
@@ -561,18 +577,18 @@ def generate_decay_retention_map():
             stability_matrix, cmap="coolwarm",
             extent=[decay_min, decay_max, retention_min, retention_max],
             origin="lower", aspect="auto",
-            vmin=0.0,        # Force the minimum color scale to 0
-            vmax=1.0         # Force the maximum color scale to 1
+            vmin=0.0,
+            vmax=1.0
         )
         plt.colorbar(label="Stability Measure")
         plt.xlabel("Decay Factor")
         plt.ylabel("Retention Parameter")
         plt.title("Decay-Retention Stability Map")
-        file_path = "decay_retention_map.png"
-        plt.savefig(file_path)
+        buf = BytesIO()
+        plt.savefig(buf, format='png')
         plt.close()
-
-        return send_file(file_path, mimetype="image/png")
+        buf.seek(0)
+        return send_file(buf, mimetype='image/png')
     except Exception as e:
         error_trace = traceback.format_exc()
         print(error_trace)
@@ -583,41 +599,25 @@ def generate_decay_retention_map():
 def generate_retention_delay_map():
     try:
         data = request.json
-        build_graph_from_data(data)
+        G = build_twophase_graph_from_legacy(data)
 
-        # Parse the ranges for retention and delay
         retention_min, retention_max, retention_steps = data["retentionRange"]
         delay_min, delay_max, delay_steps = data["delayRange"]
 
-        # Convert passNodes list to a set
-        pass_nodes = set(data.get("passNodes", []))
-
-
-        # Create a grid of retention and delay values
         retentions = np.linspace(retention_min, retention_max, retention_steps)
         delays = np.linspace(delay_min, delay_max, delay_steps)
 
-        # Initialize a 2D matrix [delay_index, retention_index]
         stability_matrix = np.zeros((len(delays), len(retentions)))
 
-        # For each (delay, retention) pair, simulate signals and classify
         for i, d_val in enumerate(delays):
             for j, r_val in enumerate(retentions):
-                global signal_map
-                # Reset the signal_map and time_series_data for each simulation
-                signal_map = {}
-                time_series_data = {node: [] for node in graph.nodes}
-                delay_buffers = {(edge[0], edge[1]): [0] * graph.edges[edge]['delay'] for edge in graph.edges}  # Reset delay buffers
-
-                # Run the local simulation
-                time_series_data = simulate_signal_transfer(
-                    iterations=100, decay_factor=0.9, delay=round(d_val), use_delay=True,
-                    node_retention=r_val
-                )
-                # Classify
-                classification = classify_behavior(time_series_data)
-
-                # Assign a numeric value based on classification
+                G_tmp = G.copy()
+                nx.set_edge_attributes(G_tmp, 0.0, 'decay')
+                nx.set_edge_attributes(G_tmp, int(round(d_val)), 'delay')
+                nx.set_node_attributes(G_tmp, float(r_val), 'retention')
+                init_vals = {n: G_tmp.nodes[n]['start_amount'] for n in G_tmp.nodes}
+                hist = simulate_two_phase(G_tmp, init_vals, 100)
+                classification = classify_behavior(hist)
                 if "Unconstrained" in classification.values():
                     stability_matrix[i, j] = 1.0
                 elif "Optimal" in classification.values():
@@ -625,25 +625,24 @@ def generate_retention_delay_map():
                 else:
                     stability_matrix[i, j] = 0.2
 
-        # Plot the resulting stability matrix
         plt.figure(figsize=(10, 6))
         plt.imshow(
             stability_matrix, cmap="coolwarm",
             extent=[retention_min, retention_max, delay_min, delay_max],
             origin="lower", aspect="auto",
-            vmin=0.0,        # Force the minimum color scale to 0
-            vmax=1.0         # Force the maximum color scale to 1
+            vmin=0.0,
+            vmax=1.0
         )
         plt.colorbar(label="Stability Measure")
         plt.xlabel("Retention Parameter")
         plt.ylabel("Delay Parameter")
         plt.title("Retention-Delay Stability Map")
 
-        file_path = "retention_delay_map.png"
-        plt.savefig(file_path)
+        buf = BytesIO()
+        plt.savefig(buf, format='png')
         plt.close()
-
-        return send_file(file_path, mimetype="image/png")
+        buf.seek(0)
+        return send_file(buf, mimetype='image/png')
 
     except Exception as e:
         error_trace = traceback.format_exc()
@@ -737,11 +736,11 @@ def run_simulation():
         plt.tight_layout()
 
         # Save the plot as an image file
-        output_path = "simulation.png"
-        plt.savefig(output_path)
+        buf = BytesIO()
+        plt.savefig(buf, format='png')
         plt.close()
-
-        return send_file(output_path, mimetype='image/png')
+        buf.seek(0)
+        return send_file(buf, mimetype='image/png')
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
@@ -1017,90 +1016,55 @@ def generate_violin_plots():
 def random_seeds():
     try:
         data = request.json
-        edges = data.get("edges", [])
-        edge_polarities = data.get("edge_polarities", [])
+        G = build_twophase_graph_from_legacy(data)
 
-        if not edges or not edge_polarities:
-            return jsonify({"error": "Edges and edge polarities are required"}), 400
+        if G.number_of_nodes() == 0:
+            return jsonify({"error": "Graph has no nodes"}), 400
 
-        # Create the graph
-        G = nx.DiGraph()
-        for (node1, node2), polarity in zip(edges, edge_polarities):
-            G.add_edge(node1, node2, polarity=polarity)
+        steps = 200
+        seeds = list(range(1, 11))
 
-        # Simulation parameters
-        num_outer_loops = 1000
-        num_simulations = 100
-        seeds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        def _perturb_graph(G_base, sigma=0.1, seed_val=None):
+            """Perturb edge correlations by a small Gaussian noise."""
+            rng = random.Random(seed_val)
+            G_p = G_base.copy()
+            for u, v, e in G_p.edges(data=True):
+                corr = e.get('correlation', 1.0)
+                noise = rng.gauss(0, sigma)
+                G_p[u][v]['correlation'] = corr + noise
+            return G_p
 
-        # Function to determine the polarity of a cycle
-        def cycle_polarity(graph, cycle):
-            polarity = '+'
-            for i in range(len(cycle)):
-                edge = (cycle[i], cycle[(i + 1) % len(cycle)])
-                if graph.edges[edge]['polarity'] == '-':
-                    polarity = '-' if polarity == '+' else '+'
-            return polarity
+        def run_seed_simulation(seed_val):
+            random.seed(seed_val)
+            init_vals = {n: random.uniform(0, 0.2) for n in G.nodes()}
+            G_p = _perturb_graph(G, sigma=0.05, seed_val=seed_val)
+            hist = simulate_two_phase(G_p, init_vals, steps)
+            return hist
 
-        # Function to run the simulation for a given seed
-        def run_simulation(seed):
-            random.seed(seed)
-            cycles = list(nx.simple_cycles(G))
-            initial_node_values = {node: random.uniform(-1, 1) for node in G.nodes()}
-            overall_results = {node: [] for node in G.nodes()}
-            current_values = initial_node_values.copy()
+        results_list = [run_seed_simulation(s) for s in seeds]
 
-            for _ in range(num_outer_loops):
-                results = {node: [] for node in G.nodes()}
-                for _ in range(num_simulations):
-                    node_values = current_values.copy()
-                    random.shuffle(cycles)
-                    for cycle in cycles:
-                        pol = cycle_polarity(G, cycle)
-                        change = random.normalvariate(0.01, 0.5) if pol == '+' else random.normalvariate(-0.01, 0.5)
-                        for node in cycle:
-                            node_values[node] += change
-                    for node in node_values:
-                        results[node].append(node_values[node])
-                mean_values = {node: np.mean(values) for node, values in results.items()}
-                current_values = mean_values
-                for node in overall_results:
-                    overall_results[node].extend(results[node])
-            return overall_results
+        colors = ['blue', 'green', 'red', 'purple', 'orange', 'cyan', 'magenta', 'yellow', 'brown', 'pink']
 
-        # Run simulation for each seed
-        results_list = [run_simulation(seed) for seed in seeds]
-
-        # Create plots and encode them as Base64
-        def create_combined_fan_chart(results_list, node):
+        def create_combined_fan_chart(node):
             plt.figure(figsize=(12, 9))
-            x = range(num_outer_loops)
-            colors = ['blue', 'green', 'red', 'purple', 'orange', 'cyan', 'magenta', 'yellow', 'brown', 'pink']
-
-            for idx, results in enumerate(results_list):
-                node_results = np.array(results[node])
-                node_results = node_results[:num_outer_loops * num_simulations].reshape(num_outer_loops, num_simulations)
-                percentiles = np.percentile(node_results, [5, 25, 50, 75, 95], axis=1)
-                plt.plot(x, percentiles[2], label=f'Median (Seed {idx+1})', color=colors[idx])
-                plt.fill_between(x, percentiles[1], percentiles[3], color=colors[idx], alpha=0.3)
-                plt.fill_between(x, percentiles[0], percentiles[4], color=colors[idx], alpha=0.1)
-
-            plt.xlabel('Outer Loop Iteration')
+            x = range(steps + 1)
+            for idx, hist in enumerate(results_list):
+                values = [v if v is not None else 0.0 for v in hist[node]]
+                plt.plot(x, values, label=f'Seed {seeds[idx]}', color=colors[idx % len(colors)], alpha=0.7)
+            plt.xlabel('Time Step')
             plt.ylabel('Value')
-            plt.title(f'Combined Fan Chart for {node} Node')
+            plt.title(f'Random Seeds Fan Chart for {node}')
             plt.legend()
             plt.grid(True)
 
-            filename = f"plots/{node}_randomSeedPlot.png"
-            plt.savefig(filename)
+            buf = BytesIO()
+            plt.savefig(buf, format='png')
             plt.close()
-            
-            # Encode the plot as Base64
-            with open(filename, 'rb') as file:
-                encoded = base64.b64encode(file.read()).decode('utf-8')
-            return {"filename": filename, "data": encoded}
+            buf.seek(0)
+            encoded = base64.b64encode(buf.read()).decode('utf-8')
+            return {"data": encoded}
 
-        plot_data = [create_combined_fan_chart(results_list, node) for node in G.nodes()]
+        plot_data = [create_combined_fan_chart(node) for node in G.nodes()]
         return jsonify(plot_data)
 
     except Exception as e:

@@ -6,6 +6,15 @@ MODEL!
 
 **********************************/
 
+function _parseInfinity(val) {
+	if (val === null || val === undefined || val === "null") return undefined;
+	var s = String(val);
+	if (s === "Infinity") return Infinity;
+	if (s === "-Infinity") return -Infinity;
+	var n = Number(val);
+	return isNaN(n) ? undefined : n;
+}
+
 function Model(loopy){
 
 	var self = this;
@@ -83,8 +92,8 @@ function Model(loopy){
 				radius: node.radius,
 				flow: node.flow,
 				pass: node.pass,
-				floor: node.floor,
-				ceiling: node.ceiling,
+				floor: isFinite(node.floor) ? node.floor : String(node.floor),
+				ceiling: isFinite(node.ceiling) ? node.ceiling : String(node.ceiling),
 			})),
 			edges: self.edges.map(edge => ({
 				id: edge.id,
@@ -124,6 +133,10 @@ function Model(loopy){
 
 		// Recreate nodes (addNode handles nodeByID registration)
 		state.nodes.forEach(function(node) {
+			node.floor = _parseInfinity(node.floor);
+			node.ceiling = _parseInfinity(node.ceiling);
+			if (node.floor === undefined) node.floor = Node.DEFAULT_FLOOR;
+			if (node.ceiling === undefined) node.ceiling = Node.DEFAULT_CEIL;
 			self.addNode(node);
 		});
 
@@ -391,9 +404,11 @@ function Model(loopy){
 			if (typeof self.nodes[i].nextValue !== 'undefined') {
 				self.nodes[i].value = self.nodes[i].nextValue;
 			}
-			// Optionally, clean up nextValue
 			delete self.nodes[i].nextValue;
 		}
+
+		// Phase 3: Run node visual update (spring animation, controls, bounds)
+		for(var i=0;i<self.nodes.length;i++) self.nodes[i].update(self.speed);
 
 		// Dirty!
 		_canvasDirty = true;
@@ -546,7 +561,7 @@ function Model(loopy){
 				node.flow,
 				node.pass ? 1 : 0,
 				encodeURIComponent(node.floor),
-				node.ceiling
+				encodeURIComponent(node.ceiling)
 			]);
 		}
 		data.push(nodes);
@@ -631,8 +646,8 @@ function Model(loopy){
 				hue: node[5],
 				flow: node[6],
 				pass: node[7] === 1,
-				floor: Number(node[8]),
-				ceiling: node[9],
+				floor: _parseInfinity(decodeURIComponent(node[8])),
+				ceiling: _parseInfinity(decodeURIComponent(node[9])),
 			});
 		}
 
@@ -718,8 +733,8 @@ function Model(loopy){
 			graph.nodes[node.id] = {
 				startAmount: node.init || node.value || 0.5,
 				retention: node.retention || 1.0,
-				floor: node.floor !== undefined ? node.floor : -Infinity,
-				ceiling: node.ceiling !== undefined ? node.ceiling : Infinity,
+				floor: (node.floor != null && isFinite(node.floor)) ? node.floor : -Infinity,
+				ceiling: (node.ceiling != null && isFinite(node.ceiling)) ? node.ceiling : Infinity,
 				formula: node.formula || null,
 				sinkFormula: node.sinkFormula || null,
 				sourceFormula: node.sourceFormula || null

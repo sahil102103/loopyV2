@@ -30,17 +30,22 @@
 	<meta property="og:image" content="http://ncase.me/loopy/social/thumbnail.png">
 	<meta property="og:description" content="a tool for thinking in systems">
 
+	<!-- Fonts -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
 	<!-- Styles! -->
-	<link href="css/loopy.css" rel="stylesheet" />
+	<link href="css/loopy.css?v=3" rel="stylesheet" />
 	<link href="css/balloon.css" rel="stylesheet" />
-	<link href="styles.css" rel="stylesheet">
+	<link href="styles.css?v=5" rel="stylesheet">
 	
 	<!-- CLD Engine Styles -->
 	<style>
 		.analysis-controls {
-			background: #f8f9fa;
+			background: var(--bg-secondary, #f5f6f8);
 			padding: 20px;
-			border-radius: 8px;
+			border-radius: var(--radius-md, 8px);
 			margin-bottom: 20px;
 		}
 		
@@ -52,14 +57,16 @@
 			display: inline-block;
 			width: 150px;
 			margin-right: 10px;
-			font-weight: bold;
+			font-weight: 600;
+			font-size: 13px;
 		}
 		
 		.control-group input {
 			padding: 5px;
-			border: 1px solid #ccc;
-			border-radius: 4px;
+			border: 1px solid var(--border, #e2e5ea);
+			border-radius: var(--radius-sm, 6px);
 			margin-right: 15px;
+			font-family: var(--font-family, 'Inter', sans-serif);
 		}
 		
 		.button-group {
@@ -67,63 +74,74 @@
 		}
 		
 		.primary-button {
-			background: #007bff;
+			background: var(--accent, #4a7cff);
 			color: white;
 			border: none;
 			padding: 10px 20px;
-			border-radius: 4px;
+			border-radius: var(--radius-sm, 6px);
 			cursor: pointer;
 			margin-right: 10px;
 			margin-bottom: 10px;
+			font-family: var(--font-family, 'Inter', sans-serif);
+			font-weight: 500;
+			font-size: 13px;
+			transition: background 0.15s;
 		}
 		
 		.primary-button:hover {
-			background: #0056b3;
+			background: var(--accent-hover, #3a65d4);
 		}
 		
 		.secondary-button {
-			background: #6c757d;
-			color: white;
-			border: none;
+			background: var(--bg-secondary, #f5f6f8);
+			color: var(--text-primary, #1a1d23);
+			border: 1px solid var(--border, #e2e5ea);
 			padding: 10px 20px;
-			border-radius: 4px;
+			border-radius: var(--radius-sm, 6px);
 			cursor: pointer;
 			margin-right: 10px;
 			margin-bottom: 10px;
+			font-family: var(--font-family, 'Inter', sans-serif);
+			font-weight: 500;
+			font-size: 13px;
+			transition: all 0.15s;
 		}
 		
 		.secondary-button:hover {
-			background: #545b62;
+			border-color: var(--accent, #4a7cff);
+			color: var(--accent, #4a7cff);
 		}
 		
 		.analysis-results {
-			background: white;
+			background: var(--bg-primary, #fff);
 			padding: 20px;
-			border-radius: 8px;
-			border: 1px solid #dee2e6;
+			border-radius: var(--radius-md, 8px);
+			border: 1px solid var(--border, #e2e5ea);
 		}
 		
 		.result-section {
 			margin-bottom: 25px;
 			padding: 15px;
-			background: #f8f9fa;
-			border-radius: 6px;
+			background: var(--bg-secondary, #f5f6f8);
+			border-radius: var(--radius-sm, 6px);
 		}
 		
 		.result-section h4 {
 			margin-top: 0;
-			color: #495057;
-			border-bottom: 2px solid #007bff;
+			color: var(--text-secondary, #5f6673);
+			border-bottom: 2px solid var(--accent, #4a7cff);
 			padding-bottom: 5px;
+			font-size: 14px;
 		}
 		
 		.status-message {
 			padding: 10px;
-			border-radius: 4px;
+			border-radius: var(--radius-sm, 6px);
 			margin-bottom: 15px;
 			background: #d4edda;
 			color: #155724;
 			border: 1px solid #c3e6cb;
+			font-size: 13px;
 		}
 		
 		.status-message.error {
@@ -134,7 +152,7 @@
 		
 		.summary-stats p {
 			margin: 8px 0;
-			font-size: 14px;
+			font-size: 13px;
 		}
 		
 		#behaviorTable {
@@ -146,16 +164,17 @@
 		#behaviorTable td {
 			padding: 8px 12px;
 			text-align: left;
-			border-bottom: 1px solid #dee2e6;
+			border-bottom: 1px solid var(--border, #e2e5ea);
+			font-size: 13px;
 		}
 		
 		#behaviorTable th {
-			background: #e9ecef;
-			font-weight: bold;
+			background: var(--bg-secondary, #f5f6f8);
+			font-weight: 600;
 		}
 		
 		#behaviorTable tr:hover {
-			background: #f8f9fa;
+			background: var(--bg-secondary, #f5f6f8);
 		}
 	</style>
 
@@ -167,60 +186,52 @@
 
 <body style="opacity:0">
 	<div id="loading-spinner" style="display: none;">
-		Loading ...
-		<!-- <div id="progressContainer">
-			<div id="progressBar"></div>
-		  </div>		   -->
-	</div>	
+		<div class="spinner-ring"></div>
+		<span class="spinner-text">Analyzing</span>
+	</div>
 
 	<!-- Need to clean up this UI section to have everything in there own JS files-->
 	<div id="data-window">
 		<div class="tabs">
-			<button class="tablink" id='canvasTab' onclick="openPage('Canvas')">Canvas</button>
-			<!-- <button class="tablink" id='amountsTab' onclick="openPage('Amounts')">Amounts</button> -->
-			<div class="dropdown">
-				<button class="tablink">Time Series</button>
-				<div class="dropdown-content">
-					<a id='timeSeriesTab' onclick="openPage('TimeSeries')">Per Tick</a>
-					<a id='timeSeriesTabSmooth' onclick="openPage('TimeSeriesSmooth')">Smoothed Out</a>
+			<button type="button" class="tablink active" id="canvasTab" data-page="Canvas" onclick="openPage('Canvas')">Canvas</button>
 
-				</div>
-
-			</div>
-			<!-- Add View Database tab button -->
-			<div class="dropdown">
-				<button class="tablink">Edge Explanations</button>
-				<div class="dropdown-content">
-					<a class="tablink" id="viewDatabaseTab" onclick="openPage('ViewDatabase')">View</a>
-					<a class="tablink" id='nodeConnectionsTab' onclick="openPage('NodeConnections')">Create</a>
-
+			<div class="tab-dropdown">
+				<button type="button" class="tablink tab-dropdown-trigger">Analysis <span class="tab-chevron">&#9662;</span></button>
+				<div class="tab-dropdown-menu">
+					<button type="button" class="tablink" id="timeSeriesTab" data-page="TimeSeries" onclick="openPage('TimeSeries')">Time Series (Per Tick)</button>
+					<button type="button" class="tablink" id="timeSeriesTabSmooth" data-page="TimeSeriesSmooth" onclick="openPage('TimeSeriesSmooth')">Time Series (Smoothed)</button>
+					<div class="tab-dropdown-divider"></div>
+					<button type="button" class="tablink" id="crisisAnalysisTab" data-page="CrisisAnalysis" onclick="openPage('CrisisAnalysis')">Crisis Analysis</button>
+					<button type="button" class="tablink" id="cldAnalysisTab" data-page="CLDAnalysis" onclick="openPage('CLDAnalysis')">CLD Analysis</button>
+					<button type="button" class="tablink" id="visualAnalysisTab" data-page="VisualAnalysis" onclick="openPage('VisualAnalysis')">Visual Analysis</button>
+					<button type="button" class="tablink hidden" id="cycleAnalysisTab" data-page="CycleAnalysis" onclick="openPage('CycleAnalysis')">Cycle Detection</button>
+					<button type="button" class="tablink hidden" id="correlationTab" data-page="Correlation" onclick="openPage('Correlation')">Correlation</button>
+					<button type="button" class="tablink hidden" id="stabilityMapTab" data-page="StabilityMap" onclick="openPage('StabilityMap')">Stability Map</button>
 				</div>
 			</div>
-			<button class="tablink" id='crisisAnalysisTab' onclick="openPage('CrisisAnalysis')">Crisis Analysis</button>
-			<button class="tablink" id='cldAnalysisTab' onclick="openPage('CLDAnalysis')">CLD Analysis</button>
-			<button class="tablink" id='visualAnalysisTab' onclick="openPage('VisualAnalysis')">Visual Analysis</button>
-			<button class="tablink hidden" id='cycleAnalysisTab' onclick="openPage('CycleAnalysis')">Cycle Detection</button>
-			<button class="tablink hidden" id='generateTab' onclick="openPage('Generate')">Generate</button>
-			<button class="tablink hidden" id='degreeCentralityTab' onclick="openPage('DegreeCentrality')">Graph Centralities</button>
-			<button class="tablink hidden" id='correlationTab' onclick="openPage('Correlation')">Correlation</button>
-		<button class="tablink hidden" id='stabilityMapTab' onclick="openPage('StabilityMap')">Stability Map</button>
-		<button class="tablink" id='advancedAnalysisTab' onclick="openPage('AdvancedAnalysis')">⭐ Advanced Analysis</button>
-		<button class="tablink" id='paramSpace3DTab' onclick="openPage('ParamSpace3D')">3D Parameter Space</button>
-		<button class="tablink" id='generateDiagramTab' onclick="openPage('Generate')">Generate Diagram</button>
 
+			<div class="tab-dropdown">
+				<button type="button" class="tablink tab-dropdown-trigger">Data <span class="tab-chevron">&#9662;</span></button>
+				<div class="tab-dropdown-menu">
+					<button type="button" class="tablink" id="viewDatabaseTab" data-page="ViewDatabase" onclick="openPage('ViewDatabase')">Edge Explanations (View)</button>
+					<button type="button" class="tablink" id="nodeConnectionsTab" data-page="NodeConnections" onclick="openPage('NodeConnections')">Edge Explanations (Create)</button>
+					<button type="button" class="tablink hidden" id="degreeCentralityTab" data-page="DegreeCentrality" onclick="openPage('DegreeCentrality')">Graph Centralities</button>
+				</div>
+			</div>
 
-
-
-
-
-			<div class="dropdown hidden">
-				<button class="tablink hidden">Research Tabs</button>
-				<div class="dropdown-content hidden">
-					<a id='simulationTab' onclick="openPage('Simulation1')">Histogram 1</a>
-					<a id='simulation2Tab' onclick="openPage('Simulation2')">Histogram 2</a>
-					<a id='boxPlotTab' onclick="openPage('BoxPlot')">Box Plot</a>
-					<a id='violinPlotTab' onclick="openPage('ViolinPlot')">Violin Plot</a>
-					<a id='randomSeedsTab' onclick="openPage('RandomSeeds')">Random Seeds</a>
+			<div class="tab-dropdown">
+				<button type="button" class="tablink tab-dropdown-trigger">Advanced <span class="tab-chevron">&#9662;</span></button>
+				<div class="tab-dropdown-menu">
+					<button type="button" class="tablink" id="advancedAnalysisTab" data-page="AdvancedAnalysis" onclick="openPage('AdvancedAnalysis')">Advanced Analysis</button>
+					<button type="button" class="tablink" id="paramSpace3DTab" data-page="ParamSpace3D" onclick="openPage('ParamSpace3D')">3D Parameter Space</button>
+					<button type="button" class="tablink" id="generateDiagramTab" data-page="Generate" onclick="openPage('Generate')">Generate Diagram</button>
+					<div class="tab-dropdown-divider hidden" id="researchDivider"></div>
+					<button type="button" class="tablink hidden" id="generateTab" data-page="Generate" onclick="openPage('Generate')">Generate</button>
+					<button type="button" class="tablink hidden" id="simulationTab" data-page="Simulation1" onclick="openPage('Simulation1')">Histogram 1</button>
+					<button type="button" class="tablink hidden" id="simulation2Tab" data-page="Simulation2" onclick="openPage('Simulation2')">Histogram 2</button>
+					<button type="button" class="tablink hidden" id="boxPlotTab" data-page="BoxPlot" onclick="openPage('BoxPlot')">Box Plot</button>
+					<button type="button" class="tablink hidden" id="violinPlotTab" data-page="ViolinPlot" onclick="openPage('ViolinPlot')">Violin Plot</button>
+					<button type="button" class="tablink hidden" id="randomSeedsTab" data-page="RandomSeeds" onclick="openPage('RandomSeeds')">Random Seeds</button>
 				</div>
 			</div>
 		</div>
@@ -230,8 +241,8 @@
 			<div id="toolbar"></div>
 			<button id="toolbar-toggle" class="toolbar-toggle-button">☰</button>
 			<div id="playbar"></div>
+			<button id="sidebar-toggle" class="sidebar-toggle-button">☰</button>
 			<div id="sidebar">
-				<button id="sidebar-toggle" class="sidebar-toggle-button">☰</button>
 			</div>
 		</div>
 
@@ -397,11 +408,11 @@
 				</div>
 				
 				<div class="button-group">
-					<button id="runQuickAnalysis" class="primary-button">Quick Analysis</button>
-					<button id="runFullAnalysis" class="primary-button">Full Analysis</button>
-					<button id="runMonteCarlo" class="secondary-button">Monte Carlo</button>
-					<button id="runParameterSpace" class="secondary-button">Parameter Space</button>
-					<button id="exportResults" class="secondary-button">Export Results</button>
+					<button type="button" id="runQuickAnalysis" class="primary-button">Quick Analysis</button>
+					<button type="button" id="runFullAnalysis" class="primary-button">Full Analysis</button>
+					<button type="button" id="runMonteCarlo" class="secondary-button">Monte Carlo</button>
+					<button type="button" id="runParameterSpace" class="secondary-button">Parameter Space</button>
+					<button type="button" id="exportResults" class="secondary-button">Export Results</button>
 				</div>
 			</div>
 			
@@ -639,9 +650,9 @@
 
 				<!-- Action Buttons -->
 				<div class="button-group">
-					<button id="generate3DParamSpace" class="primary-button">Generate 3D Parameter Space</button>
-					<button id="export3DResults" class="secondary-button">Export Results</button>
-					<button id="reset3DParams" class="secondary-button">Reset to Defaults</button>
+					<button type="button" id="generate3DParamSpace" class="primary-button">Generate 3D Parameter Space</button>
+					<button type="button" id="export3DResults" class="secondary-button">Export Results</button>
+					<button type="button" id="reset3DParams" class="secondary-button">Reset to Defaults</button>
 				</div>
 			</div>
 
@@ -704,10 +715,10 @@
 <script src="js/Core/Edge.js?v=2" defer></script>
 <script src="js/Core/Label.js" defer></script>
 <script src="js/Tools/PageUI.js" defer></script>
-<script src="js/Tools/Sidebar.js?v=2" defer></script>
+<script src="js/Tools/Sidebar.js?v=3" defer></script>
 <script src="js/Tools/Toolbar.js" defer></script>
 <script src="js/Tools/PlayControls.js" defer></script>
-<script src="js/Tools/Modal.js?v=4" defer></script>
+<script src="js/Tools/Modal.js?v=5" defer></script>
 <script src="js/Tools/Ink.js" defer></script>
 <script src="js/Tools/Dragger.js" defer></script>
 <script src="js/Tools/Eraser.js" defer></script>
@@ -716,7 +727,7 @@
 <script src="js/Tools/Redo.js" defer></script>
 <script src="js/Tools/UndoRedoCoordinator.js" defer></script>
 <script src="js/Tools/MultipleSelect.js" defer></script>
-<script src="js/Tools/SavedModels.js" defer></script>
+<script src="js/Tools/SavedModels.js?v=3" defer></script>
 <script src="js/Out/Outputs.js" defer></script>
 <script src="js/Libraries/math.js" defer></script>
 
@@ -751,7 +762,7 @@
 
 <!-- Tools -->
 <!-- <script src="js/Tools/PageUI.js"></script>
-<script src="js/Tools/Sidebar.js?v=2"></script>
+<script src="js/Tools/Sidebar.js?v=3"></script>
 <script src="js/Tools/Toolbar.js"></script>
 <script src="js/Tools/PlayControls.js"></script>
 <script src="js/Tools/Modal.js?v=4"></script>
@@ -847,16 +858,8 @@
     const isFullVersion = urlParams.get("full") === '1';
   
     if (isFullVersion) {
-      // Execute the code to show full version elements
-      const toDisplayWhenPyPackagesLoaded = document.getElementsByClassName('hidden');
-      const hiddenElements = document.querySelectorAll('.dropdown.hidden, .dropdown.hidden *');
-  
-      for (let i = 0; i < toDisplayWhenPyPackagesLoaded.length; i++) {
-        toDisplayWhenPyPackagesLoaded[i].classList.remove('hidden');
-      }
-      hiddenElements.forEach(element => {
-        element.classList.remove('hidden');
-      });
+      var hiddenEls = document.querySelectorAll('.hidden');
+      hiddenEls.forEach(function(el) { el.classList.remove('hidden'); });
   
       // Hide the loader if present
       const loadPythonPackages = document.getElementById('loadPythonPackages');

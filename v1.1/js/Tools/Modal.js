@@ -38,16 +38,21 @@ function Modal(loopy){
 	// Show... what page?
 	subscribe("modal", function(pageName){
 
-		self.show();
 		var page = self.showPage(pageName);
+		if(!page){
+			console.warn("Modal page not found:", pageName);
+			return;
+		}
+
+		self.show();
 
 		// Do something
 		if(page.onshow) page.onshow();
 
 		// Dimensions
 		var dom = document.getElementById("modal");
-		dom.style.width = self.currentPage.width+"px";
-		dom.style.height = self.currentPage.height+"px";
+		dom.style.width = page.width+"px";
+		dom.style.height = page.height+"px";
 
 	});
 
@@ -171,71 +176,47 @@ function Modal(loopy){
 	// 	self.addPage("save_link", page);
 	// })();
 
-	// Save as Link Modal (with Firestore integration)
-(function () {
-    var page = new Page();
-    page.width = 500;
-    page.height = 200;
+	// Save as Link
+	(function(){
+		var page = new Page();
+		page.width = 500;
+		page.height = 155;
+		page.addComponent(new ComponentHTML({
+			html: "copy your link:"
+		}));
+		var output = page.addComponent(new ComponentOutput({}));
 
-    // Input fields for link data
-    page.addComponent(new ComponentHTML({ html: "Save a link to your account:" }));
-    var urlInput = page.addComponent(new ComponentInput({ placeholder: "Enter the URL" }));
-    var descInput = page.addComponent(new ComponentInput({ placeholder: "Enter a description" }));
+		var label = document.createElement("div");
+		label.style.textAlign = "right";
+		label.style.fontSize = "15px";
+		label.style.marginTop = "6px";
+		label.style.color = "#888";
+		label.innerHTML = "(this is a long URL, so you may want to use a link-shortener like <a target='_blank' href='https://bitly.com/'>bit.ly</a>)";
+		page.dom.appendChild(label);
 
-    // Save button
-    var saveButton = document.createElement("button");
-    saveButton.innerHTML = "Save Link";
-    saveButton.style.marginTop = "10px";
-    page.dom.appendChild(saveButton);
+		var chars = document.createElement("div");
+		chars.style.textAlign = "right";
+		chars.style.fontSize = "15px";
+		chars.style.marginTop = "3px";
+		chars.style.color = "#888";
+		page.dom.appendChild(chars);
 
-    saveButton.onclick = async function () {
-        const url = urlInput.getValue();
-        const description = descInput.getValue();
+		page.onshow = function(){
+			var link = loopy.saveToURL();
+			output.output(link);
+			output.dom.select();
 
-        if (!url) {
-            alert("Please enter a valid URL.");
-            return;
-        }
+			var html = link.length+" / 2048 characters";
+			if(link.length>2048){
+				html += " - MAY BE TOO LONG FOR MOST BROWSERS";
+			}
+			chars.innerHTML = html;
+			chars.style.fontWeight = (link.length>2048) ? "bold" : "100";
+			chars.style.fontSize = (link.length>2048) ? "14px" : "15px";
+		};
 
-        try {
-            const auth = getAuth();
-            const user = auth.currentUser;
-
-            if (!user) {
-                alert("You must be signed in to save links.");
-                return;
-            }
-
-            const db = getFirestore();
-            const linkData = {
-                userId: user.uid,
-                url: url,
-                description: description,
-                createdAt: new Date()
-            };
-
-            // Add link to Firestore
-            await addDoc(collection(db, "links"), linkData);
-            alert("Link saved successfully!");
-
-            // Reset the input fields after saving
-            urlInput.setValue("");
-            descInput.setValue("");
-        } catch (error) {
-            console.error("Error saving link:", error.message);
-            alert("An error occurred while saving the link. Please try again.");
-        }
-    };
-
-    // Set the onshow handler to clear input fields when the modal is shown
-    page.onshow = function () {
-        urlInput.setValue("");
-        descInput.setValue("");
-    };
-
-    // Add the page to the Modal
-    self.addPage("save_link_with_account", page);
-})();
+		self.addPage("save_link", page);
+	})();
 
 
 	// Embed
@@ -351,7 +332,7 @@ function Modal(loopy){
 		page.height = 500;
 		page.onshow = function(){
 			if (loopy.savedModels) {
-				loopy.savedModels.showMyModelsModal();
+				loopy.savedModels.showMyModelsModal(page.dom);
 			}
 		};
 		self.addPage("my_models", page);

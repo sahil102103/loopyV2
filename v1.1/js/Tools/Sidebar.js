@@ -23,11 +23,25 @@ SIDEBAR CODE
 ////////////////////////////////////////////////////////////////////////////////////////////
 document.getElementById('sidebar-toggle').addEventListener('click', function() {
     var sidebar = document.getElementById('sidebar');
-    if (sidebar.style.right === '0px') {
-        sidebar.style.right = '-300px'; // Hide sidebar
+    var toggle = document.getElementById('sidebar-toggle');
+    var canvasses = document.getElementById('canvasses');
+    var isOpen = !sidebar.classList.contains('collapsed');
+    if (isOpen) {
+        sidebar.classList.add('collapsed');
+        toggle.style.right = '8px';
+        canvasses.setAttribute('fullscreen', 'yes');
     } else {
-        sidebar.style.right = '0px'; // Show sidebar
+        sidebar.classList.remove('collapsed');
+        toggle.style.right = '308px';
+        canvasses.removeAttribute('fullscreen');
     }
+    // Resize the canvas to fill the new available space
+    setTimeout(function() {
+        publish("resize");
+        if (window.loopy && window.loopy.model) {
+            window.loopy.model.dirty();
+        }
+    }, 350);
 });
 
 
@@ -433,49 +447,63 @@ function Sidebar(loopy){
 
 	// Edit
 	(function(){
-		// Add the Set Global Parameters Button in the Edit page
 		var page = new SidebarPage();
 		page.addComponent(new ComponentHTML({
 		html: "" +
-			"<b style='font-size:1.4em'>FlowCLD (V1.1)</b><br>A tool for thinking in systems<br><br>" +
+			"<div class='sidebar-brand'>FlowCLD <span class='sidebar-version'>v1.1</span></div>" +
+			"<div class='sidebar-subtitle'>A tool for thinking in systems</div>" +
 
-			"<span class='mini_button' onclick='publish(\"modal\",[\"examples\"])'>see examples</span> " +
-			"<span class='mini_button' onclick='publish(\"modal\",[\"howto\"])'>how to</span> " +
-			"<span class='mini_button' onclick='publish(\"modal\",[\"credits\"])'>credits</span><br><br>" +
+			"<div class='sidebar-section'>" +
+				"<div class='sidebar-section-label'>Model</div>" +
+				"<div class='sidebar-btn-row'>" +
+					"<span class='mini_button' onclick='loopy.savedModels.promptSave()'>Save Model</span> " +
+					"<span class='mini_button' onclick='publish(\"modal\",[\"my_models\"])'>My Models</span>" +
+				"</div>" +
+			"</div>" +
 
-			"<hr/><br>" +
+			"<div class='sidebar-section'>" +
+				"<div class='sidebar-section-label'>Import / Export</div>" +
+				"<div class='sidebar-btn-row'>" +
+					"<span class='mini_button' onclick='publish(\"modal\",[\"save_link\"])'>Save as Link</span>" +
+				"</div>" +
+				"<div class='sidebar-btn-row'>" +
+					"<span class='mini_button' onclick='publish(\"export/file\")'>Save as File</span> " +
+					"<span class='mini_button' onclick='publish(\"import/file\")'>Load from File</span>" +
+				"</div>" +
+				"<div class='sidebar-btn-row'>" +
+					"<span class='mini_button' onclick='publish(\"modal\",[\"embed\"])'>Embed</span> " +
+					"<span class='mini_button' onclick='publish(\"modal\",[\"save_gif\"])'>Export GIF</span>" +
+				"</div>" +
+			"</div>" +
 
-			"<span class='mini_button' onclick='loopy.savedModels.promptSave()'>save model</span> " +
-			"<span class='mini_button' onclick='publish(\"modal\",[\"my_models\"])'>my models</span> <br><br>" +
+			"<div class='sidebar-section'>" +
+				"<div class='sidebar-section-label'>Help</div>" +
+				"<div class='sidebar-btn-row'>" +
+					"<span class='mini_button' onclick='publish(\"modal\",[\"examples\"])'>Examples</span> " +
+					"<span class='mini_button' onclick='publish(\"modal\",[\"howto\"])'>How To</span> " +
+					"<span class='mini_button' onclick='publish(\"modal\",[\"credits\"])'>Credits</span>" +
+				"</div>" +
+			"</div>" +
 
-			"<span class='mini_button' onclick='publish(\"modal\",[\"save_link\"])'>save as link</span> <br><br>" +
-			"<span class='mini_button' onclick='publish(\"export/file\")'>save as file</span> " +
-			"<span class='mini_button' onclick='publish(\"import/file\")'>load from file</span> <br><br>" +
-			"<span class='mini_button' onclick='publish(\"modal\",[\"embed\"])'>embed in your website</span> <br><br>" +
-			"<span class='mini_button' onclick='publish(\"modal\",[\"save_gif\"])'>make a GIF using LICEcap</span> <br><br>" +
-
-			"<hr/><br>" +
-
-			"<div id='loadPythonPackages'>" +
-				"<b>To access ALL TABS<br>" +
-				"<b style='font-size: .8em'>PS: Make sure all node names are different<br><br>" +
-				"<div id='loadingIndicator' style='display: none;'> <div class='spinner'></div> </div>" +
-				"<span class='mini_button' id='researcherMode'>Researcher Mode 🚀</span><br><br>" +
-			"<hr/><br>" +
-
+			"<div class='sidebar-section'>" +
+				"<div class='sidebar-section-label'>Researcher Mode</div>" +
+				"<div id='loadPythonPackages'>" +
+					"<div class='sidebar-hint'>Unlock all analysis tabs (node names must be unique)</div>" +
+					"<div id='loadingIndicator' style='display: none;'><div class='spinner'></div></div>" +
+					"<span class='mini_button mini_button--accent' id='researcherMode'>Activate Researcher Mode</span>" +
+				"</div>" +
 			"</div>"
 		}));
 
-		// Add the Set Global Parameters button correctly using ComponentButton
 		page.addComponent(new ComponentButton({
-			label: "Set Global Edge Parameters",
+			label: "Global Edge Parameters",
 			onclick: function(){
 				self.showPage("GlobalParameters");
 			}
 		}));
 
 		page.addComponent(new ComponentButton({
-			label: "Set Global Node Parameters",
+			label: "Global Node Parameters",
 			onclick: function(){
 				self.showPage("GlobalNodeParameters");
 			}
@@ -582,33 +610,31 @@ function Sidebar(loopy){
 
 		globalNodePage.addComponent("pass", new ComponentButton({
 			label: "Flip Pass Node:",
-			oninput: function(value){
+			onclick: function(){
 				const numOfNodes = loopy.model.nodes.length;
-				let opposite = !loopy.model.nodes[0].pass
-				for (let i = 0; i <= numOfNodes; i++) {
-					loopy.model.nodes[i].pass = opposite
+				if (numOfNodes === 0) return;
+				let opposite = !loopy.model.nodes[0].pass;
+				for (let i = 0; i < numOfNodes; i++) {
+					loopy.model.nodes[i].pass = opposite;
 				}
-				// Node.DEFAULT_PASSNODE = value;
 			}
 		}));
 		globalNodePage.addComponent("randomize", new ComponentButton({
 			label: "Randomize Colors",
-			onclick: function(value){
-				const numOfNodes = loopy.model.nodes.length
-				for (let i = 0; i <= numOfNodes; i++ ) {
-					let color = i % 20
-					loopy.model.nodes[i].hue = color
+			onclick: function(){
+				const numOfNodes = loopy.model.nodes.length;
+				for (let i = 0; i < numOfNodes; i++) {
+					loopy.model.nodes[i].hue = i % 20;
 				}
 			}
 		}));
 
 		globalNodePage.addComponent("pictureReady", new ComponentButton({
 			label: "Make Uniform Color",
-			onclick: function(value){
-				const numOfNodes = loopy.model.nodes.length
-				for (let i = 0; i <= numOfNodes; i++ ) {
-					let color = "red"
-					loopy.model.nodes[i].hue = color
+			onclick: function(){
+				const numOfNodes = loopy.model.nodes.length;
+				for (let i = 0; i < numOfNodes; i++) {
+					loopy.model.nodes[i].hue = 0;
 				}
 			}
 		}));

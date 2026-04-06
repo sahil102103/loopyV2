@@ -94,12 +94,20 @@ function Toolbar(loopy) {
             self.setTool("erase");
         }
     });
+
+    // Divider: drawing tools vs action tools
+    self.addDivider = function() {
+        var divider = document.createElement("div");
+        divider.setAttribute("class", "toolbar_divider");
+        self.dom.appendChild(divider);
+    };
+    self.addDivider();
+
 	self.addButton({
         id: "undo",
         tooltip: "(U)ndo",
         callback: function() {
             loopy.model.undo();
-            // self.setTool("undo");
         }
     });
 	self.addButton({
@@ -107,7 +115,6 @@ function Toolbar(loopy) {
         tooltip: "(R)edo",
         callback: function() {
             loopy.model.redo();
-            // self.setTool("redo");
         }
     });
 	self.addButton({
@@ -118,27 +125,20 @@ function Toolbar(loopy) {
         }
     });
 
-    // Zoom controls
+    // Divider: action tools vs viewport tools
+    self.addDivider();
+
     self.addZoomButton = function(options) {
         var id = options.id;
         var tooltip = options.tooltip;
         var callback = options.callback;
         var text = options.text;
 
-        // Create custom zoom button
         var button = document.createElement("div");
         button.setAttribute("class", "toolbar_button zoom_button");
         button.setAttribute("data-balloon", tooltip);
         button.setAttribute("data-balloon-pos", "right");
         button.textContent = text;
-        button.style.fontSize = "16px";
-        button.style.fontWeight = "bold";
-        button.style.display = "flex";
-        button.style.alignItems = "center";
-        button.style.justifyContent = "center";
-        button.style.backgroundColor = "#ddd";
-        button.style.border = "2px solid #ddd";
-        button.style.cursor = "pointer";
         
         button.onclick = function() {
             callback();
@@ -159,7 +159,7 @@ function Toolbar(loopy) {
     self.addZoomButton({
         id: "zoom_out",
         tooltip: "Zoom Out (-)",
-        text: "-",
+        text: "\u2212",
         callback: function() {
             loopy.model.zoomOut();
         }
@@ -175,7 +175,7 @@ function Toolbar(loopy) {
     self.addZoomButton({
         id: "pan",
         tooltip: "(P)an Canvas",
-        text: "✋",
+        text: "\u270B",
         callback: function() {
             self.setTool("pan");
         }

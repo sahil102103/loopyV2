@@ -2,7 +2,7 @@
 
 
 function showLoadingSpinner() {
-    document.getElementById('loading-spinner').style.display = 'block';
+    document.getElementById('loading-spinner').style.display = 'flex';
 }
 
 // Function to hide the loading spinner
@@ -317,18 +317,15 @@ document.getElementById('degreeCentralityTab').onclick = async () => {
 document.getElementById('visualAnalysisTab').onclick = async () => {
     showLoadingSpinner();
     try {
-        // Load initial data to populate edgePairs and edgePolarities
-        await loadInitialData();
+        const data = await loadInitialData();
         
-        // Check if we have valid data
-        if (edgePairs.length === 0) {
+        if (!data || edgePairs.length === 0) {
             throw new Error("No edges found in the current graph. Please create a graph with nodes and edges first.");
         }
         
-        // Prepare data payload to send to the backend
         const payload = {
-            edges: edgePairs,             // Example: [["A", "B"], ["B", "C"]]
-            edge_polarities: edgePolarities // Example: ["+", "–"]
+            ...data,
+            edge_polarities: edgePolarities
         };
 
         console.log("Visual Analysis Payload:", payload);
@@ -362,9 +359,9 @@ document.getElementById('visualAnalysisTab').onclick = async () => {
             return;
         }
 
-        plots.forEach(plotPath => {
+        plots.forEach(dataUrl => {
             const img = document.createElement('img');
-            img.src = `http://127.0.0.1:5000/get-plot/${plotPath}`;
+            img.src = dataUrl;
             img.alt = 'Visual Analysis Plot';
             img.style.maxWidth = '100%';
             img.style.height = 'auto';
@@ -406,7 +403,7 @@ document.getElementById('correlationTab').addEventListener('click', async (event
             throw new Error("No valid edges provided for correlation analysis.");
         }
 
-        const requestData = { edges: edgePairs, time_points: 50 };
+        const requestData = { edges: edgePairs, time_series_data: timeSeriesData };
         console.log("Payload:", requestData);
 
         // Fetch correlation plot from the backend
@@ -819,53 +816,47 @@ const stripe = Stripe('pk_test_51QY9jPD0q75cxrZOtNHqMMjLwnQLLxGxtiBnLT5V1w35xfZ8
 
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Use MutationObserver to watch for dynamically added elements
+    var researcherHandlerAttached = false;
+
     const observer = new MutationObserver((mutationsList, observer) => {
-        for (const mutation of mutationsList) {
-            if (mutation.type === 'childList') {
-                const researcherModeButton = document.getElementById('researcherMode');
-                if (researcherModeButton) {
-                    // Add event listener once the button is detected
-                    researcherModeButton.addEventListener('click', async () => {
-                        try {
-                            showLoadingSpinner();
-                            console.log("Activating Researcher Mode and initializing payments...");
+        if (researcherHandlerAttached) return;
+        const researcherModeButton = document.getElementById('researcherMode');
+        if (researcherModeButton) {
+            researcherHandlerAttached = true;
+            observer.disconnect();
 
-                            // Call your backend to create a checkout session
-                            const response = await fetch('http://127.0.0.1:5000/create-checkout-session', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ amount: 2000 }) // $20.00 in cents
-                            });
+            researcherModeButton.addEventListener('click', async () => {
+                try {
+                    showLoadingSpinner();
+                    console.log("Activating Researcher Mode...");
 
-                            if (!response.ok) {
-                                throw new Error('Failed to create checkout session. Ensure the backend is running and accessible.');
-                            }
-
-                            const session = await response.json();
-
-                            // Redirect to Stripe Checkout
-                            const result = await stripe.redirectToCheckout({ sessionId: session.id });
-                            if (result.error) {
-                                console.error(result.error.message);
-                                alert('Error during redirect to Stripe Checkout: ' + result.error.message);
-                            }
-                        } catch (error) {
-                            console.error('Error:', error.message);
-                            alert('An error occurred. Please try again.');
-                        } finally {
-                            hideLoadingSpinner();
-                        }
+                    const response = await fetch('http://127.0.0.1:5000/create-checkout-session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ amount: 2000 })
                     });
 
-                    // Disconnect the observer once the element is found
-                    observer.disconnect();
+                    if (!response.ok) {
+                        throw new Error('Backend returned an error. Make sure the backend server is running.');
+                    }
+
+                    const session = await response.json();
+
+                    const result = await stripe.redirectToCheckout({ sessionId: session.id });
+                    if (result.error) {
+                        console.error(result.error.message);
+                        alert('Stripe checkout error: ' + result.error.message);
+                    }
+                } catch (error) {
+                    console.error('Researcher Mode error:', error.message);
+                    alert('Could not activate Researcher Mode.\n\nThe backend server at localhost:5000 is not reachable. Start the backend first, or add ?full=1 to the URL to unlock all tabs directly.');
+                } finally {
+                    hideLoadingSpinner();
                 }
-            }
+            });
         }
     });
 
-    // Start observing the body for changes
     observer.observe(document.body, { childList: true, subtree: true });
 });
 
