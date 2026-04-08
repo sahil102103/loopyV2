@@ -5,7 +5,7 @@
  * with the Loopy frontend.
  */
 
-const ADVANCED_API_URL = 'http://127.0.0.1:5000';
+const ADVANCED_API_URL = 'https://loopyv2-640o.onrender.com';
 
 /**
  * Convert Loopy graph data to advanced backend format

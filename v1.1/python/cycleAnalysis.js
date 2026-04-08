@@ -1,5 +1,4 @@
-// const apiKey = process.env.URL_DOMAIN;
-
+const BACKEND_URL = 'https://loopyv2-640o.onrender.com';
 
 function showLoadingSpinner() {
     document.getElementById('loading-spinner').style.display = 'flex';
@@ -192,7 +191,7 @@ document.getElementById('cycleAnalysisTab').onclick = async () => {
 
     try {
         // Send POST request to Flask backend
-        const response = await fetch('http://127.0.0.1:5000/cycle-analysis', {
+        const response = await fetch(`${BACKEND_URL}/cycle-analysis`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -240,7 +239,7 @@ document.getElementById('crisisAnalysisTab').addEventListener('click', async (ev
         console.log("Payload:", requestData);
 
         // Fetch plot from the backend
-        const response = await fetch('http://127.0.0.1:5000/crisis-analysis', {
+        const response = await fetch(`${BACKEND_URL}/crisis-analysis`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestData)
@@ -287,7 +286,7 @@ document.getElementById('degreeCentralityTab').onclick = async () => {
 
     try {
         // Send POST request to the backend
-        const response = await fetch('http://127.0.0.1:5000/degree-centrality', {
+        const response = await fetch(`${BACKEND_URL}/degree-centrality`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -331,7 +330,7 @@ document.getElementById('visualAnalysisTab').onclick = async () => {
         console.log("Visual Analysis Payload:", payload);
 
         // Send a POST request to the Flask backend
-        const response = await fetch('http://127.0.0.1:5000/visual-analysis', {
+        const response = await fetch(`${BACKEND_URL}/visual-analysis`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -407,7 +406,7 @@ document.getElementById('correlationTab').addEventListener('click', async (event
         console.log("Payload:", requestData);
 
         // Fetch correlation plot from the backend
-        const response = await fetch('http://127.0.0.1:5000/correlation-analysis', {
+        const response = await fetch(`${BACKEND_URL}/correlation-analysis`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestData)
@@ -464,7 +463,7 @@ document.getElementById("genereatedDelayDecay").onclick = async () => {
     console.log("Request Data for Stability Map:", requestData);
 
     try {
-        const response = await fetch("http://127.0.0.1:5000/generate-stability-map", {
+        const response = await fetch(`${BACKEND_URL}/generate-stability-map`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(requestData),
@@ -518,7 +517,7 @@ document.getElementById("generateDecayRetention").onclick = async () => {
       };
   
       // 4. Send POST to the Flask route
-      const response = await fetch("http://127.0.0.1:5000/generate-decay-retention-map", {
+      const response = await fetch(`${BACKEND_URL}/generate-decay-retention-map`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestData),
@@ -576,7 +575,7 @@ document.getElementById("generateRetentionDelay").onclick = async () => {
 
         console.log("Request Data for Retention-Delay Map:", requestData);
 
-        const response = await fetch("http://127.0.0.1:5000/generate-retention-delay-map", {
+        const response = await fetch(`${BACKEND_URL}/generate-retention-delay-map`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(requestData),
@@ -610,7 +609,7 @@ document.getElementById('simulationTab').onclick = async () => {
         console.log('Payload:', { time_series_data: timeSeriesData });
 
         // Send data to the backend for simulation
-        const response = await fetch('http://127.0.0.1:5000/simulation', {
+        const response = await fetch(`${BACKEND_URL}/simulation`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -651,7 +650,7 @@ document.getElementById('simulation2Tab').onclick = async () => {
 
     try {
         // Send data to the backend for simulation
-        const response = await fetch('http://127.0.0.1:5000/simulation2', {
+        const response = await fetch(`${BACKEND_URL}/simulation2`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -690,7 +689,7 @@ document.getElementById('boxPlotTab').onclick = async () => {
 
     try {
         // Send data to the backend for boxplot generation
-        const response = await fetch('http://127.0.0.1:5000/boxplots', {
+        const response = await fetch(`${BACKEND_URL}/boxplots`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -729,7 +728,7 @@ document.getElementById('violinPlotTab').onclick = async () => {
 
     try {
         // Send data to the backend for violin plot generation
-        const response = await fetch('http://127.0.0.1:5000/violinplots', {
+        const response = await fetch(`${BACKEND_URL}/violinplots`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -774,7 +773,7 @@ document.getElementById('randomSeedsTab').onclick = async () => {
             edge_polarities: edgePolarities
         };
 
-        const response = await fetch('http://127.0.0.1:5000/random-seeds', {
+        const response = await fetch(`${BACKEND_URL}/random-seeds`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -830,7 +829,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     showLoadingSpinner();
                     console.log("Activating Researcher Mode...");
 
-                    const response = await fetch('http://127.0.0.1:5000/create-checkout-session', {
+                    const response = await fetch(`${BACKEND_URL}/create-checkout-session`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ amount: 2000 })
