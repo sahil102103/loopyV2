@@ -1,12 +1,34 @@
 const BACKEND_URL = 'https://loopyv2-640o.onrender.com';
 
-function showLoadingSpinner() {
-    document.getElementById('loading-spinner').style.display = 'flex';
+// Silently ping the backend on load so Render wakes up before the user runs any analysis
+fetch(`${BACKEND_URL}/`).catch(() => {});
+
+let _spinnerTimer = null;
+let _spinnerStart = null;
+
+function showLoadingSpinner(message = 'Analyzing') {
+    const spinner = document.getElementById('loading-spinner');
+    const text = spinner.querySelector('.spinner-text');
+    text.textContent = message;
+    spinner.style.display = 'flex';
+
+    _spinnerStart = Date.now();
+    _spinnerTimer = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - _spinnerStart) / 1000);
+        if (elapsed >= 15) {
+            text.textContent = `Backend is starting up... (${elapsed}s)`;
+        } else if (elapsed >= 5) {
+            text.textContent = `Still working... (${elapsed}s)`;
+        }
+    }, 1000);
 }
 
-// Function to hide the loading spinner
 function hideLoadingSpinner() {
-    document.getElementById('loading-spinner').style.display = 'none';
+    clearInterval(_spinnerTimer);
+    _spinnerTimer = null;
+    const spinner = document.getElementById('loading-spinner');
+    spinner.querySelector('.spinner-text').textContent = 'Analyzing';
+    spinner.style.display = 'none';
 }
 
 // Global arrays (if you wish to keep them as globals)

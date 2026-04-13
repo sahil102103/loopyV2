@@ -1,17 +1,3 @@
-// legacyScript.js
-async function getData() {
-    const { getFireStore, query, where, db, collection, getDocs } = window.firebase;
-
-    const querySnapshot = await getDocs(collection(db, "users"));
-    querySnapshot.forEach((doc) => {
-        `${doc.id} => ${JSON.stringify(doc.data())}`;
-    });
-}
-
-getData();
-
-
-
 /**********************************
 
 SIDEBAR CODE
@@ -117,7 +103,6 @@ function Sidebar(loopy){
 			bg: "radius",
 			label: "Border Radius:",
 			options: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-			//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
 			oninput: function(value){
 				Node.DEFAULT_RADIUS = value;
 			}
@@ -139,10 +124,6 @@ function Sidebar(loopy){
 			if (name == "" || name == "?") page.getComponent("label").select();
 		};
 
-		// page.addComponent("flow", new ComponentInput({
-		// 	label: "Additional Amount:",
-		// 	id: 'flow'
-		// }));
 
 		page.addComponent("retention", new ComponentSlider({
 			bg: "lag",
@@ -180,15 +161,7 @@ function Sidebar(loopy){
 				// Store the current node for the modal to access
 				window.currentFormulaNode = node;
 			}
-		}));
-
-		// page.addComponent(new ComponentButton({
-		// 	label: "delete node",
-		// 	onclick: function(node){
-		// 		node.kill();
-		// 		self.showPage("Edit");
-		// 	}
-		// }));		
+		}));	
 		self.addPage("Node", page);
 	})();
 	
@@ -246,14 +219,6 @@ function Sidebar(loopy){
 
 		}));
 
-		// page.addComponent("pass", new ComponentCheckbox({
-		// 	label: 'Pass Node: ',
-		// 	id: 'pass',
-		// 	value: Node.DEFAULT_PASSNODE,
-		// 	onclick: function (value) {
-		// 		Node.DEFAULT_PASSNODE = value;
-		// 	}
-		// }))
 
 		page.addComponent("signal", new ComponentCheckbox({
 			label: 'Show Signal: ',

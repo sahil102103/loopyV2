@@ -1,7 +1,7 @@
 // firebase-compat.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, getDoc, query, where, doc, onSnapshot, deleteDoc, updateDoc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, getDoc, query, where, doc, onSnapshot, deleteDoc, updateDoc, orderBy, serverTimestamp, startAfter, limit } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -44,7 +44,10 @@ window.firebase = {
     deleteDoc,
     updateDoc,
     orderBy,
-    serverTimestamp
+    serverTimestamp,
+    startAfter,
+    limit
 };
 
 console.log("Firebase has been initialized and exposed globally via window.firebase.");
+window.dispatchEvent(new CustomEvent('firebase-ready'));

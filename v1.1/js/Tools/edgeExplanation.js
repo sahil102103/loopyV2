@@ -1,3 +1,89 @@
+const DB_PAGE_SIZE = 10;
+
+// Cursor-based pagination state (unfiltered)
+let dbPageCursors = [null]; // cursors[i] = startAfter doc for page i (null = beginning)
+let dbCurrentPage = 0;
+let dbHasNextPage = false;
+
+// Client-side pagination state (filtered)
+let dbAllRows = [];
+let dbIsFiltered = false;
+
+function makeRow(data) {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td>${data.node1 || 'N/A'}</td>
+        <td>${data.node2 || 'N/A'}</td>
+        <td>${data.edgeproperties?.polarity || 'N/A'}</td>
+        <td>${data.edgeproperties?.strength || 'N/A'}</td>
+        <td>${data.edgeproperties?.explanation || 'N/A'}</td>
+    `;
+    return row;
+}
+
+function updatePaginationUI(pageNum, hasNext, knownTotal) {
+    document.getElementById('dbPrevBtn').disabled = pageNum === 0;
+    document.getElementById('dbNextBtn').disabled = !hasNext;
+    document.getElementById('dbPageInfo').textContent = knownTotal
+        ? `Page ${pageNum + 1} of ${knownTotal}`
+        : `Page ${pageNum + 1}`;
+}
+
+// Render a page from client-side filtered results
+function renderDbPage() {
+    const tableBody = document.querySelector('#databaseTable tbody');
+    const start = dbCurrentPage * DB_PAGE_SIZE;
+    const pageRows = dbAllRows.slice(start, start + DB_PAGE_SIZE);
+    const totalPages = Math.max(1, Math.ceil(dbAllRows.length / DB_PAGE_SIZE));
+
+    tableBody.innerHTML = '';
+    if (pageRows.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="5">No data matches the filter.</td></tr>`;
+    } else {
+        pageRows.forEach(row => tableBody.appendChild(row));
+    }
+    updatePaginationUI(dbCurrentPage, dbCurrentPage < totalPages - 1, totalPages);
+}
+
+// Fetch and render a single page from Firestore using cursor pagination
+async function fetchAndRenderFirestorePage(pageIndex) {
+    const { db, collection, query, orderBy, limit, startAfter, getDocs } = firebase;
+    const ref = collection(db, "edge connections justifications");
+    const cursor = dbPageCursors[pageIndex];
+
+    const constraints = [orderBy('timestamp', 'desc'), limit(DB_PAGE_SIZE)];
+    if (cursor) constraints.push(startAfter(cursor));
+    const snapshot = await getDocs(query(ref, ...constraints));
+
+    // Store cursor for the next page if we haven't been here before
+    if (snapshot.docs.length === DB_PAGE_SIZE && !dbPageCursors[pageIndex + 1]) {
+        dbPageCursors[pageIndex + 1] = snapshot.docs[snapshot.docs.length - 1];
+    }
+    dbHasNextPage = snapshot.docs.length === DB_PAGE_SIZE;
+
+    const tableBody = document.querySelector('#databaseTable tbody');
+    tableBody.innerHTML = '';
+    if (snapshot.docs.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="5">No data found.</td></tr>`;
+    } else {
+        snapshot.docs.forEach(doc => tableBody.appendChild(makeRow(doc.data())));
+    }
+
+    dbCurrentPage = pageIndex;
+    updatePaginationUI(pageIndex, dbHasNextPage, null);
+}
+
+const firebaseReady = new Promise(resolve => {
+    if (window.firebase) {
+        resolve();
+    } else {
+        window.addEventListener('firebase-ready', resolve, { once: true });
+    }
+});
+
+// Pre-fetch database entries as soon as Firebase is ready so the tab loads instantly
+firebaseReady.then(() => fetchDatabaseEntries());
+
 let nodeConnectionsTabInitialized = false;
 
 function initNodeConnectionsTab() {
@@ -117,6 +203,7 @@ async function fetchExplanationFromAPI(apiKey, systemPrompt) {
 }
 
 async function saveConnectionToFirestore(node1, node2, polarity, strength, justification) {
+    await firebaseReady;
     const connectionData = {
         edgeproperties: { polarity, strength, explanation: justification },
         node1,
@@ -149,10 +236,25 @@ function handleError(error, outputElement) {
 }
 
 async function fetchDatabaseEntries(filterNodes = [], filterByGraph = false) {
-    const tableBody = document.querySelector('#databaseTable tbody');
-    tableBody.innerHTML = ''; // Clear previous data
+    await firebaseReady;
 
-    // Collect current nodes from the graph if filterByGraph is true
+    const isFiltered = filterNodes.length > 0 || filterByGraph;
+    dbIsFiltered = isFiltered;
+
+    if (!isFiltered) {
+        // Real Firestore cursor pagination — only fetch one page at a time
+        dbPageCursors = [null];
+        dbCurrentPage = 0;
+        try {
+            await fetchAndRenderFirestorePage(0);
+        } catch (error) {
+            console.error('Error fetching data:', error.message);
+            alert('Failed to fetch data from Firestore.');
+        }
+        return;
+    }
+
+    // Filtered: fetch all docs and filter client-side
     const currentNodes = new Set();
     if (filterByGraph) {
         window.loopy.model.edges.forEach(edge => {
@@ -163,42 +265,19 @@ async function fetchDatabaseEntries(filterNodes = [], filterByGraph = false) {
 
     try {
         const querySnapshot = await firebase.getDocs(firebase.collection(firebase.db, "edge connections justifications"));
-
+        dbAllRows = [];
         querySnapshot.forEach((doc) => {
             const data = doc.data();
-
-            // Graph-based Filter Logic
-            if (filterByGraph && (
-                !currentNodes.has(data.node1) &&
-                !currentNodes.has(data.node2))) {
-                return; // Skip rows where Node 1 or Node 2 is not in the graph
-            }
-
-            // Multi-node Text-based Filter Logic
+            if (filterByGraph && !currentNodes.has(data.node1) && !currentNodes.has(data.node2)) return;
             if (filterNodes.length > 0) {
                 const node1Match = filterNodes.some(node => node.toLowerCase() === data.node1.toLowerCase());
                 const node2Match = filterNodes.some(node => node.toLowerCase() === data.node2.toLowerCase());
-
-                if (!node1Match && !node2Match) {
-                    return; // Skip rows where Node 1 and Node 2 don't match any filterNodes
-                }
+                if (!node1Match && !node2Match) return;
             }
-
-            // Populate Table
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${data.node1 || 'N/A'}</td>
-                <td>${data.node2 || 'N/A'}</td>
-                <td>${data.edgeproperties?.polarity || 'N/A'}</td>
-                <td>${data.edgeproperties?.strength || 'N/A'}</td>
-                <td>${data.edgeproperties?.explanation || 'N/A'}</td>
-            `;
-            tableBody.appendChild(row);
+            dbAllRows.push(makeRow(data));
         });
-
-        if (!tableBody.childElementCount) {
-            tableBody.innerHTML = `<tr><td colspan="6">No data matches the filter.</td></tr>`;
-        }
+        dbCurrentPage = 0;
+        renderDbPage();
     } catch (error) {
         console.error('Error fetching data:', error.message);
         alert('Failed to fetch data from Firestore.');
@@ -206,8 +285,7 @@ async function fetchDatabaseEntries(filterNodes = [], filterByGraph = false) {
 }
 
 async function fetchMatchingNodes(filterNodes = []) {
-    const tableBody = document.querySelector('#databaseTable tbody');
-    tableBody.innerHTML = ''; // Clear previous data
+    await firebaseReady;
 
     if (filterNodes.length < 2) {
         alert('Please provide at least two nodes to filter.');
@@ -219,16 +297,12 @@ async function fetchMatchingNodes(filterNodes = []) {
     try {
         const querySnapshot = await firebase.getDocs(firebase.collection(firebase.db, "edge connections justifications"));
 
+        dbAllRows = [];
         querySnapshot.forEach((doc) => {
             const data = doc.data();
+            const isMatch = data.node1.toLowerCase() === firstNode && data.node2.toLowerCase() === secondNode;
+            if (!isMatch) return;
 
-            // Check if node1 and node2 match the two nodes in any order
-            const isMatch =
-                (data.node1.toLowerCase() === firstNode && data.node2.toLowerCase() === secondNode);
-
-            if (!isMatch) return; // Skip if no match
-
-            // Populate Table
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${data.node1 || 'N/A'}</td>
@@ -237,12 +311,11 @@ async function fetchMatchingNodes(filterNodes = []) {
                 <td>${data.edgeproperties?.strength || 'N/A'}</td>
                 <td>${data.edgeproperties?.explanation || 'N/A'}</td>
             `;
-            tableBody.appendChild(row);
+            dbAllRows.push(row);
         });
 
-        if (!tableBody.childElementCount) {
-            tableBody.innerHTML = `<tr><td colspan="6">No data matches the filter.</td></tr>`;
-        }
+        dbCurrentPage = 0;
+        renderDbPage();
     } catch (error) {
         console.error('Error fetching data:', error.message);
         alert('Failed to fetch data from Firestore.');
@@ -250,6 +323,7 @@ async function fetchMatchingNodes(filterNodes = []) {
 }
 
 async function loadGraphEdgesToTable() {
+    await firebaseReady;
     const tableSection = document.getElementById("graphTable");
     const tableHeaderSection = document.getElementById("graphTableHeader");
     const tableBody = document.querySelector("#graphTable tbody");
@@ -340,5 +414,25 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('filterGraphButton').addEventListener('click', () => {
         fetchDatabaseEntries([], true);
+    });
+
+    document.getElementById('dbPrevBtn').addEventListener('click', async () => {
+        if (dbCurrentPage === 0) return;
+        if (dbIsFiltered) {
+            dbCurrentPage--;
+            renderDbPage();
+        } else {
+            await fetchAndRenderFirestorePage(dbCurrentPage - 1);
+        }
+    });
+    document.getElementById('dbNextBtn').addEventListener('click', async () => {
+        if (dbIsFiltered) {
+            if (dbCurrentPage < Math.ceil(dbAllRows.length / DB_PAGE_SIZE) - 1) {
+                dbCurrentPage++;
+                renderDbPage();
+            }
+        } else {
+            if (dbHasNextPage) await fetchAndRenderFirestorePage(dbCurrentPage + 1);
+        }
     });
 });

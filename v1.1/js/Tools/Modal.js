@@ -127,55 +127,6 @@ function Modal(loopy){
 		self.addPage("credits", page);
 	})();
 
-	// Save as link
-	// (function(){
-	// 	var page = new Page();
-	// 	page.width = 500;
-	// 	page.height = 155;
-	// 	page.addComponent(new ComponentHTML({
-	// 		html: "copy your link:"
-	// 	}));
-	// 	var output = page.addComponent(new ComponentOutput({}));
-
-	// 	var label = document.createElement("div");
-	// 	label.style.textAlign = "right";
-	// 	label.style.fontSize = "15px";
-	// 	label.style.marginTop = "6px";
-	// 	label.style.color = "#888";
-	// 	label.innerHTML = "(this is a long URL, so you may want to use a link-shortener like <a target='_blank' href='https://bitly.com/'>bit.ly</a>)";
-	// 	page.dom.appendChild(label);
-
-	// 	// chars left...
-	// 	var chars = document.createElement("div");
-	// 	chars.style.textAlign = "right";
-	// 	chars.style.fontSize = "15px";
-	// 	chars.style.marginTop = "3px";
-	// 	chars.style.color = "#888";
-	// 	chars.innerHTML = "X out of 2048 characters";
-	// 	page.dom.appendChild(chars);
-
-	// 	page.onshow = function(){
-
-	// 		// Copy-able link
-	// 		var link = loopy.saveToURL();
-	// 		output.output(link);
-	// 		output.dom.select();
-
-	// 		// Chars left
-	// 		var html = link.length+" / 2048 characters";
-	// 		if(link.length>2048){
-	// 			html += " - MAY BE TOO LONG FOR MOST BROWSERS";
-	// 		}
-	// 		chars.innerHTML = html;
-	// 		chars.style.fontWeight = (link.length>2048) ? "bold" : "100";
-	// 		chars.style.fontSize = (link.length>2048) ? "14px" : "15px";
-
-	// 	};
-
-	// 	// or, tweet it
-	// 	self.addPage("save_link", page);
-	// })();
-
 	// Save as Link
 	(function(){
 		var page = new Page();

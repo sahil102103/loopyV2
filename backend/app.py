@@ -30,6 +30,7 @@ load_dotenv()
 from advanced_analysis import (
     run_advanced_simulation,
     run_stability_analysis,
+    run_3d_param_space,
     simulate_two_phase,
     classify_behavior as classify_behavior_twophase,
     rolling_z as rolling_z_advanced,
@@ -65,9 +66,6 @@ def create_graph(edges, edge_polarities):
     for edge, polarity in zip(edges, edge_polarities):
         G.add_edge(*edge, polarity=polarity)
     return G
-
-def modified_sigmoid(x):
-    return 2 / (1 + math.exp(-x)) - 1
 
 def blended_uniform_normal(mean, low, high, certainty, size=1000):
     max_variance = 1
@@ -886,6 +884,37 @@ def advanced_stability_map():
         )
         return jsonify(result), 200
         
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        print(error_trace)
+        return jsonify({"error": str(e), "trace": error_trace}), 500
+
+
+@app.route('/param-space-3d', methods=['POST'])
+def param_space_3d():
+    """
+    Sweep retention × decay × delay and return a point cloud for 3D visualization.
+
+    Expected JSON:
+    {
+        "nodes": [...],
+        "edges": [...],
+        "retention_range": [min, max, steps],
+        "decay_range":     [min, max, steps],
+        "delay_range":     [min, max, steps],
+        "iterations":      100
+    }
+    """
+    try:
+        data = request.json
+        result = run_3d_param_space(
+            data,
+            retention_range=data.get('retention_range', [0.0, 1.0, 3]),
+            decay_range=data.get('decay_range',     [0.0, 1.0, 5]),
+            delay_range=data.get('delay_range',     [0,   10,  5]),
+            iterations=data.get('iterations', 100)
+        )
+        return jsonify(result), 200
     except Exception as e:
         error_trace = traceback.format_exc()
         print(error_trace)

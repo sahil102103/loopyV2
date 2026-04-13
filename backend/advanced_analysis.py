@@ -540,3 +540,84 @@ def run_stability_analysis(graph_data, decay_range, delay_range, iterations=200)
     }
 
 
+def run_3d_param_space(graph_data, retention_range, decay_range, delay_range, iterations=100):
+    """
+    Sweep retention × decay × delay and return a flat list of scored points
+    for 3D visualization on the frontend.
+
+    Returns:
+    --------
+    dict with:
+        points: list of {retention, decay, delay, score, behavior}
+        retention_values, decay_values, delay_values
+    """
+    # Build base graph
+    G = nx.DiGraph()
+    for node_data in graph_data.get('nodes', []):
+        name = node_data.get('name') or node_data.get('id') or node_data.get('label')
+        if not name:
+            continue
+        G.add_node(name,
+                   start_amount=node_data.get('start_amount', 0.1),
+                   retention=node_data.get('retention', 0.9),
+                   floor=node_data.get('floor', -math.inf),
+                   ceiling=node_data.get('ceiling', math.inf))
+
+    for edge_data in graph_data.get('edges', []):
+        u = edge_data.get('source', edge_data.get('from', edge_data.get('src')))
+        v = edge_data.get('target', edge_data.get('to', edge_data.get('tgt')))
+        if u is None or v is None:
+            continue
+        G.add_edge(u, v,
+                   correlation=edge_data.get('correlation', 1.0),
+                   decay=0.0,
+                   delay=0,
+                   confidence=edge_data.get('confidence', edge_data.get('certainty', 1.0)))
+
+    retention_values = np.linspace(retention_range[0], retention_range[1], int(retention_range[2]))
+    decay_values     = np.linspace(decay_range[0],     decay_range[1],     int(decay_range[2]))
+    delay_values     = np.linspace(delay_range[0],     delay_range[1],     int(delay_range[2]), dtype=int)
+
+    BEHAVIOR_SCORE = {"Unconstrained": 1.0, "Optimal": 0.6, "Over-damped": 0.2}
+
+    points = []
+    for retention in retention_values:
+        for decay in decay_values:
+            for delay in delay_values:
+                G_temp = G.copy()
+                for n in G_temp.nodes:
+                    G_temp.nodes[n]['retention'] = float(retention)
+                nx.set_edge_attributes(G_temp, float(decay), 'decay')
+                nx.set_edge_attributes(G_temp, int(delay),   'delay')
+
+                init_vals = {n: G_temp.nodes[n]['start_amount'] for n in G_temp.nodes}
+                try:
+                    hist = simulate_two_phase(G_temp, init_vals, iterations)
+                    classification = classify_behavior(hist)
+                    behaviors = list(classification.values())
+                    if "Unconstrained" in behaviors:
+                        behavior, score = "Unconstrained", 1.0
+                    elif "Optimal" in behaviors:
+                        behavior, score = "Optimal", 0.6
+                    else:
+                        behavior, score = "Over-damped", 0.2
+                except Exception:
+                    behavior, score = "Error", 0.0
+
+                points.append({
+                    "retention": round(float(retention), 3),
+                    "decay":     round(float(decay),     3),
+                    "delay":     int(delay),
+                    "score":     score,
+                    "behavior":  behavior
+                })
+
+    return {
+        "success": True,
+        "points":           points,
+        "retention_values": retention_values.tolist(),
+        "decay_values":     decay_values.tolist(),
+        "delay_values":     delay_values.tolist()
+    }
+
+

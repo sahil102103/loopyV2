@@ -321,6 +321,10 @@ function openPage(pageName) {
         }
     }
 
+    if (pageName === 'Canvas') {
+        window.dispatchEvent(new Event('resize'));
+    }
+
     if (pageName === 'TimeSeries') {
         if (!chart) {
             drawTimeSeriesChart();
