@@ -1,9 +1,16 @@
-// // config.js
-// const CONFIG = {
-//     API_URL: 'https://api.example.com',
-//     LOGIN_REDIRECT_URL: 'https://loopy-v2.vercel.app/v1.1/login.html',
-//     FULL_VERSION_PARAM: 'full',
-//     URL_DOMAIN: process.env.URL_DOMAIN || 'http://127.0.0.1:5000',
+window.CONFIG = {
+    // Backend API URL — auto-detects dev vs production
+    API_URL: (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
+        ? 'http://127.0.0.1:5000'
+        : 'https://loopy-v2.vercel.app', // TODO: replace with your production backend URL if different
 
-//   };
-  
+    FIREBASE: {
+        apiKey: "AIzaSyAMo1LOHvEl5ediXHkgdAgCaxSaPh9Tv7s",
+        authDomain: "loopy-5fee3.firebaseapp.com",
+        projectId: "loopy-5fee3",
+        storageBucket: "loopy-5fee3.firebasestorage.app",
+        messagingSenderId: "816351082835",
+        appId: "1:816351082835:web:94f9df73f5ed7375a6c9a6",
+        measurementId: "G-KGJ631M1F4"
+    }
+};

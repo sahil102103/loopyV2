@@ -448,16 +448,8 @@ function Sidebar(loopy){
 					"<span class='mini_button' onclick='publish(\"modal\",[\"howto\"])'>How To</span> " +
 					"<span class='mini_button' onclick='publish(\"modal\",[\"credits\"])'>Credits</span>" +
 				"</div>" +
-			"</div>" +
-
-			"<div class='sidebar-section'>" +
-				"<div class='sidebar-section-label'>Researcher Mode</div>" +
-				"<div id='loadPythonPackages'>" +
-					"<div class='sidebar-hint'>Unlock all analysis tabs (node names must be unique)</div>" +
-					"<div id='loadingIndicator' style='display: none;'><div class='spinner'></div></div>" +
-					"<span class='mini_button mini_button--accent' id='researcherMode'>Activate Researcher Mode</span>" +
-				"</div>" +
 			"</div>"
+
 		}));
 
 		page.addComponent(new ComponentButton({

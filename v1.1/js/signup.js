@@ -2,16 +2,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebas
 import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js";
 import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
-// Firebase configuration
-const firebaseConfig = {
-    apiKey: "AIzaSyAMo1LOHvEl5ediXHkgdAgCaxSaPh9Tv7s",
-    authDomain: "loopy-5fee3.firebaseapp.com",
-    projectId: "loopy-5fee3",
-    storageBucket: "loopy-5fee3.firebasestorage.app",
-    messagingSenderId: "816351082835",
-    appId: "1:816351082835:web:94f9df73f5ed7375a6c9a6",
-    measurementId: "G-KGJ631M1F4"
-};
+// Firebase configuration — sourced from config.js (loaded before this module)
+const firebaseConfig = window.CONFIG.FIREBASE;
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);

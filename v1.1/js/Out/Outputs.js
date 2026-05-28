@@ -125,6 +125,7 @@ function drawTimeSeriesChart() {
             datasets: timeSeriesNodeData
         },
         options: {
+            maintainAspectRatio: false,
             scales: {
                 x: {
                     title: {
@@ -154,12 +155,14 @@ function addForwardBackwardDataSlider() {
         sliderContainer.style.display = 'flex';
         sliderContainer.style.alignItems = 'center';
         sliderContainer.style.gap = '20px';
-        sliderContainer.style.margin = '10px auto';
-        sliderContainer.style.width = '95%';
+        sliderContainer.style.width = '100%';
+        sliderContainer.style.padding = '8px 20px';
+        sliderContainer.style.boxSizing = 'border-box';
         sliderContainer.style.position = 'fixed';
         sliderContainer.style.bottom = '0';
         sliderContainer.style.left = '0';
-        sliderContainer.style.backgroundColor = '#fff'; // Optional: add a background to the slider bar
+        sliderContainer.style.backgroundColor = '#fff';
+        sliderContainer.style.borderTop = '1px solid #ddd';
         sliderContainer.style.zIndex = '1000';
 
         // Backward slider container (Trim Start)
@@ -192,6 +195,20 @@ function addForwardBackwardDataSlider() {
     }
 }
 
+function updateSmoothChartFromTrim(startIndex, endIndex) {
+    if (!chartSmooth) return;
+    chartSmooth.data.labels = Array.from({ length: endIndex - startIndex }, (_, i) => i + startIndex);
+    chartSmooth.data.datasets = timeSeriesNodeData.map((dataset, index) => ({
+        label: `${dataset.label} (Smoothed)`,
+        data: smoothData(fullNodeData[index].data.slice(startIndex, endIndex), smoothWindowValue),
+        borderColor: dataset.borderColor,
+        backgroundColor: dataset.backgroundColor,
+        borderWidth: 1,
+        fill: false
+    }));
+    chartSmooth.update();
+}
+
 function updateChartForwardData(percentage) {
     const backwardValue = parseInt(document.getElementById('backwardDataSlider').value);
     if (percentage <= backwardValue) return; // Prevent overlap
@@ -204,6 +221,7 @@ function updateChartForwardData(percentage) {
         dataset.data = fullNodeData[index].data.slice(startIndex, endIndex);
     });
     chart.update();
+    updateSmoothChartFromTrim(startIndex, endIndex);
 }
 
 function updateChartBackwardData(percentage) {
@@ -218,6 +236,15 @@ function updateChartBackwardData(percentage) {
         dataset.data = fullNodeData[index].data.slice(startIndex, endIndex);
     });
     chart.update();
+    updateSmoothChartFromTrim(startIndex, endIndex);
+}
+
+function toggleSmoothView() {
+    const content = document.getElementById('smoothContent');
+    const chevron = document.getElementById('smoothChevron');
+    const isHidden = content.style.display === 'none';
+    content.style.display = isHidden ? '' : 'none';
+    chevron.style.transform = isHidden ? '' : 'rotate(-90deg)';
 }
 
 function smoothData(data, windowSize) {
@@ -271,6 +298,7 @@ function drawSmoothedTimeSeriesChart() {
             datasets: smoothedData
         },
         options: {
+            maintainAspectRatio: false,
             scales: {
                 x: {
                     title: {
@@ -325,14 +353,15 @@ function openPage(pageName) {
         window.dispatchEvent(new Event('resize'));
     }
 
-    if (pageName === 'TimeSeries') {
+    if (pageName === 'AdminPanel') {
+        if (window.adminPanel) window.adminPanel.renderPanel();
+    }
+
+    if (pageName === 'LegacyTimeSeries') {
         if (!chart) {
             drawTimeSeriesChart();
         }
         chart.update();
-    }
-
-    if (pageName === 'TimeSeriesSmooth') {
         if (!chartSmooth) {
             drawSmoothedTimeSeriesChart();
         } else {
@@ -351,6 +380,7 @@ function openPage(pageName) {
             drawSmoothedTimeSeriesChart();
         }
     }
+
 }
 
 // CLD behavior analysis moved to dedicated CLD Analysis tab

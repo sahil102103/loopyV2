@@ -94,6 +94,9 @@ function Model(loopy){
 				pass: node.pass,
 				floor: isFinite(node.floor) ? node.floor : String(node.floor),
 				ceiling: isFinite(node.ceiling) ? node.ceiling : String(node.ceiling),
+				formula: node.formula || null,
+				sinkFormula: node.sinkFormula || null,
+				sourceFormula: node.sourceFormula || null,
 			})),
 			edges: self.edges.map(edge => ({
 				id: edge.id,
@@ -391,7 +394,23 @@ function Model(loopy){
 		_canvasDirty = true;
 	};
 
+	var _simFrameCount = 0;
+	// Re-send interval matches signal travel time: 300 / 2^speed frames
+	// This prevents signals stacking up on edges while waiting to be re-sent
+	function _getSimInterval() {
+		var speed = self.loopy ? parseFloat(self.loopy.signalSpeed) : NaN;
+		if (isNaN(speed)) speed = 0;
+		return Math.max(2, Math.round(300 / Math.pow(2, speed)));
+	}
+
+	// Called by PlayControls when play starts — resets counter so first tick fires immediately
+	self.startSim = function() {
+		_simFrameCount = 0;
+	};
+
 	self.update = function(){
+
+		var _isPlaying = (self.loopy && self.loopy.mode === Loopy.MODE_PLAY);
 
 		// Update edges first
 		for(var i=0;i<self.edges.length;i++) self.edges[i].update(self.speed);
@@ -409,6 +428,31 @@ function Model(loopy){
 
 		// Phase 3: Run node visual update (spring animation, controls, bounds)
 		for(var i=0;i<self.nodes.length;i++) self.nodes[i].update(self.speed);
+
+		if (_isPlaying) {
+			// Check first (so frame 0 fires immediately on startSim), then increment
+			if (_simFrameCount % _getSimInterval() === 0) {
+				self.nodes.forEach(function(node) {
+					node.sendSignal({ delta: node.value });
+				});
+
+				// Update time series chart once per simulation step
+				if (typeof chart !== 'undefined' && chart) {
+					var selectedNodes = (typeof loopy !== 'undefined' && loopy.multipleselect)
+						? loopy.multipleselect.getSelectedNodes() : [];
+					var chartNodes = (selectedNodes && selectedNodes.length > 0) ? selectedNodes : self.nodes;
+					chart.data.labels.push(typeof tick !== 'undefined' ? tick : _simFrameCount);
+					if (typeof tick !== 'undefined') tick++;
+					chartNodes.forEach(function(node, i) {
+						var v = node.value;
+						if (isFinite(node.floor)   && v < node.floor)   v = node.floor;
+						if (isFinite(node.ceiling) && v > node.ceiling) v = node.ceiling;
+						if (typeof updateTimeSeriesChart === 'function') updateTimeSeriesChart(v, i);
+					});
+				}
+			}
+			_simFrameCount++;
+		}
 
 		// Dirty!
 		_canvasDirty = true;

@@ -76,10 +76,10 @@ def simulate_two_phase(G: nx.DiGraph, init_vals: dict, steps: int):
     formulas = {n: G.nodes[n].get("formula") for n in converters}
     
     # Gather sink & source settings
-    sink_nodes = {n: G.nodes[n].get("sink_formula") 
-                  for n in G if "sink_formula" in G.nodes[n]}
-    source_nodes = {n: G.nodes[n].get("source_formula") 
-                    for n in G if "source_formula" in G.nodes[n]}
+    sink_nodes = {n: G.nodes[n]["sink_formula"]
+                  for n in G if G.nodes[n].get("sink_formula") is not None}
+    source_nodes = {n: G.nodes[n]["source_formula"]
+                    for n in G if G.nodes[n].get("source_formula") is not None}
     
     for t in range(steps):
         nxt = {n: 0.0 for n in G}
@@ -156,26 +156,26 @@ def simulate_two_phase(G: nx.DiGraph, init_vals: dict, steps: int):
             ceil_b = _eval_bound(G.nodes[n].get("ceiling", math.inf), ctx_conv, math.inf)
             hist[n][-1] = float(np.clip(val, floor_b, ceil_b))
         
-        # Phase D: apply sink & source multipliers
+        # Phase D: apply sink & source deltas (additive, not multiplicative)
         for n, expr in sink_nodes.items():
             try:
                 ctx_sink = {"t": t, "x": hist[n][-1], "val": hist[n][-1],
                            "math": math, "np": np, "e": math.e}
-                factor = float(eval(expr, {}, ctx_sink))
+                delta = float(eval(expr, {}, ctx_sink))
             except Exception as err:
-                print(f"⚠️ sink error @ '{n}': {err} (using 1.0)")
-                factor = 1.0
-            hist[n][-1] *= factor
-        
+                print(f"⚠️ sink error @ '{n}': {err} (using 0.0)")
+                delta = 0.0
+            hist[n][-1] -= delta
+
         for n, expr in source_nodes.items():
             try:
                 ctx_src = {"t": t, "x": hist[n][-1], "val": hist[n][-1],
                           "math": math, "np": np, "e": math.e}
-                factor = float(eval(expr, {}, ctx_src))
+                delta = float(eval(expr, {}, ctx_src))
             except Exception as err:
-                print(f"⚠️ source error @ '{n}': {err} (using 1.0)")
-                factor = 1.0
-            hist[n][-1] *= factor
+                print(f"⚠️ source error @ '{n}': {err} (using 0.0)")
+                delta = 0.0
+            hist[n][-1] += delta
     
     return hist
 
@@ -264,6 +264,86 @@ def analyze_eigenvalues_stability(A):
     avg_mag = mags.mean()
     dist_metric = abs(1 - avg_mag)
     return eigvals, dist_metric, max_mag
+
+
+DIST_TOL = 0.10  # within 10% of unit circle → "stable"
+
+
+def compute_shape_penalty(z_series, flat_tol=0.05, extreme_tol=2.0, oscillation_tol=3):
+    """
+    Penalise undesirable Z-score shapes:
+      - Flat (mean |Z| near 0)
+      - Extreme divergence (max |Z| > extreme_tol)
+      - Excessive zero-crossings
+    """
+    z = np.asarray(z_series, dtype=float)
+    penalty = 0.0
+    if np.mean(np.abs(z)) < flat_tol:
+        penalty += 2.0
+    max_abs_z = np.max(np.abs(z))
+    if max_abs_z > extreme_tol:
+        penalty += (max_abs_z - extreme_tol)
+    zero_crossings = int(np.sum(np.diff(np.sign(z)) != 0))
+    if zero_crossings > oscillation_tol:
+        penalty += (zero_crossings - oscillation_tol) * 0.5
+    return penalty
+
+
+def simulate_with_stability(G, decay_vals, delays, *, ret_val=None,
+                             iters=100, use_delay=True, z_window=10):
+    """
+    Sweep (decay × delay) for a fixed retention slice.
+
+    For each cell:
+      - eigenvalue dist_metric via compute_adjacency_matrix_stability
+      - max rolling-Z across all nodes via simulate_two_phase
+
+    Returns
+    -------
+    dist_grid      : np.ndarray  (len(delays), len(decay_vals))
+    zscore_grid    : np.ndarray  same shape
+    raw_series_map : dict  (delay_int, decay_float) → list[np.ndarray]
+    """
+    dist_grid      = np.zeros((len(delays), len(decay_vals)))
+    zscore_grid    = np.zeros_like(dist_grid)
+    raw_series_map = {}
+
+    # Pass 1 — calibrate penalty for unstable points
+    stable_distances = []
+    for decay in decay_vals:
+        A, _ = compute_adjacency_matrix_stability(G, float(decay))
+        _, dist_metric, _ = analyze_eigenvalues_stability(A)
+        if dist_metric < DIST_TOL:
+            stable_distances.append(dist_metric)
+    penalty_metric = max(stable_distances) + 0.1 if stable_distances else 1.0
+
+    # Pass 2 — eigenvalue dist + signal simulation
+    for i, delay in enumerate(delays):
+        for j, decay in enumerate(decay_vals):
+            A, _ = compute_adjacency_matrix_stability(G, float(decay))
+            _, dist_metric, _ = analyze_eigenvalues_stability(A)
+            dist_grid[i, j] = dist_metric if dist_metric < DIST_TOL else penalty_metric
+
+            G_sim = G.copy()
+            eff_ret = float(ret_val) if ret_val is not None else (1.0 - float(decay))
+            for n in G_sim.nodes:
+                G_sim.nodes[n]['retention'] = eff_ret
+            nx.set_edge_attributes(G_sim, int(delay) if use_delay else 0, 'delay')
+
+            init_vals = {n: G_sim.nodes[n].get('start_amount', 0.0) for n in G_sim.nodes}
+            hist = simulate_two_phase(G_sim, init_vals, iters)
+
+            z_maxes, series_arrays = [], []
+            for series in hist.values():
+                clean = np.asarray([v for v in series if v is not None], dtype=float)
+                if clean.size > 0:
+                    z = rolling_z(clean.tolist(), window=z_window)
+                    z_maxes.append(float(np.abs(z).max()))
+                    series_arrays.append(clean)
+            zscore_grid[i, j] = max(z_maxes) if z_maxes else 0.0
+            raw_series_map[(int(delay), float(decay))] = series_arrays
+
+    return dist_grid, zscore_grid, raw_series_map
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -399,13 +479,13 @@ def run_advanced_simulation(graph_data, iterations=200):
             continue
         G.add_node(name,
                    start_amount=node_data.get('start_amount', 0.1),
-                   retention=node_data.get('retention', 0.9),
+                   retention=0.0 if node_data.get('pass') else node_data.get('retention', 0.9),
                    floor=node_data.get('floor', -math.inf),
                    ceiling=node_data.get('ceiling', math.inf),
                    formula=node_data.get('formula'),
                    sink_formula=node_data.get('sink_formula', node_data.get('sinkFormula')),
                    source_formula=node_data.get('source_formula', node_data.get('sourceFormula')))
-    
+
     # Add edges
     for edge_data in graph_data.get('edges', []):
         u = edge_data.get('source', edge_data.get('from', edge_data.get('src')))
@@ -478,13 +558,13 @@ def run_stability_analysis(graph_data, decay_range, delay_range, iterations=200)
             continue
         G.add_node(name,
                    start_amount=node_data.get('start_amount', 0.1),
-                   retention=node_data.get('retention', 0.9),
+                   retention=0.0 if node_data.get('pass') else node_data.get('retention', 0.9),
                    floor=node_data.get('floor', -math.inf),
                    ceiling=node_data.get('ceiling', math.inf),
                    formula=node_data.get('formula'),
                    sink_formula=node_data.get('sink_formula', node_data.get('sinkFormula')),
                    source_formula=node_data.get('source_formula', node_data.get('sourceFormula')))
-    
+
     for edge_data in graph_data.get('edges', []):
         u = edge_data.get('source', edge_data.get('from', edge_data.get('src')))
         v = edge_data.get('target', edge_data.get('to', edge_data.get('tgt')))
@@ -504,7 +584,7 @@ def run_stability_analysis(graph_data, decay_range, delay_range, iterations=200)
     delay_values = np.linspace(delay_min, delay_max, int(delay_steps), dtype=int)
     
     stability_matrix = np.zeros((len(delay_values), len(decay_values)))
-    
+
     # Run sweep
     for i, delay in enumerate(delay_values):
         for j, decay in enumerate(decay_values):
@@ -512,25 +592,25 @@ def run_stability_analysis(graph_data, decay_range, delay_range, iterations=200)
             G_temp = G.copy()
             nx.set_edge_attributes(G_temp, float(decay), 'decay')
             nx.set_edge_attributes(G_temp, int(delay), 'delay')
-            
+
             # Simulate
             init_vals = {n: G_temp.nodes[n]['start_amount'] for n in G_temp.nodes}
             hist = simulate_two_phase(G_temp, init_vals, iterations)
-            
+
             # Classify
             classification = classify_behavior(hist)
-            
+
             if "Unconstrained" in classification.values():
                 stability_matrix[i, j] = 1.0
             elif "Optimal" in classification.values():
                 stability_matrix[i, j] = 0.6
             else:
                 stability_matrix[i, j] = 0.2
-    
+
     # Create heatmap
     heatmap_fig = create_stability_heatmap(decay_values, delay_values, stability_matrix)
     heatmap_b64 = plot_to_base64(heatmap_fig)
-    
+
     return {
         "success": True,
         "stability_matrix": stability_matrix.tolist(),
@@ -540,18 +620,18 @@ def run_stability_analysis(graph_data, decay_range, delay_range, iterations=200)
     }
 
 
-def run_3d_param_space(graph_data, retention_range, decay_range, delay_range, iterations=100):
+def run_3d_param_space(graph_data, retention_range, decay_range, delay_range,
+                        iterations=100, w_dist=0.5, w_z=0.3, w_shape=0.2, z_window=10):
     """
-    Sweep retention × decay × delay and return a flat list of scored points
-    for 3D visualization on the frontend.
+    Sweep retention × decay × delay using one simulate_with_stability call per
+    retention slice (matches notebook's paramspace_3d_stack_of_2d).
 
-    Returns:
-    --------
-    dict with:
-        points: list of {retention, decay, delay, score, behavior}
-        retention_values, decay_values, delay_values
+    Scoring per cell:
+        combo = w_dist * eigen_dist + w_z * max_rolling_z
+                + w_shape * avg_shape_penalty + flat_penalty
+
+    Points are ranked into 11 bins (0 = best/lowest combo, 10 = worst).
     """
-    # Build base graph
     G = nx.DiGraph()
     for node_data in graph_data.get('nodes', []):
         name = node_data.get('name') or node_data.get('id') or node_data.get('label')
@@ -559,10 +639,12 @@ def run_3d_param_space(graph_data, retention_range, decay_range, delay_range, it
             continue
         G.add_node(name,
                    start_amount=node_data.get('start_amount', 0.1),
-                   retention=node_data.get('retention', 0.9),
+                   retention=0.0 if node_data.get('pass') else node_data.get('retention', 0.9),
                    floor=node_data.get('floor', -math.inf),
-                   ceiling=node_data.get('ceiling', math.inf))
-
+                   ceiling=node_data.get('ceiling', math.inf),
+                   formula=node_data.get('formula'),
+                   sink_formula=node_data.get('sink_formula'),
+                   source_formula=node_data.get('source_formula'))
     for edge_data in graph_data.get('edges', []):
         u = edge_data.get('source', edge_data.get('from', edge_data.get('src')))
         v = edge_data.get('target', edge_data.get('to', edge_data.get('tgt')))
@@ -570,7 +652,7 @@ def run_3d_param_space(graph_data, retention_range, decay_range, delay_range, it
             continue
         G.add_edge(u, v,
                    correlation=edge_data.get('correlation', 1.0),
-                   decay=0.0,
+                   decay=edge_data.get('decay', 0.0),
                    delay=0,
                    confidence=edge_data.get('confidence', edge_data.get('certainty', 1.0)))
 
@@ -578,46 +660,419 @@ def run_3d_param_space(graph_data, retention_range, decay_range, delay_range, it
     decay_values     = np.linspace(decay_range[0],     decay_range[1],     int(decay_range[2]))
     delay_values     = np.linspace(delay_range[0],     delay_range[1],     int(delay_range[2]), dtype=int)
 
-    BEHAVIOR_SCORE = {"Unconstrained": 1.0, "Optimal": 0.6, "Over-damped": 0.2}
-
-    points = []
-    for retention in retention_values:
-        for decay in decay_values:
-            for delay in delay_values:
-                G_temp = G.copy()
-                for n in G_temp.nodes:
-                    G_temp.nodes[n]['retention'] = float(retention)
-                nx.set_edge_attributes(G_temp, float(decay), 'decay')
-                nx.set_edge_attributes(G_temp, int(delay),   'delay')
-
-                init_vals = {n: G_temp.nodes[n]['start_amount'] for n in G_temp.nodes}
-                try:
-                    hist = simulate_two_phase(G_temp, init_vals, iterations)
-                    classification = classify_behavior(hist)
-                    behaviors = list(classification.values())
-                    if "Unconstrained" in behaviors:
-                        behavior, score = "Unconstrained", 1.0
-                    elif "Optimal" in behaviors:
-                        behavior, score = "Optimal", 0.6
-                    else:
-                        behavior, score = "Over-damped", 0.2
-                except Exception:
-                    behavior, score = "Error", 0.0
-
-                points.append({
-                    "retention": round(float(retention), 3),
-                    "decay":     round(float(decay),     3),
+    rows = []
+    for r_i, ret in enumerate(retention_values, 1):
+        print(f"  3D slice {r_i}/{len(retention_values)}  (ret={ret:.2f})")
+        dist_grid, z_grid, raw_map = simulate_with_stability(
+            G,
+            decay_vals=decay_values.tolist(),
+            delays=delay_values.tolist(),
+            ret_val=float(ret),
+            iters=iterations,
+            use_delay=True,
+            z_window=z_window
+        )
+        for i, delay in enumerate(delay_values):
+            for j, decay in enumerate(decay_values):
+                series_list = raw_map.get((int(delay), float(decay)), [])
+                shape_pens = [
+                    compute_shape_penalty(rolling_z(s.tolist(), window=z_window))
+                    for s in series_list
+                ]
+                avg_shape = float(np.mean(shape_pens)) if shape_pens else 0.0
+                avg_abs_z = abs(float(z_grid[i, j]))
+                flat_pen  = 2.0 if avg_abs_z < 0.05 else 0.0
+                combo = (w_dist  * float(dist_grid[i, j]) +
+                         w_z     * float(z_grid[i, j])    +
+                         w_shape * avg_shape               +
+                         flat_pen)
+                rows.append({
+                    "retention": round(float(ret),   3),
+                    "decay":     round(float(decay), 3),
                     "delay":     int(delay),
-                    "score":     score,
-                    "behavior":  behavior
+                    "combo":     round(combo, 4),
+                    "dist":      round(float(dist_grid[i, j]), 4),
+                    "z":         round(float(z_grid[i, j]),    4),
+                    "shape":     round(avg_shape, 4),
                 })
 
+    if not rows:
+        return {"success": False, "error": "No points computed"}
+
+    # Rank into 11 bins: 0 = best (lowest combo), 10 = worst
+    combos   = np.array([r["combo"] for r in rows])
+    ranks    = rankdata(combos, method="min") - 1
+    max_rank = max(ranks.max(), 1)
+    rank_bins = (ranks * 10 / max_rank).astype(int)
+
+    for r, bin_ in zip(rows, rank_bins):
+        r["rank_bin"] = int(bin_)
+
     return {
-        "success": True,
-        "points":           points,
+        "success":          True,
+        "points":           rows,
         "retention_values": retention_values.tolist(),
         "decay_values":     decay_values.tolist(),
-        "delay_values":     delay_values.tolist()
+        "delay_values":     delay_values.tolist(),
     }
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# MONTE CARLO UNCERTAINTY (Fan Chart)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _perturb_graph_by_confidence(G_in, *, sigma_base=0.25, rng=None):
+    """
+    Resample each edge's correlation using certainty-driven logic:
+      c = 1.0  → keep exact correlation (deterministic)
+      c = 0.0  → Uniform[-1, 1] (total ignorance)
+      0 < c < 1:
+          with prob c:       keep corr unchanged
+          with prob (1-c):   sample Normal(corr, sigma_base*(1-c)), clipped to [-1,1]
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+    G = G_in.copy()
+    for u, v, d in G.edges(data=True):
+        corr0 = float(d.get('correlation', 1.0))
+        c = float(d.get('confidence', d.get('certainty', 1.0)))
+        c = max(0.0, min(1.0, c))
+
+        if c >= 1.0 - 1e-12:
+            new_corr = corr0
+        elif c <= 1e-12:
+            new_corr = float(rng.uniform(-1.0, 1.0))
+        else:
+            if rng.random() < c:
+                new_corr = corr0
+            else:
+                sigma = max(1e-6, sigma_base * (1.0 - c))
+                new_corr = float(np.clip(rng.normal(loc=corr0, scale=sigma), -1.0, 1.0))
+
+        d['correlation'] = new_corr
+    return G
+
+
+def simulate_fan_paths(G_ref, steps, *, n_sims=200, sigma_base=0.25, seed=42):
+    """
+    Monte-Carlo envelope for node values.
+    Returns dict: {node: np.ndarray(n_sims × T)}
+    """
+    rng = np.random.default_rng(seed)
+    init_vals = {n: G_ref.nodes[n].get('start_amount', 0.0) for n in G_ref.nodes}
+    paths = {n: [] for n in G_ref.nodes}
+
+    for _ in range(n_sims):
+        Gs = _perturb_graph_by_confidence(G_ref, sigma_base=sigma_base, rng=rng)
+        hist = simulate_two_phase(Gs, init_vals, steps)
+        for n in G_ref.nodes:
+            arr = np.asarray([v for v in hist[n] if v is not None], dtype=float)
+            paths[n].append(arr)
+
+    return {n: np.vstack(lst) for n, lst in paths.items() if lst}
+
+
+def run_fan_chart(graph_data, iterations=200, n_sims=200, sigma_base=0.25):
+    """
+    Run Monte Carlo fan chart simulation.
+
+    Returns percentile bands (5/25/50/75/95) per node as JSON arrays,
+    plus a base64 matplotlib plot.
+    """
+    G = nx.DiGraph()
+    for node_data in graph_data.get('nodes', []):
+        name = node_data.get('name') or node_data.get('id') or node_data.get('label')
+        if not name:
+            continue
+        G.add_node(name,
+                   start_amount=node_data.get('start_amount', 0.0),
+                   retention=0.0 if node_data.get('pass') else node_data.get('retention', 1.0),
+                   floor=node_data.get('floor', -math.inf),
+                   ceiling=node_data.get('ceiling', math.inf),
+                   formula=node_data.get('formula'),
+                   sink_formula=node_data.get('sink_formula'),
+                   source_formula=node_data.get('source_formula'))
+    for edge_data in graph_data.get('edges', []):
+        u = edge_data.get('source', edge_data.get('from'))
+        v = edge_data.get('target', edge_data.get('to'))
+        if u is None or v is None:
+            continue
+        G.add_edge(u, v,
+                   correlation=edge_data.get('correlation', 1.0),
+                   decay=edge_data.get('decay', 0.6),
+                   delay=edge_data.get('delay', 0),
+                   confidence=edge_data.get('confidence', 0.8))
+
+    mc = simulate_fan_paths(G, iterations, n_sims=n_sims, sigma_base=sigma_base)
+    if not mc:
+        return {"success": False, "error": "All simulations failed"}
+
+    nodes = list(G.nodes)
+    percentiles = [5, 25, 50, 75, 95]
+    bands = {}
+    for node in nodes:
+        arr = mc.get(node)
+        if arr is None or arr.size == 0:
+            continue
+        bands[node] = {f"p{p}": np.percentile(arr, p, axis=0).tolist() for p in percentiles}
+
+    # Build matplotlib fan chart
+    n_nodes = len(nodes)
+    cols = min(3, n_nodes)
+    rows = math.ceil(n_nodes / cols)
+    fig, axes = plt.subplots(rows, cols, figsize=(6 * cols, 4 * rows), squeeze=False)
+    fig.patch.set_facecolor('#1a1a2e')
+
+    for idx, node in enumerate(nodes):
+        ax = axes[idx // cols][idx % cols]
+        ax.set_facecolor('#16213e')
+        if node not in bands:
+            ax.set_visible(False)
+            continue
+        b = bands[node]
+        steps_arr = np.arange(len(b['p50']))
+        ax.fill_between(steps_arr, b['p5'],  b['p95'], alpha=0.15, color='#4a7cff', label='5-95%')
+        ax.fill_between(steps_arr, b['p25'], b['p75'], alpha=0.30, color='#4a7cff', label='25-75%')
+        ax.plot(steps_arr, b['p50'], color='#4a7cff', linewidth=2, label='Median')
+        ax.set_title(node, color='#ccc', fontsize=11)
+        ax.tick_params(colors='#999')
+        for spine in ax.spines.values():
+            spine.set_edgecolor('#444')
+        ax.grid(True, alpha=0.2, color='#555')
+
+    # Hide unused axes
+    for idx in range(n_nodes, rows * cols):
+        axes[idx // cols][idx % cols].set_visible(False)
+
+    plt.suptitle(f'Fan Chart — {n_sims} Monte Carlo paths', color='#ccc', fontsize=13)
+    plt.tight_layout()
+    plot_b64 = plot_to_base64(fig)
+
+    actual_sims = next(iter(mc.values())).shape[0] if mc else 0
+    return {"success": True, "bands": bands, "plot": plot_b64, "n_sims": actual_sims}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PARAMETER OPTIMIZATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def apply_config_to_graph(G_base, cfg):
+    """Apply a uniform config {retention, decay, delay} to a copy of the graph."""
+    G = G_base.copy()
+    for n in G.nodes:
+        G.nodes[n]['retention'] = float(cfg.get('retention', G.nodes[n].get('retention', 1.0)))
+    for u, v in G.edges:
+        G[u][v]['decay'] = float(cfg.get('decay', G[u][v].get('decay', 0.6)))
+        G[u][v]['delay'] = int(cfg.get('delay', G[u][v].get('delay', 0)))
+    return G
+
+
+def evaluate_config(G_base, cfg, *, steps=200, z_window=10):
+    """
+    Score a parameter configuration. Lower score = better.
+
+    Components:
+      overdamped_ratio  — fraction of nodes that converge to zero (penalty: mild)
+      unconstrained_pen — fraction of nodes that diverge (penalty: severe)
+      z_stability       — mean rolling-Z magnitude (reward for staying near 0)
+    """
+    G = apply_config_to_graph(G_base, cfg)
+    init_vals = {n: G.nodes[n].get('start_amount', 0.0) for n in G.nodes}
+    hist = simulate_two_phase(G, init_vals, steps)
+    classifications = classify_behavior(hist)
+
+    n_total = max(len(classifications), 1)
+    n_over = sum(1 for c in classifications.values() if c == 'Over-damped')
+    n_unc  = sum(1 for c in classifications.values() if c == 'Unconstrained')
+
+    z_scores = []
+    for node, series in hist.items():
+        clean = [v for v in series if v is not None]
+        if len(clean) > z_window:
+            z_scores.append(float(np.mean(np.abs(rolling_z(clean, z_window)))))
+
+    z_pen = np.mean(z_scores) if z_scores else 1.0
+
+    score = (n_over * 0.3 + n_unc * 1.0) / n_total + min(z_pen * 0.1, 0.3)
+
+    return {
+        'score': round(score, 4),
+        'config': cfg,
+        'classifications': classifications,
+        'components': {
+            'overdamped_ratio':   round(n_over / n_total, 3),
+            'unconstrained_ratio': round(n_unc  / n_total, 3),
+            'z_stability':        round(z_pen, 3),
+        }
+    }
+
+
+def global_search_uniform(G_base, *, ret_vals=None, decay_vals=None, delay_vals=None,
+                           steps=200, z_window=10, topk=5):
+    """Grid search over uniform retention × decay × delay configurations."""
+    if ret_vals   is None: ret_vals   = np.linspace(0.0, 1.0, 5).tolist()
+    if decay_vals is None: decay_vals = np.linspace(0.0, 1.0, 5).tolist()
+    if delay_vals is None: delay_vals = list(range(0, 11, 2))
+
+    results = []
+    for ret in ret_vals:
+        for decay in decay_vals:
+            for delay in delay_vals:
+                cfg = {'retention': float(ret), 'decay': float(decay), 'delay': int(delay)}
+                try:
+                    results.append(evaluate_config(G_base, cfg, steps=steps, z_window=z_window))
+                except Exception:
+                    pass
+
+    results.sort(key=lambda x: x['score'])
+    return results[:topk]
+
+
+def local_refine_unique(G_base, seed_cfg, *, steps=200, z_window=10, topk=5,
+                         max_iters=150, step_ret=0.05, step_decay=0.05, step_delay=1):
+    """
+    Simulated annealing refinement around a seed uniform config.
+    Explores the neighbourhood of the best grid-search result.
+    """
+    rng = np.random.default_rng(42)
+    current = evaluate_config(G_base, seed_cfg, steps=steps, z_window=z_window)
+    seen = [current]
+    best_score = current['score']
+    T = 1.0
+    T_min = 0.05
+    alpha = (T_min / T) ** (1 / max_iters)
+
+    for _ in range(max_iters):
+        cfg = dict(seed_cfg)
+        delta_r = rng.choice([-step_ret, 0.0, step_ret])
+        delta_d = rng.choice([-step_decay, 0.0, step_decay])
+        delta_l = rng.choice([-step_delay, 0, step_delay])
+        cfg['retention'] = float(np.clip(cfg['retention'] + delta_r, 0.0, 1.0))
+        cfg['decay']     = float(np.clip(cfg['decay']     + delta_d, 0.0, 1.0))
+        cfg['delay']     = int(np.clip(cfg['delay']       + delta_l, 0,   10))
+
+        try:
+            result = evaluate_config(G_base, cfg, steps=steps, z_window=z_window)
+            diff = result['score'] - best_score
+            if diff < 0 or rng.random() < math.exp(-diff / max(T, 1e-8)):
+                seed_cfg = cfg
+                best_score = result['score']
+                seen.append(result)
+        except Exception:
+            pass
+        T *= alpha
+
+    seen.sort(key=lambda x: x['score'])
+    # Deduplicate by config string
+    deduped, seen_keys = [], set()
+    for r in seen:
+        key = str(r['config'])
+        if key not in seen_keys:
+            seen_keys.add(key)
+            deduped.append(r)
+    return deduped[:topk]
+
+
+def run_parameter_optimization(graph_data, ret_vals=None, decay_vals=None, delay_vals=None,
+                                steps=200, max_refine_iters=150):
+    """
+    Two-stage parameter optimization:
+      1. Global grid search over uniform configs
+      2. Simulated annealing refinement around the best result
+
+    Returns top-5 configurations with scores and classifications.
+    """
+    G = nx.DiGraph()
+    for node_data in graph_data.get('nodes', []):
+        name = node_data.get('name') or node_data.get('id') or node_data.get('label')
+        if not name:
+            continue
+        G.add_node(name,
+                   start_amount=node_data.get('start_amount', 0.0),
+                   retention=0.0 if node_data.get('pass') else node_data.get('retention', 1.0),
+                   floor=node_data.get('floor', -math.inf),
+                   ceiling=node_data.get('ceiling', math.inf))
+    for edge_data in graph_data.get('edges', []):
+        u = edge_data.get('source', edge_data.get('from'))
+        v = edge_data.get('target', edge_data.get('to'))
+        if u is None or v is None:
+            continue
+        G.add_edge(u, v,
+                   correlation=edge_data.get('correlation', 1.0),
+                   decay=edge_data.get('decay', 0.6),
+                   delay=edge_data.get('delay', 0),
+                   confidence=edge_data.get('confidence', 0.8))
+
+    if not G.nodes:
+        return {"success": False, "error": "Empty graph"}
+
+    # Stage 1: global grid search
+    grid_results = global_search_uniform(
+        G,
+        ret_vals=ret_vals or np.linspace(0.0, 1.0, 5).tolist(),
+        decay_vals=decay_vals or np.linspace(0.0, 1.0, 5).tolist(),
+        delay_vals=delay_vals or list(range(0, 11, 2)),
+        steps=steps,
+        topk=3
+    )
+
+    if not grid_results:
+        return {"success": False, "error": "Grid search produced no results"}
+
+    # Stage 2: local refinement around best grid result
+    refined = local_refine_unique(
+        G, grid_results[0]['config'],
+        steps=steps,
+        max_iters=max_refine_iters,
+        topk=5
+    )
+
+    # Merge grid + refined, re-sort, deduplicate
+    combined = grid_results + refined
+    combined.sort(key=lambda x: x['score'])
+    deduped, seen_keys = [], set()
+    for r in combined:
+        key = str(r['config'])
+        if key not in seen_keys:
+            seen_keys.add(key)
+            deduped.append(r)
+
+    top5 = deduped[:5]
+
+    # Serialize (remove hist to keep payload small)
+    serialized = []
+    for rank, r in enumerate(top5, 1):
+        serialized.append({
+            'rank': rank,
+            'score': r['score'],
+            'config': r['config'],
+            'classifications': r['classifications'],
+            'components': r.get('components', {}),
+        })
+
+    # Per-node individual optimization:
+    # For each node, find the parameter config where that node achieves "Optimal"
+    # and has the lowest combined score. Uses the same grid results.
+    all_grid = global_search_uniform(
+        G,
+        ret_vals=ret_vals or np.linspace(0.0, 1.0, 5).tolist(),
+        decay_vals=decay_vals or np.linspace(0.0, 1.0, 5).tolist(),
+        delay_vals=delay_vals or list(range(0, 11, 2)),
+        steps=steps,
+        topk=len(ret_vals or [5]) * len(decay_vals or [5]) * len(list(range(0, 11, 2)))
+    ) or grid_results
+
+    node_best = {}
+    for node_name in G.nodes:
+        candidates = [r for r in all_grid if r['classifications'].get(node_name) == 'Optimal']
+        if not candidates:
+            candidates = all_grid  # fallback: best available
+        best = min(candidates, key=lambda r: r['score'])
+        node_best[node_name] = {
+            'config': best['config'],
+            'score': best['score'],
+            'behavior': best['classifications'].get(node_name, 'Unknown'),
+            'all_behaviors': best['classifications'],
+        }
+
+    return {"success": True, "top_configs": serialized, "node_best": node_best}

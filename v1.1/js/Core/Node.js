@@ -94,8 +94,10 @@ function Node(model, config){
 		if(self.value>1+buffer) self.value=1+buffer;*/
 	};
 
-	// Add formula property
+	// Add formula properties
 	self.formula = config.formula || null;
+	self.sinkFormula = config.sinkFormula || null;
+	self.sourceFormula = config.sourceFormula || null;
 
 	// MOUSE.
 	var _controlsVisible = false;
@@ -207,35 +209,19 @@ function Node(model, config){
 		// do not know if this is bad i commented it out
 		// self.value += signal.delta;
 
-		if (self.value > self.ceiling) {
-			self.value = Math.min(self.ceiling, self.value)
-		}
-		
-		if (self.value < self.floor) {
-			self.value = Math.max(self.floor, self.value)
-		}
-
+		// Apply retention first, then clamp — matches backend simulate_two_phase order
 		self.value *= self.retention;
 
-		// Propagate signal
-		self.sendSignal(signal);
-
-		// Update the time series chart for each node
-		if (chart && (loopy.multipleselect.getSelectedNodes().length == 0)) {
-			chart.data.labels.push(tick);
-			tick++
-			for (let i = 0; i < model.nodes.length; i++) {
-				updateTimeSeriesChart(model.nodes[i].value, i);
-			}
-		} else if (chart && loopy.multipleselect.getSelectedNodes()) {
-			chart.data.labels.push(tick);
-			tick++
-			for (let i = 0; i < loopy.multipleselect.getSelectedNodes().length; i++) {
-				updateTimeSeriesChart(loopy.multipleselect.getSelectedNodes()[i].value, i);
-			}
+		if (isFinite(self.ceiling) && self.value > self.ceiling) {
+			self.value = self.ceiling;
+		}
+		if (isFinite(self.floor) && self.value < self.floor) {
+			self.value = self.floor;
 		}
 
-		_offsetVel -= 6 * (signal.delta/Math.abs(signal.delta));
+		if (signal.delta && isFinite(signal.delta)) {
+			_offsetVel -= 6 * (signal.delta / Math.abs(signal.delta));
+		}
 
 	}
 	
@@ -273,7 +259,8 @@ function Node(model, config){
 					if (self.nextValue < self.floor) self.nextValue = Math.max(self.floor, self.nextValue);
 				}
 			} catch (e) {
-				console.warn('Formula evaluation error for node', self.label, ':', e);
+				if (typeof showToast === 'function') showToast('Formula error on "' + self.label + '": ' + e.message, 'error');
+				console.error('Formula evaluation error for node', self.label, ':', e);
 			}
 			return;
 		}
@@ -354,8 +341,9 @@ function Node(model, config){
 			_offsetGoto = 0;
 		}
 		_offset += _offsetVel;
-		if(_offset>40) _offset=40
-		if(_offset<-40) _offset=-40;
+		if (!isFinite(_offset)) _offset = 0;
+		if (_offset > 40)  _offset =  40;
+		if (_offset < -40) _offset = -40;
 		_offsetVel += _offsetAcc;
 		_offsetVel *= _offsetDamp;
 		_offsetAcc = (_offsetGoto-_offset)*_offsetHookes;
@@ -378,6 +366,22 @@ function Node(model, config){
 		ctx.save();
 		ctx.translate(x,y+_offset);
 		
+		// Classification ring (set by Python simulation)
+		if (self.classification) {
+			var _classRingColors = {
+				'Optimal':       'rgba(46, 204, 113, 0.45)',
+				'Over-damped':   'rgba(52, 152, 219, 0.45)',
+				'Unconstrained': 'rgba(231, 76, 60, 0.45)',
+			};
+			var _ringColor = _classRingColors[self.classification];
+			if (_ringColor) {
+				ctx.beginPath();
+				ctx.arc(0, 0, r + 26, 0, Math.TAU, false);
+				ctx.fillStyle = _ringColor;
+				ctx.fill();
+			}
+		}
+
 		// DRAW HIGHLIGHT???
 		if (self.loopy.sidebar.currentPage.target == self){
 			ctx.beginPath();

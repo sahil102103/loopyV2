@@ -233,7 +233,7 @@ function integrateCLDEngine(loopyInstance) {
                 const behaviorDiv = content.querySelector('#behavior-results');
                 behaviorDiv.innerHTML = Object.entries(results.behavior)
                     .map(([node, classification]) => 
-                        `<p><strong>${node}</strong>: ${classification.behavior} (confidence: ${classification.confidence.toFixed(2)})</p>`
+                        `<p><strong>${node}</strong>: ${classification.behavior} (confidence: ${classification.confidence != null ? Number(classification.confidence).toFixed(2) : 'N/A'})</p>`
                     ).join('');
             }
 

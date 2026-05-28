@@ -1,34 +1,39 @@
-const BACKEND_URL = 'https://loopyv2-640o.onrender.com';
+const BACKEND_URL = CONFIG.API_URL;
 
-// Silently ping the backend on load so Render wakes up before the user runs any analysis
-fetch(`${BACKEND_URL}/`).catch(() => {});
+// Warmup ping (re-enable for Render production)
+// fetch(`${BACKEND_URL}/`).catch(() => {});
 
-let _spinnerTimer = null;
-let _spinnerStart = null;
+// ── Per-tab inline loading ────────────────────────────────────────────────────
+let _tabLoadingTimer = null;
 
-function showLoadingSpinner(message = 'Analyzing') {
-    const spinner = document.getElementById('loading-spinner');
-    const text = spinner.querySelector('.spinner-text');
-    text.textContent = message;
-    spinner.style.display = 'flex';
-
-    _spinnerStart = Date.now();
-    _spinnerTimer = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - _spinnerStart) / 1000);
-        if (elapsed >= 15) {
-            text.textContent = `Backend is starting up... (${elapsed}s)`;
-        } else if (elapsed >= 5) {
-            text.textContent = `Still working... (${elapsed}s)`;
-        }
+function showTabLoading(containerId, message = 'Loading') {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = `<div class="tab-loading"><div class="spinner-ring"></div><span class="spinner-text">${message}</span></div>`;
+    const textEl = el.querySelector('.spinner-text');
+    const start = Date.now();
+    clearInterval(_tabLoadingTimer);
+    _tabLoadingTimer = setInterval(() => {
+        if (!el.querySelector('.spinner-text')) { clearInterval(_tabLoadingTimer); return; }
+        const elapsed = Math.floor((Date.now() - start) / 1000);
+        if (elapsed >= 15)     textEl.textContent = `Backend is starting up... (${elapsed}s)`;
+        else if (elapsed >= 5) textEl.textContent = `Still working... (${elapsed}s)`;
     }, 1000);
 }
 
+function clearTabLoading() {
+    clearInterval(_tabLoadingTimer);
+    _tabLoadingTimer = null;
+}
+
+// Global overlay — only kept for Stripe checkout redirect
+function showLoadingSpinner() {
+    const s = document.getElementById('loading-spinner');
+    if (s) s.style.display = 'flex';
+}
 function hideLoadingSpinner() {
-    clearInterval(_spinnerTimer);
-    _spinnerTimer = null;
-    const spinner = document.getElementById('loading-spinner');
-    spinner.querySelector('.spinner-text').textContent = 'Analyzing';
-    spinner.style.display = 'none';
+    const s = document.getElementById('loading-spinner');
+    if (s) s.style.display = 'none';
 }
 
 // Global arrays (if you wish to keep them as globals)
@@ -199,20 +204,16 @@ const loadInitialData = async () => {
 };
 
 document.getElementById('cycleAnalysisTab').onclick = async () => {
-
-    showLoadingSpinner();
+    openPage('CycleAnalysis');
+    showTabLoading('cycleTable', 'Analyzing cycles');
     await loadInitialData();
 
-    // Collect data to send to the backend
     const payload = {
-        edges: edgePairs, // Example: [["A", "B"], ["B", "C"]]
-        edge_polarities: edgePolarities // Example: ["+", "–"]
+        edges: edgePairs,
+        edge_polarities: edgePolarities
     };
 
-    console.log(payload)
-
     try {
-        // Send POST request to Flask backend
         const response = await fetch(`${BACKEND_URL}/cycle-analysis`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -220,24 +221,18 @@ document.getElementById('cycleAnalysisTab').onclick = async () => {
         });
 
         const data = await response.json();
-
-        // Display the returned table in HTML
         document.getElementById("cycleTable").innerHTML = data.table;
 
-        // Handle duplicate node labels
         const duplicateNodesWithEdgesWarningId = document.getElementById("duplicateNodesWithEdgesWarning");
         duplicateNodesWithEdgesWarningId.innerHTML = 'Duplicate Nodes: ';
         duplicateLabels.forEach(label => {
             duplicateNodesWithEdgesWarningId.innerHTML += `<span>${label}; </span>`;
         });
-
-        // CLD cycle analysis moved to dedicated CLD Analysis tab
-
     } catch (error) {
         console.error("Error fetching cycle analysis data:", error);
+        document.getElementById("cycleTable").innerHTML = `<div class="error">Error: ${error.message}</div>`;
     } finally {
-        hideLoadingSpinner();
-        openPage('CycleAnalysis');
+        clearTabLoading();
     }
 };
 
@@ -245,50 +240,36 @@ document.getElementById('cycleAnalysisTab').onclick = async () => {
 document.getElementById('crisisAnalysisTab').addEventListener('click', async (event) => {
     event.preventDefault();
     event.stopPropagation();
-    console.log("Crisis Analysis clicked");
-
-    showLoadingSpinner();
+    openPage('CrisisAnalysis');
+    showTabLoading('crisisAnalysisPlots', 'Analyzing');
 
     try {
-        // Load data
         await loadInitialData();
 
         if (Object.keys(timeSeriesData).length === 0) {
             throw new Error("No valid time series data to send.");
         }
 
-        const requestData = { time_series_data: timeSeriesData, start_iteration: 0 };
-        console.log("Payload:", requestData);
-
-        // Fetch plot from the backend
         const response = await fetch(`${BACKEND_URL}/crisis-analysis`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestData)
+            body: JSON.stringify({ time_series_data: timeSeriesData, start_iteration: 0 })
         });
 
         if (!response.ok) throw new Error(`Failed to fetch: ${response.statusText}`);
 
-        // Display the plot
         const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-
         const container = document.getElementById('crisisAnalysisPlots');
-        container.innerHTML = ''; // Clear previous plots
-
+        container.innerHTML = '';
         const img = document.createElement('img');
-        img.src = url;
+        img.src = URL.createObjectURL(blob);
         img.alt = "Crisis Analysis Plot";
         container.appendChild(img);
-
-        // CLD behavior classification moved to dedicated CLD Analysis tab
-
     } catch (error) {
         console.error("Error:", error);
-        alert(`Error: ${error.message}`);
+        document.getElementById('crisisAnalysisPlots').innerHTML = `<div class="error">Error: ${error.message}</div>`;
     } finally {
-        hideLoadingSpinner();
-        console.log('Done');
+        clearTabLoading();
     }
 });
 
@@ -298,112 +279,69 @@ document.getElementById('crisisAnalysisTab').addEventListener('click', async (ev
 // CLD analysis functions are now integrated into existing analysis tabs
 
 document.getElementById('degreeCentralityTab').onclick = async () => {
-    showLoadingSpinner();
+    openPage('DegreeCentrality');
+    showTabLoading('centralityTable', 'Analyzing');
     await loadInitialData();
 
-    const payload = {
-        edges: edgePairs, // Example: [["A", "B"], ["B", "C"]]
-        edge_polarities: edgePolarities // Example: ["+", "–"]
-    };
-
     try {
-        // Send POST request to the backend
         const response = await fetch(`${BACKEND_URL}/degree-centrality`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({ edges: edgePairs, edge_polarities: edgePolarities })
         });
 
-        if (!response.ok) {
-            throw new Error(`Backend Error: ${response.statusText}`);
-        }
-
+        if (!response.ok) throw new Error(`Backend Error: ${response.statusText}`);
         const data = await response.json();
-
-        if (data.error) {
-            throw new Error(data.error);
-        }
-
-        // Insert the returned HTML into the DOM
+        if (data.error) throw new Error(data.error);
         document.getElementById("centralityTable").innerHTML = data.centrality_output;
     } catch (error) {
         console.error("Error fetching centrality data:", error);
-        alert(`Error: ${error.message}`);
+        document.getElementById("centralityTable").innerHTML = `<div class="error">Error: ${error.message}</div>`;
     } finally {
-        hideLoadingSpinner();
-        openPage('DegreeCentrality');
+        clearTabLoading();
     }
 };
 
 document.getElementById('visualAnalysisTab').onclick = async () => {
-    showLoadingSpinner();
+    openPage('VisualAnalysis');
+    showTabLoading('visualAnalysisPlots', 'Analyzing');
     try {
         const data = await loadInitialData();
-        
+
         if (!data || edgePairs.length === 0) {
-            throw new Error("No edges found in the current graph. Please create a graph with nodes and edges first.");
+            throw new Error("No edges found. Please create a graph with nodes and edges first.");
         }
-        
-        const payload = {
-            ...data,
-            edge_polarities: edgePolarities
-        };
 
-        console.log("Visual Analysis Payload:", payload);
-
-        // Send a POST request to the Flask backend
         const response = await fetch(`${BACKEND_URL}/visual-analysis`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({ ...data, edge_polarities: edgePolarities })
         });
 
-        if (!response.ok) {
-            throw new Error(`Failed to fetch visual analysis: ${response.statusText}`);
-        }
-
+        if (!response.ok) throw new Error(`Failed to fetch visual analysis: ${response.statusText}`);
         const result = await response.json();
-        
-        // Check if there's an error in the response
-        if (result.error) {
-            throw new Error(`Backend error: ${result.error}`);
-        }
-        
-        const { plots } = result; // Retrieve file paths for plots
+        if (result.error) throw new Error(`Backend error: ${result.error}`);
 
-        // Display the plots dynamically
         const plotsContainer = document.getElementById('visualAnalysisPlots');
-        plotsContainer.innerHTML = ''; // Clear existing plots
+        plotsContainer.innerHTML = '';
 
-        if (!plots || plots.length === 0) {
-            plotsContainer.innerHTML = '<div class="error">No plots were generated. This might be due to insufficient data or graph structure.</div>';
+        if (!result.plots || result.plots.length === 0) {
+            plotsContainer.innerHTML = '<div class="error">No plots were generated.</div>';
             return;
         }
 
-        plots.forEach(dataUrl => {
+        result.plots.forEach(dataUrl => {
             const img = document.createElement('img');
             img.src = dataUrl;
             img.alt = 'Visual Analysis Plot';
             img.style.maxWidth = '100%';
-            img.style.height = 'auto';
-            img.style.margin = '10px';
-            img.style.border = '1px solid #ddd';
-            img.style.borderRadius = '5px';
             plotsContainer.appendChild(img);
         });
-
-        openPage('VisualAnalysis'); // Open the Visual Analysis Tab
     } catch (error) {
         console.error("Error fetching visual analysis:", error);
-        
-        // Display error in the plots container
-        const plotsContainer = document.getElementById('visualAnalysisPlots');
-        plotsContainer.innerHTML = `<div class="error">Error: ${error.message}</div>`;
-        
-        // Still open the tab to show the error
-        openPage('VisualAnalysis');
+        document.getElementById('visualAnalysisPlots').innerHTML = `<div class="error">Error: ${error.message}</div>`;
     } finally {
-        hideLoadingSpinner();
+        clearTabLoading();
     }
 };
 
@@ -412,323 +350,143 @@ document.getElementById('visualAnalysisTab').onclick = async () => {
 document.getElementById('correlationTab').addEventListener('click', async (event) => {
     event.preventDefault();
     event.stopPropagation();
-    console.log("Correlation Analysis clicked");
-
-    showLoadingSpinner();
+    openPage('Correlation');
+    showTabLoading('correlationPlot', 'Analyzing');
 
     try {
-        // Load graph data
         await loadInitialData();
 
         if (edgePairs.length === 0) {
             throw new Error("No valid edges provided for correlation analysis.");
         }
 
-        const requestData = { edges: edgePairs, time_series_data: timeSeriesData };
-        console.log("Payload:", requestData);
-
-        // Fetch correlation plot from the backend
         const response = await fetch(`${BACKEND_URL}/correlation-analysis`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestData)
+            body: JSON.stringify({ edges: edgePairs, time_series_data: timeSeriesData })
         });
 
         if (!response.ok) throw new Error(`Failed to fetch: ${response.statusText}`);
 
-        // Display the plot
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-
         const container = document.getElementById('correlationPlot');
-        container.innerHTML = ''; // Clear previous plots
-
+        container.innerHTML = '';
         const img = document.createElement('img');
-        img.src = url;
+        img.src = URL.createObjectURL(await response.blob());
         img.alt = "Correlation Analysis Plot";
         container.appendChild(img);
-
     } catch (error) {
         console.error("Error fetching correlation analysis:", error);
-        alert(`Error: ${error.message}`);
+        document.getElementById('correlationPlot').innerHTML = `<div class="error">Error: ${error.message}</div>`;
     } finally {
-        hideLoadingSpinner();
-        console.log('Correlation Analysis Done');
+        clearTabLoading();
     }
 });
 
 
-// Example for a stability map that needs decay/delay ranges
-document.getElementById("genereatedDelayDecay").onclick = async () => {
-    showLoadingSpinner();
+// Generate all 3 stability maps in parallel (Decay vs Delay, Decay vs Retention, Retention vs Delay)
+document.getElementById("generateAllStabilityMaps").onclick = async () => {
+    showTabLoading('stabilityMapPlot', 'Generating maps');
     const data = await loadInitialData();
-    if (!data) {
-        hideLoadingSpinner();
-        console.log('fail')
-        return;
-    }
+    if (!data) { clearTabLoading(); return; }
 
-    const decayMin = parseFloat(document.getElementById("decayMin").value);
-    const decayMax = parseFloat(document.getElementById("decayMax").value);
-    const decaySteps = parseInt(document.getElementById("decaySteps").value);
-    const delayMin = parseFloat(document.getElementById("delayMin").value);
-    const delayMax = parseFloat(document.getElementById("delayMax").value);
-    const delaySteps = parseInt(document.getElementById("delaySteps").value);
+    const decayMin      = parseFloat(document.getElementById("decayMin").value);
+    const decayMax      = parseFloat(document.getElementById("decayMax").value);
+    const decaySteps    = parseInt(document.getElementById("decaySteps").value);
+    const delayMin      = parseFloat(document.getElementById("delayMin").value);
+    const delayMax      = parseFloat(document.getElementById("delayMax").value);
+    const delaySteps    = parseInt(document.getElementById("delaySteps").value);
+    const retentionMin  = parseFloat(document.getElementById("nodeRetentionMin").value);
+    const retentionMax  = parseFloat(document.getElementById("nodeRetentionMax").value);
+    const retentionSteps = parseInt(document.getElementById("nodeRetentionSteps").value);
 
-    const requestData = {
-        // Merge data from loadInitialData with your range values
-        ...data,
-        decayRange: [decayMin, decayMax, decaySteps],
-        delayRange: [delayMin, delayMax, delaySteps]
-    };
+    const decayRange     = [decayMin, decayMax, decaySteps];
+    const delayRange     = [delayMin, delayMax, delaySteps];
+    const retentionRange = [retentionMin, retentionMax, retentionSteps];
 
-    console.log("Request Data for Stability Map:", requestData);
-
-    try {
-        const response = await fetch(`${BACKEND_URL}/generate-stability-map`, {
+    const fetchMap = (endpoint, payload, label) =>
+        fetch(`${BACKEND_URL}/${endpoint}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(requestData),
-        });
-
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-
-        const plotContainer = document.getElementById("stabilityMapPlot");
-        plotContainer.innerHTML = ""; 
-        const img = document.createElement("img");
-        img.src = url;
-        img.alt = "Stability Map";
-        plotContainer.appendChild(img);
-    } catch (error) {
-        console.error("Error generating stability map:", error);
-        alert("Failed to generate stability map. See console for details.");
-    } finally {
-        hideLoadingSpinner();
-    }
-};
-
-
-// Generate Decay-Retention Stability Map
-document.getElementById("generateDecayRetention").onclick = async () => {
-    showLoadingSpinner();
-    try {
-      // 1. Load Loopy data
-      const data = await loadInitialData();
-      if (!data) {
-        hideLoadingSpinner();
-        return;
-      }
-  
-      // 2. Extract user inputs for Decay/Retention
-      const decayMin = parseFloat(document.getElementById("decayMin").value);
-      const decayMax = parseFloat(document.getElementById("decayMax").value);
-      const decaySteps = parseInt(document.getElementById("decaySteps").value);
-  
-      const retentionMin = parseFloat(document.getElementById("nodeRetentionMin").value);
-      const retentionMax = parseFloat(document.getElementById("nodeRetentionMax").value);
-      const retentionSteps = parseInt(document.getElementById("nodeRetentionSteps").value);
-  
-      // 3. Merge everything into a single payload
-      const requestData = {
-        ...data, // edges, edgeWeights, edgePolarities, passNodes, etc. from loadInitialData
-        decayRange: [decayMin, decayMax, decaySteps],
-        retentionRange: [retentionMin, retentionMax, retentionSteps],
-      };
-  
-      // 4. Send POST to the Flask route
-      const response = await fetch(`${BACKEND_URL}/generate-decay-retention-map`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestData),
-      });
-  
-      if (!response.ok) {
-        throw new Error(`HTTP Error: ${response.statusText}`);
-      }
-  
-      // 5. Get the PNG blob
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-  
-      // 6. Display the resulting image in your DOM
-      const plotsContainer = document.getElementById("stabilityMapPlot");
-      plotsContainer.innerHTML = "";
-      const img = document.createElement("img");
-      img.src = url;
-      img.alt = "Decay-Retention Stability Map";
-      plotsContainer.appendChild(img);
-  
-    } catch (error) {
-      console.error("Error generating decay-retention map:", error);
-      alert("An error occurred. Check console for details.");
-    } finally {
-      hideLoadingSpinner();
-    }
-  };
-  
-
-
-// Generate Retention-Delay Stability Map
-document.getElementById("generateRetentionDelay").onclick = async () => {
-    showLoadingSpinner();
-    const data = await loadInitialData();
-    if (!data) {
-        hideLoadingSpinner();
-        return;
-    }
+            body: JSON.stringify(payload),
+        }).then(r => {
+            if (!r.ok) throw new Error(`${label}: HTTP ${r.status}`);
+            return r.blob();
+        }).then(blob => ({ label, url: URL.createObjectURL(blob) }));
 
     try {
-        const retentionMin = parseFloat(document.getElementById("nodeRetentionMin").value);
-        const retentionMax = parseFloat(document.getElementById("nodeRetentionMax").value);
-        const retentionSteps = parseInt(document.getElementById("nodeRetentionSteps").value);
+        const results = await Promise.all([
+            fetchMap("generate-stability-map",       { ...data, decayRange, delayRange },               "Decay vs Delay"),
+            fetchMap("generate-decay-retention-map", { ...data, decayRange, retentionRange },             "Decay vs Retention"),
+            fetchMap("generate-retention-delay-map", { ...data, retentionRange, delayRange },             "Retention vs Delay"),
+        ]);
 
-        const delayMin = parseFloat(document.getElementById("delayMin").value);
-        const delayMax = parseFloat(document.getElementById("delayMax").value);
-        const delaySteps = parseInt(document.getElementById("delaySteps").value);
+        const container = document.getElementById("stabilityMapPlot");
+        container.innerHTML = "";
+        container.style.display = "flex";
+        container.style.flexWrap = "wrap";
+        container.style.gap = "12px";
 
-        const requestData = {
-            ...data,
-            retentionRange: [retentionMin, retentionMax, retentionSteps],
-            delayRange: [delayMin, delayMax, delaySteps],
-        };
+        for (const { label, url } of results) {
+            const wrap = document.createElement("div");
+            wrap.style.flex = "1 1 30%";
+            wrap.style.minWidth = "260px";
+            wrap.style.textAlign = "center";
 
-        console.log("Request Data for Retention-Delay Map:", requestData);
+            const title = document.createElement("div");
+            title.textContent = label;
+            title.style.fontWeight = "bold";
+            title.style.marginBottom = "4px";
 
-        const response = await fetch(`${BACKEND_URL}/generate-retention-delay-map`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(requestData),
-        });
+            const img = document.createElement("img");
+            img.src = url;
+            img.alt = label;
+            img.style.width = "100%";
 
-        if (!response.ok) throw new Error(`HTTP Error: ${response.statusText}`);
+            const dlBtn = document.createElement("a");
+            dlBtn.href = url;
+            dlBtn.download = `stability_map_${label.replace(/\s+/g, "_").toLowerCase()}.png`;
+            dlBtn.textContent = "Download PNG";
+            dlBtn.style.display = "inline-block";
+            dlBtn.style.marginTop = "6px";
+            dlBtn.style.fontSize = "12px";
 
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-
-        const plotsContainer = document.getElementById("stabilityMapPlot");
-        plotsContainer.innerHTML = "";
-        const img = document.createElement("img");
-        img.src = url;
-        img.alt = "Retention-Delay Stability Map";
-        plotsContainer.appendChild(img);
-    } catch (error) {
-        console.error("Error generating retention-delay map:", error);
-        alert("An error occurred. Check console for details.");
-    } finally {
-        hideLoadingSpinner();
-    }
-};
-
-document.getElementById('simulationTab').onclick = async () => {
-    showLoadingSpinner();
-    await loadInitialData();
-
-    try {
-        // Log the payload for debugging
-        console.log('Payload:', { time_series_data: timeSeriesData });
-
-        // Send data to the backend for simulation
-        const response = await fetch(`${BACKEND_URL}/simulation`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ time_series_data: timeSeriesData }),
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            console.error('Backend error:', error);
-            throw new Error(error.error || 'Failed to fetch simulation plot');
+            wrap.appendChild(title);
+            wrap.appendChild(img);
+            wrap.appendChild(dlBtn);
+            container.appendChild(wrap);
         }
-
-        // Receive the simulation plot
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-
-        // Display the plot in the simulationPlots container
-        const plotsContainer = document.getElementById('simulationPlots');
-        plotsContainer.innerHTML = ''; // Clear any existing content
-
-        const img = document.createElement('img');
-        img.src = url;
-        plotsContainer.appendChild(img);
     } catch (error) {
-        console.error('Error:', error.message);
-        alert('An error occurred while generating the simulation plot. Please try again.');
+        console.error("Error generating stability maps:", error);
+        document.getElementById("stabilityMapPlot").innerHTML = `<div class="error">Error: ${error.message}</div>`;
     } finally {
-        hideLoadingSpinner();
-        openPage('Simulation1');
-    }
-};
-
-
-document.getElementById('simulation2Tab').onclick = async () => {
-    showLoadingSpinner();
-    await loadInitialData();
-
-    try {
-        // Send data to the backend for simulation
-        const response = await fetch(`${BACKEND_URL}/simulation2`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ time_series_data: timeSeriesData }),
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch simulation2 plots');
-        }
-
-        // Receive the simulation plots
-        const { plots } = await response.json();
-        const plotsContainer = document.getElementById('simulationPlots2');
-        plotsContainer.innerHTML = ''; // Clear any existing content
-
-        // Display each plot
-        plots.forEach((plot) => {
-            const img = document.createElement('img');
-            img.src = `data:image/png;base64,${plot.plot}`;
-            img.alt = `Simulation2 Plot: ${plot.variable}`;
-            plotsContainer.appendChild(img);
-        });
-    } catch (error) {
-        console.error('Error:', error);
-        alert('An error occurred while generating the simulation2 plots. Please try again.');
-    } finally {
-        hideLoadingSpinner();
-        openPage('Simulation2');
+        clearTabLoading();
     }
 };
 
 document.getElementById('boxPlotTab').onclick = async () => {
-    showLoadingSpinner();
-    await loadInitialData();
-
+    if (!window.advancedSimPromise) {
+        alert('Please run the diagram first (Play button).');
+        return;
+    }
+    openPage('BoxPlot');
+    showTabLoading('boxPlots', window.advancedSimStatus === 'running' ? 'Waiting for simulation...' : 'Fetching plots');
+    await window.advancedSimPromise;
+    if (window.advancedSimStatus === 'error') {
+        document.getElementById('boxPlots').innerHTML = '<div class="error">Simulation failed. Please try again.</div>';
+        clearTabLoading();
+        return;
+    }
     try {
-        // Send data to the backend for boxplot generation
         const response = await fetch(`${BACKEND_URL}/boxplots`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ time_series_data: timeSeriesData }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ time_series_data: window.advancedTimeSeries }),
         });
+        if (!response.ok) throw new Error('Failed to fetch boxplots');
 
-        if (!response.ok) {
-            throw new Error('Failed to fetch boxplots');
-        }
-
-        // Receive the boxplots
         const { plots } = await response.json();
         const plotsContainer = document.getElementById('boxPlots');
-        plotsContainer.innerHTML = ''; // Clear any existing content
-
-        // Display each plot
+        plotsContainer.innerHTML = '';
         plots.forEach((plot) => {
             const img = document.createElement('img');
             img.src = `data:image/png;base64,${plot.plot}`;
@@ -737,37 +495,36 @@ document.getElementById('boxPlotTab').onclick = async () => {
         });
     } catch (error) {
         console.error('Error:', error);
-        alert('An error occurred while generating the boxplots. Please try again.');
+        document.getElementById('boxPlots').innerHTML = `<div class="error">Error: ${error.message}</div>`;
     } finally {
-        hideLoadingSpinner();
-        openPage('BoxPlot');
+        clearTabLoading();
     }
 };
 
 document.getElementById('violinPlotTab').onclick = async () => {
-    showLoadingSpinner();
-    await loadInitialData();
-
+    if (!window.advancedSimPromise) {
+        alert('Please run the diagram first (Play button).');
+        return;
+    }
+    openPage('ViolinPlot');
+    showTabLoading('violinPlots', window.advancedSimStatus === 'running' ? 'Waiting for simulation...' : 'Fetching plots');
+    await window.advancedSimPromise;
+    if (window.advancedSimStatus === 'error') {
+        document.getElementById('violinPlots').innerHTML = '<div class="error">Simulation failed. Please try again.</div>';
+        clearTabLoading();
+        return;
+    }
     try {
-        // Send data to the backend for violin plot generation
         const response = await fetch(`${BACKEND_URL}/violinplots`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ time_series_data: timeSeriesData }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ time_series_data: window.advancedTimeSeries }),
         });
+        if (!response.ok) throw new Error('Failed to fetch violin plots');
 
-        if (!response.ok) {
-            throw new Error('Failed to fetch violin plots');
-        }
-
-        // Receive the violin plots
         const { plots } = await response.json();
         const plotsContainer = document.getElementById('violinPlots');
-        plotsContainer.innerHTML = ''; // Clear any existing content
-
-        // Display each plot
+        plotsContainer.innerHTML = '';
         plots.forEach((plot) => {
             const img = document.createElement('img');
             img.src = `data:image/png;base64,${plot.plot}`;
@@ -776,34 +533,27 @@ document.getElementById('violinPlotTab').onclick = async () => {
         });
     } catch (error) {
         console.error('Error:', error);
-        alert('An error occurred while generating the violin plots. Please try again.');
+        document.getElementById('violinPlots').innerHTML = `<div class="error">Error: ${error.message}</div>`;
     } finally {
-        hideLoadingSpinner();
-        openPage('ViolinPlot');
+        clearTabLoading();
     }
 };
 
 
 
 document.getElementById('randomSeedsTab').onclick = async () => {
-    showLoadingSpinner();
+    openPage('RandomSeeds');
+    showTabLoading('randomSeedsPlots', 'Analyzing');
     await loadInitialData();
 
     try {
-        const payload = {
-            edges: edgePairs,
-            edge_polarities: edgePolarities
-        };
-
         const response = await fetch(`${BACKEND_URL}/random-seeds`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({ edges: edgePairs, edge_polarities: edgePolarities })
         });
 
-        if (!response.ok) {
-            throw new Error('Failed to fetch random seeds plots');
-        }
+        if (!response.ok) throw new Error('Failed to fetch random seeds plots');
 
         const plotData = await response.json();
         const plotsContainer = document.getElementById('randomSeedsPlots');
@@ -811,73 +561,20 @@ document.getElementById('randomSeedsTab').onclick = async () => {
 
         plotData.forEach(plot => {
             const img = document.createElement('img');
-            const binary = atob(plot.data); // Decode Base64 string
+            const binary = atob(plot.data);
             const array = new Uint8Array(binary.length);
-
-            for (let i = 0; i < binary.length; i++) {
-                array[i] = binary.charCodeAt(i);
-            }
-
-            const blob = new Blob([array], { type: 'image/png' });
-            img.src = URL.createObjectURL(blob);
+            for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
+            img.src = URL.createObjectURL(new Blob([array], { type: 'image/png' }));
             img.alt = plot.filename;
             plotsContainer.appendChild(img);
         });
     } catch (error) {
         console.error('Error:', error.message);
-        alert('An error occurred while fetching random seeds plots. Please try again.');
+        document.getElementById('randomSeedsPlots').innerHTML = `<div class="error">Error: ${error.message}</div>`;
     } finally {
-        hideLoadingSpinner();
-        openPage('RandomSeeds');
+        clearTabLoading();
     }
 };
 
 
-const stripe = Stripe('pk_test_51QY9jPD0q75cxrZOtNHqMMjLwnQLLxGxtiBnLT5V1w35xfZ8cWkk2m3FU41Hv9tawj8MgDBMiFOQyFLIB3NGNcvk00XWHJ1NkO'); // Replace with your Stripe publishable key
-
-
-document.addEventListener('DOMContentLoaded', () => {
-    var researcherHandlerAttached = false;
-
-    const observer = new MutationObserver((mutationsList, observer) => {
-        if (researcherHandlerAttached) return;
-        const researcherModeButton = document.getElementById('researcherMode');
-        if (researcherModeButton) {
-            researcherHandlerAttached = true;
-            observer.disconnect();
-
-            researcherModeButton.addEventListener('click', async () => {
-                try {
-                    showLoadingSpinner();
-                    console.log("Activating Researcher Mode...");
-
-                    const response = await fetch(`${BACKEND_URL}/create-checkout-session`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ amount: 2000 })
-                    });
-
-                    if (!response.ok) {
-                        throw new Error('Backend returned an error. Make sure the backend server is running.');
-                    }
-
-                    const session = await response.json();
-
-                    const result = await stripe.redirectToCheckout({ sessionId: session.id });
-                    if (result.error) {
-                        console.error(result.error.message);
-                        alert('Stripe checkout error: ' + result.error.message);
-                    }
-                } catch (error) {
-                    console.error('Researcher Mode error:', error.message);
-                    alert('Could not activate Researcher Mode.\n\nThe backend server at localhost:5000 is not reachable. Start the backend first, or add ?full=1 to the URL to unlock all tabs directly.');
-                } finally {
-                    hideLoadingSpinner();
-                }
-            });
-        }
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-});
 

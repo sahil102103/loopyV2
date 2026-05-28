@@ -101,8 +101,8 @@ function displayBehaviorResults(behavior) {
                 font-weight: bold;
                 background: ${getBehaviorColor(classification.behavior)};
             ">${classification.behavior}</span></td>
-            <td>${classification.confidence.toFixed(2)}</td>
-            <td>Mean Z: ${classification.metrics.meanAbsZ.toFixed(2)}, Max Z: ${classification.metrics.maxAbsZ.toFixed(2)}</td>
+            <td>${classification.confidence != null ? Number(classification.confidence).toFixed(2) : 'N/A'}</td>
+            <td>Growth: ${classification.metrics?.growthFact != null ? Number(classification.metrics.growthFact).toFixed(2) : 'N/A'}, Slope: ${classification.metrics?.slope != null ? Number(classification.metrics.slope).toFixed(3) : 'N/A'}</td>
         </tr>`;
     }
 
@@ -170,29 +170,6 @@ function displayMonteCarloResults(monteCarlo) {
         <p><strong>Fan Paths:</strong> ${monteCarlo.config.fanPaths}</p>
         <p><strong>Sigma Base:</strong> ${monteCarlo.config.sigmaBase}</p>
         <p>Uncertainty analysis completed. Results available for visualization and export.</p>
-    `;
-}
-
-/**
- * Display parameter space results
- */
-function displayParameterSpaceResults(parameterSpace) {
-    const visualizationContent = document.getElementById('visualizationContent');
-    if (!visualizationContent) return;
-
-    const totalCombinations = parameterSpace.results.length;
-    if (totalCombinations === 0) {
-        visualizationContent.innerHTML = '<p>No parameter space results available.</p>';
-        return;
-    }
-
-    const bestResult = parameterSpace.results.sort((a, b) => b.stability - a.stability)[0];
-
-    visualizationContent.innerHTML = `
-        <h5>Parameter Space Analysis</h5>
-        <p><strong>Total Combinations:</strong> ${totalCombinations}</p>
-        <p><strong>Best Parameters:</strong> Retention=${bestResult.retention.toFixed(2)}, Decay=${bestResult.decay.toFixed(2)}, Delay=${bestResult.delay}</p>
-        <p><strong>Best Stability Score:</strong> ${bestResult.stability.toFixed(3)}</p>
     `;
 }
 
@@ -358,7 +335,6 @@ document.getElementById('runFullAnalysis').addEventListener('click', async () =>
     try {
         const steps = parseInt(document.getElementById('analysisSteps')?.value || 100);
         const monteCarloRuns = parseInt(document.getElementById('monteCarloRuns')?.value || 500);
-        const gridSize = parseInt(document.getElementById('gridSize')?.value || 10);
 
         if (!loopy || !loopy.model) {
             throw new Error('Loopy model not available');
@@ -366,8 +342,7 @@ document.getElementById('runFullAnalysis').addEventListener('click', async () =>
 
         const results = await loopy.model.runCompleteCLDAnalysis({
             steps,
-            monteCarloRuns,
-            gridSize
+            monteCarloRuns
         });
 
         cldAnalysisResults = results;
@@ -383,10 +358,6 @@ document.getElementById('runFullAnalysis').addEventListener('click', async () =>
 
         if (results.monteCarlo) {
             displayMonteCarloResults(results.monteCarlo);
-        }
-
-        if (results.parameterSpace) {
-            displayParameterSpaceResults(results.parameterSpace);
         }
 
         // Generate recommendations
@@ -439,37 +410,6 @@ document.getElementById('runMonteCarlo').addEventListener('click', async () => {
     } catch (error) {
         console.error('Monte Carlo analysis error:', error);
         updateCLDAnalysisStatus('Monte Carlo analysis failed: ' + error.message, true);
-    } finally {
-        hideLoadingSpinner();
-    }
-});
-
-// Parameter Space Button
-document.getElementById('runParameterSpace').addEventListener('click', async () => {
-    showLoadingSpinner();
-    updateCLDAnalysisStatus('Running parameter space analysis...');
-
-    try {
-        const steps = parseInt(document.getElementById('analysisSteps')?.value || 100);
-        const gridSize = parseInt(document.getElementById('gridSize')?.value || 10);
-
-        if (!loopy || !loopy.model) {
-            throw new Error('Loopy model not available');
-        }
-
-        const results = await loopy.model.runParameterSpaceAnalysis({
-            gridSize: gridSize,
-            steps: steps
-        });
-
-        cldAnalysisResults.parameterSpace = results;
-        displayParameterSpaceResults(results);
-
-        updateCLDAnalysisStatus('Parameter space analysis completed successfully');
-
-    } catch (error) {
-        console.error('Parameter space analysis error:', error);
-        updateCLDAnalysisStatus('Parameter space analysis failed: ' + error.message, true);
     } finally {
         hideLoadingSpinner();
     }

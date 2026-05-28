@@ -1,4 +1,14 @@
 const DB_PAGE_SIZE = 10;
+const EXPLANATION_PREVIEW_LEN = 120;
+
+function makeExplanationCell(text) {
+    if (!text || text === 'N/A') return 'N/A';
+    if (text.length <= EXPLANATION_PREVIEW_LEN) return text;
+    const preview = text.slice(0, EXPLANATION_PREVIEW_LEN).trimEnd() + '…';
+    const id = 'exp-' + Math.random().toString(36).slice(2, 9);
+    return `<span id="${id}-short">${preview} <a href="#" style="white-space:nowrap;font-size:11px" onclick="(function(){document.getElementById('${id}-short').style.display='none';document.getElementById('${id}-full').style.display='';return false;}).call(this);return false;">Show more</a></span>`
+         + `<span id="${id}-full" style="display:none">${text} <a href="#" style="white-space:nowrap;font-size:11px" onclick="(function(){document.getElementById('${id}-full').style.display='none';document.getElementById('${id}-short').style.display='';return false;}).call(this);return false;">Show less</a></span>`;
+}
 
 // Cursor-based pagination state (unfiltered)
 let dbPageCursors = [null]; // cursors[i] = startAfter doc for page i (null = beginning)
@@ -16,7 +26,7 @@ function makeRow(data) {
         <td>${data.node2 || 'N/A'}</td>
         <td>${data.edgeproperties?.polarity || 'N/A'}</td>
         <td>${data.edgeproperties?.strength || 'N/A'}</td>
-        <td>${data.edgeproperties?.explanation || 'N/A'}</td>
+        <td>${makeExplanationCell(data.edgeproperties?.explanation || 'N/A')}</td>
     `;
     return row;
 }
@@ -309,7 +319,7 @@ async function fetchMatchingNodes(filterNodes = []) {
                 <td>${data.node2 || 'N/A'}</td>
                 <td>${data.edgeproperties?.polarity || 'N/A'}</td>
                 <td>${data.edgeproperties?.strength || 'N/A'}</td>
-                <td>${data.edgeproperties?.explanation || 'N/A'}</td>
+                <td>${makeExplanationCell(data.edgeproperties?.explanation || 'N/A')}</td>
             `;
             dbAllRows.push(row);
         });

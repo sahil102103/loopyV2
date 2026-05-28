@@ -161,7 +161,7 @@ function Edge(model, config){
 		lag = self.lag;
 		damper = (self.damper);
 		
-		self.signalSpeed = (lag==0) ? speed/300 : (speed/(3000 * lag));
+		self.signalSpeed = speed / (300 + lag * 30);
 
 		// Move all signals along
 		for (var i=0; i<self.signals.length; i++) {
@@ -180,16 +180,16 @@ function Edge(model, config){
 
 			lastSignal.delta *= (self.strength);
 			self.to.takeSignal(lastSignal);
-	  
+
 			// Map to store accumulated signals for each node
 			let signalMap = new Map();
-	  
+
 			// Refactored for better readability - separated into a helper function
 			const accumulateSignals = () => {
 			  self.model.edges.forEach(edge => {
 				  // Calculate the incoming signal from the edge
 				  let incomingSignal = edge.from.value * (1-edge.damper) * stochasticValueSelection(edge.strength, -1, 1, edge.confidence);
-	  
+
 				  // Check if this is a pass node
 				  if (edge.to.pass) {
 					  // If it's a pass node, accumulate the incoming signal
@@ -206,15 +206,16 @@ function Edge(model, config){
 				  }
 			  });
 			};
-	  
+
 			accumulateSignals(); // Calling the helper function to accumulate signals
-	  
+
 			// After processing all edges, assign the accumulated signal sum to each node
 			signalMap.forEach((signalSum, node) => {
-			  // Ensure the value doesn't go below the node's floor
-			  node.value = Math.max(node.floor, signalSum);
+				var fl = isFinite(node.floor)   ? node.floor   : -Infinity;
+				var cl = isFinite(node.ceiling) ? node.ceiling :  Infinity;
+				node.value = Math.min(Math.max(fl, signalSum), cl);
 			});
-	  
+
 			// Pop it, move on down
 			self.removeSignal(lastSignal);
 			lastSignal = self.signals[self.signals.length - 1];

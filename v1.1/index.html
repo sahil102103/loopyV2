@@ -135,16 +135,17 @@
 		}
 		
 		.status-message {
+			font-size: 13px;
+			margin-bottom: 15px;
+		}
+
+		.status-message:empty {
+			display: none;
+		}
+
+		.status-message.error {
 			padding: 10px;
 			border-radius: var(--radius-sm, 6px);
-			margin-bottom: 15px;
-			background: #d4edda;
-			color: #155724;
-			border: 1px solid #c3e6cb;
-			font-size: 13px;
-		}
-		
-		.status-message.error {
 			background: #f8d7da;
 			color: #721c24;
 			border: 1px solid #f5c6cb;
@@ -198,16 +199,15 @@
 			<div class="tab-dropdown">
 				<button type="button" class="tablink tab-dropdown-trigger">Analysis <span class="tab-chevron">&#9662;</span></button>
 				<div class="tab-dropdown-menu">
-					<button type="button" class="tablink" id="timeSeriesTab" data-page="TimeSeries" onclick="openPage('TimeSeries')">Time Series (Per Tick)</button>
-					<button type="button" class="tablink" id="timeSeriesTabSmooth" data-page="TimeSeriesSmooth" onclick="openPage('TimeSeriesSmooth')">Time Series (Smoothed)</button>
+					<button type="button" class="tablink" id="timeSeriesTab" data-page="TimeSeries" onclick="openPage('TimeSeries')">Time Series</button>
+					<button type="button" class="tablink" id="legacyTimeSeriesTab" data-page="LegacyTimeSeries" onclick="openPage('LegacyTimeSeries')">Legacy Time Series</button>
 					<div class="tab-dropdown-divider"></div>
 					<button type="button" class="tablink" id="crisisAnalysisTab" data-page="CrisisAnalysis" onclick="openPage('CrisisAnalysis')">Crisis Analysis</button>
 					<button type="button" class="tablink" id="cldAnalysisTab" data-page="CLDAnalysis" onclick="openPage('CLDAnalysis')">CLD Analysis</button>
 					<button type="button" class="tablink" id="visualAnalysisTab" data-page="VisualAnalysis" onclick="openPage('VisualAnalysis')">Visual Analysis</button>
 					<button type="button" class="tablink hidden" id="cycleAnalysisTab" data-page="CycleAnalysis" onclick="openPage('CycleAnalysis')">Cycle Detection</button>
 					<button type="button" class="tablink hidden" id="correlationTab" data-page="Correlation" onclick="openPage('Correlation')">Correlation</button>
-					<button type="button" class="tablink hidden" id="stabilityMapTab" data-page="StabilityMap" onclick="openPage('StabilityMap')">Stability Map</button>
-				</div>
+					</div>
 			</div>
 
 			<div class="tab-dropdown">
@@ -222,24 +222,28 @@
 			<div class="tab-dropdown">
 				<button type="button" class="tablink tab-dropdown-trigger">Advanced <span class="tab-chevron">&#9662;</span></button>
 				<div class="tab-dropdown-menu">
-					<button type="button" class="tablink" id="advancedAnalysisTab" data-page="AdvancedAnalysis" onclick="openPage('AdvancedAnalysis')">Advanced Analysis</button>
-					<button type="button" class="tablink" id="paramSpace3DTab" data-page="ParamSpace3D" onclick="openPage('ParamSpace3D')">3D Parameter Space</button>
+					<button type="button" class="tablink" id="advancedAnalysisTab" data-page="AdvancedAnalysis" onclick="openPage('AdvancedAnalysis')">Fan Chart & Optimization</button>
+					<button type="button" class="tablink" id="parameterSpaceTab" data-page="ParameterSpace" onclick="openPage('ParameterSpace')">Parameter Space</button>
 					<button type="button" class="tablink" id="generateDiagramTab" data-page="Generate" onclick="openPage('Generate')">Generate Diagram</button>
 					<div class="tab-dropdown-divider hidden" id="researchDivider"></div>
-					<button type="button" class="tablink hidden" id="generateTab" data-page="Generate" onclick="openPage('Generate')">Generate</button>
-					<button type="button" class="tablink hidden" id="simulationTab" data-page="Simulation1" onclick="openPage('Simulation1')">Histogram 1</button>
-					<button type="button" class="tablink hidden" id="simulation2Tab" data-page="Simulation2" onclick="openPage('Simulation2')">Histogram 2</button>
 					<button type="button" class="tablink hidden" id="boxPlotTab" data-page="BoxPlot" onclick="openPage('BoxPlot')">Box Plot</button>
 					<button type="button" class="tablink hidden" id="violinPlotTab" data-page="ViolinPlot" onclick="openPage('ViolinPlot')">Violin Plot</button>
 					<button type="button" class="tablink hidden" id="randomSeedsTab" data-page="RandomSeeds" onclick="openPage('RandomSeeds')">Random Seeds</button>
 				</div>
 			</div>
+
+			<button type="button" class="tablink hidden" id="adminTab" data-page="AdminPanel" onclick="openPage('AdminPanel')" style="margin-left:auto;">Admin</button>
 		</div>
 
 		<div id="Canvas" class="tabcontent">
 			<div id="canvasses"></div>
 			<div id="toolbar"></div>
 			<button id="toolbar-toggle" class="toolbar-toggle-button">☰</button>
+			<div id="sim-iter-bar">
+				<label for="simIterations">Iterations</label>
+				<input type="number" id="simIterations" value="200" min="50" max="1000" step="50">
+				<span id="advSimBadge" class="sim-badge" style="display:none"></span>
+			</div>
 			<div id="playbar"></div>
 			<button id="sidebar-toggle" class="sidebar-toggle-button">☰</button>
 			<div id="sidebar">
@@ -248,27 +252,39 @@
 
 
 		<div id="TimeSeries" class="tabcontent">
-			<div>
-				<canvas id="timeSeriesChart" style="width:95%; margin-top: 50px;"></canvas>
+			<p>Re-run the advanced simulation with custom iterations, or view the results from the last Play run.</p>
+			<div class="analysis-controls">
+				<div class="control-row">
+					<label for="advancedIterations">Iterations</label>
+					<input type="number" id="advancedIterations" value="200" min="50" max="1000" step="50">
+				</div>
+				<button id="runAdvancedSimulation" class="button">Run Simulation</button>
 			</div>
-			<div class="rebuildButtonContainer">
-				<!-- <button class="align-bottom" id="downloadCSVButton">Download CSV</button> -->
-			</div>
-
+			<div id="advancedSimulationResults"></div>
 		</div>
 
-		<div id="TimeSeriesSmooth" class="tabcontent">
-			<div>
-				<canvas id="timeSeriesChartSmooth"></canvas>
+
+		<div id="LegacyTimeSeries" class="tabcontent">
+			<div class="chart-wrapper">
+				<canvas id="timeSeriesChart"></canvas>
 			</div>
-			<div>
-				<form id="smoothWindowForm">
-					<label for="smoothwindow">Smoothing Window</label>
-					<input type="number" id="smoothwindow" name="smoothwindow" value=7><br><br>
-					<input type="submit" value="Submit">
-				</form>
+
+			<div style="margin: 32px 20px 80px 0; border: 1px solid #ddd; border-radius: 6px; background: #f9f9f9;">
+				<button id="smoothToggle" onclick="toggleSmoothView()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:none;border:none;cursor:pointer;font-size:15px;font-weight:600;color:#222;text-align:left;">
+					Smoothed View
+					<span id="smoothChevron" style="font-size:12px;transition:transform 0.2s;">&#9660;</span>
+				</button>
+				<div id="smoothContent" style="padding: 0 20px 20px;">
+					<form id="smoothWindowForm">
+						<label for="smoothwindow">Smoothing Window</label>
+						<input type="number" id="smoothwindow" name="smoothwindow" value="7" min="1">
+						<input type="submit" value="Apply" class="button">
+					</form>
+					<div class="chart-wrapper">
+						<canvas id="timeSeriesChartSmooth"></canvas>
+					</div>
+				</div>
 			</div>
-			
 		</div>
 
 
@@ -363,7 +379,7 @@
 					</tbody>
 				</table>
 			</div>
-			<div id="dbPagination" style="margin-top:8px; display:flex; align-items:center; gap:8px;">
+			<div id="dbPagination" style="margin-top:4px; display:flex; align-items:center; gap:8px;">
 				<button id="dbPrevBtn">&#8592; Prev</button>
 				<span id="dbPageInfo"></span>
 				<button id="dbNextBtn">Next &#8594;</button>
@@ -407,16 +423,12 @@
 					
 					<label for="monteCarloRuns">Monte Carlo Runs:</label>
 					<input type="number" id="monteCarloRuns" value="500" min="50" max="2000">
-					
-					<label for="gridSize">Parameter Grid Size:</label>
-					<input type="number" id="gridSize" value="10" min="5" max="50">
 				</div>
-				
+
 				<div class="button-group">
 					<button type="button" id="runQuickAnalysis" class="primary-button">Quick Analysis</button>
 					<button type="button" id="runFullAnalysis" class="primary-button">Full Analysis</button>
 					<button type="button" id="runMonteCarlo" class="secondary-button">Monte Carlo</button>
-					<button type="button" id="runParameterSpace" class="secondary-button">Parameter Space</button>
 					<button type="button" id="exportResults" class="secondary-button">Export Results</button>
 				</div>
 			</div>
@@ -443,20 +455,10 @@
 						<div id="recommendationsContent"></div>
 					</div>
 					
-					<div id="visualizations" class="result-section">
-						<h4>Visualizations</h4>
-						<div id="visualizationContent"></div>
-					</div>
 				</div>
 			</div>
 		</div>
 
-		<div id="Simulation1" class="tabcontent">
-			<div id="simulationPlots"></div>
-		</div>
-		<div id="Simulation2" class="tabcontent">
-			<div id="simulationPlots2"></div>
-		</div>
 		<div id="BoxPlot" class="tabcontent">
 			<div id="boxPlots"></div>
 		</div>
@@ -472,185 +474,78 @@
 			<div id="correlationPlot"></div>
 		</div>
 
-		<div id="StabilityMap" class='tabcontent'>
+		<div id="ParameterSpace" class="tabcontent">
+			<h2>Parameter Space</h2>
+
+			<!-- ── 2D Stability Maps ──────────────────────────────────────────── -->
+			<h3>2D Stability Maps</h3>
+			<p>Generates three heatmaps in parallel — one for each pair of parameters (decay, delay, retention).</p>
+			<div class="analysis-controls">
+				<div class="control-row">
+					<label>Decay</label>
+					<input type="number" id="decayMin" value="0.1" step="0.1" style="width:70px"> –
+					<input type="number" id="decayMax" value="1.0" step="0.1" style="width:70px">
+					<label style="margin-left:12px">Steps</label>
+					<input type="number" id="decaySteps" value="20" step="1" style="width:55px">
+				</div>
+				<div class="control-row">
+					<label>Delay</label>
+					<input type="number" id="delayMin" value="1" step="1" style="width:70px"> –
+					<input type="number" id="delayMax" value="50" step="1" style="width:70px">
+					<label style="margin-left:12px">Steps</label>
+					<input type="number" id="delaySteps" value="20" step="1" style="width:55px">
+				</div>
+				<div class="control-row">
+					<label>Retention</label>
+					<input type="number" id="nodeRetentionMin" value="0.1" step="0.1" style="width:70px"> –
+					<input type="number" id="nodeRetentionMax" value="1.0" step="0.1" style="width:70px">
+					<label style="margin-left:12px">Steps</label>
+					<input type="number" id="nodeRetentionSteps" value="20" step="1" style="width:55px">
+				</div>
+				<button id="generateAllStabilityMaps" class="button">Generate 2D Maps</button>
+			</div>
 			<div id="stabilityMapPlot"></div>
-			<div id="controls">
-				<!-- Decay Controls -->
-				<div class="control-group">
-					<label for="decayMin">Signal Decay Min:</label>
-					<input type="number" id="decayMin" value="0.1" step="0.1">
-					<label for="decayMax">Signal Decay Max:</label>
-					<input type="number" id="decayMax" value="1.0" step="0.1">
-					<label for="decaySteps">Signal Decay Steps:</label>
-					<input type="number" id="decaySteps" value="20" step="1">
-				</div>
 
-				<!-- Delay Controls -->
-				<div class="control-group">
-					<label for="delayMin">Signal Delay Min:</label>
-					<input type="number" id="delayMin" value="1" step="1">
-					<label for="delayMax">Signal Delay Max:</label>
-					<input type="number" id="delayMax" value="50" step="1">
-					<label for="delaySteps">Signal Delay Steps:</label>
-					<input type="number" id="delaySteps" value="20" step="1">
-				</div>
+			<hr class="section-divider">
 
-				<!-- Node Retention Controls -->
-				<div class="control-group">
-					<label for="nodeRetentionMin">Node Retention Min:</label>
-					<input type="number" id="nodeRetentionMin" value="0.1" step="0.1">
-					<label for="nodeRetentionMax">Node Retention Max:</label>
-					<input type="number" id="nodeRetentionMax" value="1.0" step="0.1">
-					<label for="nodeRetentionSteps">Node Retention Steps:</label>
-					<input type="number" id="nodeRetentionSteps" value="20" step="1">
-				</div>
-
-				<!-- Buttons -->
-				<div class="button-group">
-					<button id="genereatedDelayDecay">Delay vs Decay</button>
-					<button id="generateDecayRetention">Decay vs Node Retention</button>
-					<button id="generateRetentionDelay">Node Retention vs Delay</button>
-				</div>
-			</div>
-		</div>
-
-		<!-- Advanced Analysis Section -->
-		<div id="AdvancedAnalysis" class="tabcontent">
-			<h2>⭐ Advanced Two-Phase Simulation</h2>
-			<p>Sophisticated analysis using the high-fidelity notebook algorithms with delay-aware propagation, stability classification, and rolling Z-scores.</p>
-			
-			<div id="advancedControls" style="margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 8px;">
-				<h3>Simulation Parameters</h3>
-				<div style="margin-bottom: 15px;">
-					<label for="advancedIterations" style="display: inline-block; width: 150px;">Iterations:</label>
-					<input type="number" id="advancedIterations" value="200" min="50" max="1000" step="50" style="width: 100px;">
-					<span style="margin-left: 10px; color: #666; font-size: 0.9em;">(More iterations = longer time)</span>
-				</div>
-				<button id="runAdvancedSimulation" class="button" style="background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">
-					▶ Run Advanced Simulation
-				</button>
-			</div>
-
-			<div id="advancedSimulationResults" style="margin-top: 20px;">
-				<p style="color: #666; font-style: italic;">Results will appear here after running the simulation...</p>
-			</div>
-
-			<hr style="margin: 40px 0;">
-
-			<h2>Advanced Stability Map</h2>
-			<p>Comprehensive parameter space analysis with behavior classification across decay and delay dimensions.</p>
-			
-			<div id="advancedStabilityControls" style="margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 8px;">
-				<h3>Parameter Ranges</h3>
-				
-				<div style="margin-bottom: 15px;">
-					<h4 style="margin: 10px 0;">Decay Factor Range:</h4>
-					<label style="display: inline-block; width: 80px;">Min:</label>
-					<input type="number" id="advDecayMin" value="0.0" min="0" max="1" step="0.1" style="width: 80px;">
-					<label style="display: inline-block; width: 80px; margin-left: 15px;">Max:</label>
-					<input type="number" id="advDecayMax" value="1.0" min="0" max="1" step="0.1" style="width: 80px;">
-					<label style="display: inline-block; width: 80px; margin-left: 15px;">Steps:</label>
-					<input type="number" id="advDecaySteps" value="11" min="3" max="20" step="1" style="width: 80px;">
-				</div>
-				
-				<div style="margin-bottom: 15px;">
-					<h4 style="margin: 10px 0;">Delay Range:</h4>
-					<label style="display: inline-block; width: 80px;">Min:</label>
-					<input type="number" id="advDelayMin" value="0" min="0" max="20" step="1" style="width: 80px;">
-					<label style="display: inline-block; width: 80px; margin-left: 15px;">Max:</label>
-					<input type="number" id="advDelayMax" value="10" min="0" max="50" step="1" style="width: 80px;">
-					<label style="display: inline-block; width: 80px; margin-left: 15px;">Steps:</label>
-					<input type="number" id="advDelaySteps" value="11" min="3" max="20" step="1" style="width: 80px;">
-				</div>
-				
-				<div style="margin-bottom: 15px;">
-					<label for="advMapIterations" style="display: inline-block; width: 150px;">Iterations per point:</label>
-					<input type="number" id="advMapIterations" value="100" min="50" max="500" step="50" style="width: 100px;">
-					<span style="margin-left: 10px; color: #666; font-size: 0.9em;">(Lower for faster results)</span>
-				</div>
-				
-				<button id="runAdvancedStabilityMap" class="button" style="background: #FF9800; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">
-					📊 Generate Stability Map
-				</button>
-				<p style="color: #d9534f; margin-top: 10px; font-size: 0.9em;">⚠️ Note: Full 11×11 grid may take 30-60 seconds</p>
-			</div>
-
-			<div id="advancedStabilityMapResults" style="margin-top: 20px;">
-				<p style="color: #666; font-style: italic;">Stability map will appear here...</p>
-			</div>
-
-			<hr style="margin: 40px 0;">
-
-			<div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 20px;">
-				<h3>📚 About Advanced Analysis</h3>
-				<ul style="line-height: 1.8;">
-					<li><strong>Two-Phase Propagation:</strong> Models stock and flow dynamics with delay-aware updates</li>
-					<li><strong>Behavior Classification:</strong> Over-damped (sluggish), Optimal (balanced), or Unconstrained (unstable)</li>
-					<li><strong>Rolling Z-Scores:</strong> Detects oscillations and instability patterns over time</li>
-					<li><strong>Parameter Space Maps:</strong> Shows stability regions across decay and delay values</li>
-				</ul>
-				<p><strong>Tip:</strong> Select specific nodes before running to analyze just part of your system.</p>
-			</div>
-		</div>
-
-		<!-- 3D Parameter Space Section -->
-		<div id="ParamSpace3D" class="tabcontent">
-			<h2>3D Parameter Space Analysis</h2>
-			<p>Sweeps retention × decay × delay parameter space. For each retention value, a full 2D stability map (decay vs. delay) is generated by the backend.</p>
+			<!-- ── 3D Parameter Space ─────────────────────────────────────────── -->
+			<h3>3D Parameter Space</h3>
+			<p>Sweeps retention × decay × delay. For each retention value, a full 2D stability map (decay vs. delay) is generated.</p>
 			<div id="pythonStatus" class="status-message">
 				<div class="loading">Initializing Python environment...</div>
 			</div>
-			
-			<div id="controls">
-				<!-- Parameter Range Controls -->
-				<div class="control-group">
-					<h3>Parameter Ranges</h3>
-					<div class="param-row">
-						<label for="retentionMin">Retention Min:</label>
-						<input type="number" id="retentionMin" value="0.0" step="0.1" min="0" max="1">
-						<label for="retentionMax">Retention Max:</label>
-						<input type="number" id="retentionMax" value="1.0" step="0.1" min="0" max="1">
-						<label for="retentionSteps">Retention Steps:</label>
-						<input type="number" id="retentionSteps" value="3" step="1" min="2" max="50">
-					</div>
-					
-					<div class="param-row">
-						<label for="decayMin3D">Decay Min:</label>
-						<input type="number" id="decayMin3D" value="0.0" step="0.1" min="0" max="1">
-						<label for="decayMax3D">Decay Max:</label>
-						<input type="number" id="decayMax3D" value="1.0" step="0.1" min="0" max="1">
-						<label for="decaySteps3D">Decay Steps:</label>
-						<input type="number" id="decaySteps3D" value="5" step="1" min="2" max="50">
-					</div>
-					
-					<div class="param-row">
-						<label for="delayMin3D">Delay Min:</label>
-						<input type="number" id="delayMin3D" value="0" step="1" min="0" max="100">
-						<label for="delayMax3D">Delay Max:</label>
-						<input type="number" id="delayMax3D" value="10" step="1" min="0" max="100">
-						<label for="delaySteps3D">Delay Steps:</label>
-						<input type="number" id="delaySteps3D" value="5" step="1" min="2" max="50">
-					</div>
+			<div class="analysis-controls">
+				<div class="control-row">
+					<label>Retention</label>
+					<input type="number" id="retentionMin" value="0.0" step="0.1" min="0" max="1" style="width:70px"> –
+					<input type="number" id="retentionMax" value="1.0" step="0.1" min="0" max="1" style="width:70px">
+					<label style="margin-left:12px">Steps</label>
+					<input type="number" id="retentionSteps" value="3" step="1" min="2" max="50" style="width:55px">
 				</div>
-
-				<!-- Simulation Parameters -->
-				<div class="control-group">
-					<h3>Simulation Parameters</h3>
-					<div class="param-row">
-						<label for="iterations3D">Iterations:</label>
-						<input type="number" id="iterations3D" value="100" step="50" min="50" max="2000">
-					</div>
+				<div class="control-row">
+					<label>Decay</label>
+					<input type="number" id="decayMin3D" value="0.0" step="0.1" min="0" max="1" style="width:70px"> –
+					<input type="number" id="decayMax3D" value="1.0" step="0.1" min="0" max="1" style="width:70px">
+					<label style="margin-left:12px">Steps</label>
+					<input type="number" id="decaySteps3D" value="5" step="1" min="2" max="50" style="width:55px">
 				</div>
-
-				<!-- Action Buttons -->
+				<div class="control-row">
+					<label>Delay</label>
+					<input type="number" id="delayMin3D" value="0" step="1" min="0" max="100" style="width:70px"> –
+					<input type="number" id="delayMax3D" value="10" step="1" min="0" max="100" style="width:70px">
+					<label style="margin-left:12px">Steps</label>
+					<input type="number" id="delaySteps3D" value="5" step="1" min="2" max="50" style="width:55px">
+				</div>
+				<div class="control-row">
+					<label for="iterations3D">Iterations</label>
+					<input type="number" id="iterations3D" value="100" step="50" min="50" max="2000">
+				</div>
 				<div class="button-group">
-					<button type="button" id="generate3DParamSpace" class="primary-button">Generate 3D Parameter Space</button>
+					<button type="button" id="generate3DParamSpace" class="primary-button">Generate 3D Map</button>
 					<button type="button" id="export3DResults" class="secondary-button">Export Results</button>
 					<button type="button" id="reset3DParams" class="secondary-button">Reset to Defaults</button>
 				</div>
 			</div>
-
-			<!-- Results Display Area -->
 			<div id="paramSpace3DResults">
 				<div id="paramSpace3DStatus"></div>
 				<div id="paramSpace3DPlot" style="width:100%; height:600px;"></div>
@@ -658,6 +553,45 @@
 			</div>
 		</div>
 
+		<!-- Advanced Analysis Section -->
+		<div id="AdvancedAnalysis" class="tabcontent">
+
+			<!-- ── Fan Chart ─────────────────────────────────────────────────── -->
+			<h2>Fan Chart</h2>
+			<p>Monte Carlo uncertainty analysis — runs many simulations with perturbed edge weights based on confidence values, producing confidence bands per node.</p>
+			<div class="analysis-controls">
+				<div class="control-row">
+					<label for="fanChartSims">Simulations</label>
+					<input type="number" id="fanChartSims" value="200" min="50" max="500" step="50">
+				</div>
+				<button id="runFanChart" class="button">Run Fan Chart</button>
+			</div>
+			<div id="fanChartResults"></div>
+
+			<hr class="section-divider">
+
+			<!-- ── Parameter Optimization ────────────────────────────────────── -->
+			<h2>Parameter Optimization</h2>
+			<p>Finds the best (retention, decay, delay) combination for your graph using a grid search followed by simulated annealing refinement. Returns top 5 configurations ranked by stability score.</p>
+			<div class="analysis-controls">
+				<button id="runOptimization" class="button">Find Optimal Parameters</button>
+				<p class="hint">Note: This runs ~200+ simulations and may take 1–2 minutes on the free backend.</p>
+			</div>
+			<div id="optimizationResults"></div>
+
+		</div>
+
+
+
+
+		<!-- Admin Panel -->
+		<div id="AdminPanel" class="tabcontent">
+			<h2>Researcher Access Management</h2>
+			<p>Grant or revoke researcher access for users by email. Only accounts that have already signed up can be granted access.</p>
+			<div id="adminPanelContent">
+				<p style="color:#888;">Loading...</p>
+			</div>
+		</div>
 
 
 		<!-- New Diagram Generation Section -->
@@ -688,13 +622,11 @@
 
 </html>
 
-<!-- Payments Processing Platform-->
-<script src="https://js.stripe.com/v3/"></script>
 
 
+<script src="config.js"></script>
 <!-- Firestore SDKs -->
 <script type='module' src="firebase.js"></script>
-<script src="config.js"></script>
 
 <script src="js/Tools/edgeExplanation.js" defer></script>
 <script src="js/Libraries/helpers.js" defer></script>
@@ -722,6 +654,7 @@
 <script src="js/Tools/UndoRedoCoordinator.js" defer></script>
 <script src="js/Tools/MultipleSelect.js" defer></script>
 <script src="js/Tools/SavedModels.js?v=3" defer></script>
+<script src="js/Tools/AdminPanel.js" defer></script>
 <script src="js/Out/Outputs.js" defer></script>
 <script src="js/Libraries/math.js" defer></script>
 
@@ -737,7 +670,42 @@
 <script src="js/Libraries/cldEngine.js" defer></script>
 <script src="js/Libraries/cldEngineIntegration.js" defer></script>
 
+<script>
+// Toast notification system with per-session deduplication
+(function() {
+    var _container = null;
+    var _seen = new Set();
 
+    function getContainer() {
+        if (!_container) {
+            _container = document.createElement('div');
+            _container.id = 'toast-container';
+            document.body.appendChild(_container);
+        }
+        return _container;
+    }
+
+    window.showToast = function(msg, type, dedup) {
+        if (type === undefined) type = 'error';
+        if (dedup === undefined) dedup = true;
+        if (dedup && _seen.has(msg)) return;
+        if (dedup) _seen.add(msg);
+
+        var toast = document.createElement('div');
+        toast.className = 'toast ' + type;
+        toast.textContent = msg;
+        getContainer().appendChild(toast);
+
+        setTimeout(function() {
+            toast.style.opacity = '0';
+            setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 350);
+        }, 6000);
+    };
+
+    // Call this when starting a new play/stop cycle so errors re-surface if still broken
+    window.clearToastDedup = function() { _seen.clear(); };
+})();
+</script>
 
 
 
@@ -809,19 +777,20 @@
 
 
   	
-  const urlParams = new URLSearchParams(window.location.search);
-    const isFullVersion = urlParams.get("full") === '1';
-  
-    if (isFullVersion) {
-      var hiddenEls = document.querySelectorAll('.hidden');
-      hiddenEls.forEach(function(el) { el.classList.remove('hidden'); });
-  
-      // Hide the loader if present
-      const loadPythonPackages = document.getElementById('loadPythonPackages');
-      console.log(loadPythonPackages)
-      if (loadPythonPackages) {
-        loadPythonPackages.style.display = 'none';
-      }
-    }
+  // Unlock researcher-only tabs and features
+  window.unlockResearcherFeatures = function() {
+      document.querySelectorAll('.hidden').forEach(function(el) {
+          // Don't unhide the admin tab — that's controlled separately
+          if (el.id !== 'adminTab') el.classList.remove('hidden');
+      });
+      var loadPythonPackages = document.getElementById('loadPythonPackages');
+      if (loadPythonPackages) loadPythonPackages.style.display = 'none';
+  };
+
+  window.showAdminTab = function() {
+      var adminTab = document.getElementById('adminTab');
+      if (adminTab) adminTab.classList.remove('hidden');
+  };
+
 
 </script>

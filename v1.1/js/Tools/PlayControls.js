@@ -23,13 +23,10 @@ function PlayControls(loopy){
 	subscribe("key/enter",function(){
 		if(Key.control){ // Ctrl-Enter or ⌘-Enter
 			loopy.setMode(Loopy.MODE_PLAY);
-
-			loopy.model.nodes.forEach(node => {
-				node.sendSignal({
-					delta: node.value
-			});
-			});
-
+			if (typeof clearToastDedup === 'function') clearToastDedup();
+			loopy.model.startSim();
+			const iterations = parseInt(document.getElementById('simIterations')?.value) || 200;
+			if (typeof triggerBackgroundAdvancedSim === 'function') triggerBackgroundAdvancedSim(iterations);
 		}
 	});
 
@@ -43,42 +40,13 @@ function PlayControls(loopy){
 			tooltip: isMacLike ? "⌘-Enter" : "control-enter",
 			onclick: async function() {
 				loopy.setMode(Loopy.MODE_PLAY);
-				tick = 0
-	
-				// Function to send signals to all nodes every 10 seconds
-				const sendSignals = async () => {
-						loopy.model.nodes.forEach(node => {
-							node.sendSignal({
-								delta: node.value
-						});
-						});
-				};
+				tick = 0;
+				if (typeof clearToastDedup === 'function') clearToastDedup();
+				loopy.model.startSim();
 
-				// const newTimeSeriesData = async () => {
-				// 	if (chart && selectedNodes.length == 0) {
-				// 		chart.data.labels.push(tick);
-				// 		tick++;
-				// 		for (let i = 0; i < loopy.model.nodes.length; i++) {
-				// 			updateTimeSeriesChart(loopy.model.nodes[i].value, i);
-				// 		}
-				// 	} else if (chart && selectedNodes.length > 0) {
-				// 		chart.data.labels.push(tick);
-				// 		tick++;
-				// 		for (let i = 0; i < selectedNodes.length; i++) {
-				// 			updateTimeSeriesChart(selectedNodes[i].value, i);
-				// 		}
-				// 	}
-				// };
-				
-				// // Run the function every second
-				// setInterval(newTimeSeriesData, 500);
-				
-	
-				// Start sending signals
-				sendSignals();
-	
-				// When finished, show the editor page again
-				// self.showPage("Edit");
+				// Kick off background Python simulation
+				const iterations = parseInt(document.getElementById('simIterations')?.value) || 200;
+				if (typeof triggerBackgroundAdvancedSim === 'function') triggerBackgroundAdvancedSim(iterations);
 			}
 		})).dom;
 
@@ -152,6 +120,8 @@ function PlayControls(loopy){
 				label: "Stop",
 				onclick: function(){
 					loopy.setMode(Loopy.MODE_EDIT);
+					if (typeof _clearNodeClassifications === 'function') _clearNodeClassifications();
+					if (typeof clearToastDedup === 'function') clearToastDedup();
 				}
 			})).dom;
 			buttonDOM.style.width = "100px";
@@ -177,7 +147,7 @@ function PlayControls(loopy){
 			value: loopy.signalSpeed,
 			min:0, max:6, step:0.2,
 			oninput: function(value){
-				loopy.signalSpeed = value;
+				loopy.signalSpeed = parseFloat(value);
 			}
 		})).dom;
 		speedSlider.style.bottom = "0px";

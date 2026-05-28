@@ -31,6 +31,8 @@ from advanced_analysis import (
     run_advanced_simulation,
     run_stability_analysis,
     run_3d_param_space,
+    run_fan_chart,
+    run_parameter_optimization,
     simulate_two_phase,
     classify_behavior as classify_behavior_twophase,
     rolling_z as rolling_z_advanced,
@@ -46,7 +48,7 @@ CORS(app, resources={r"/*": {"origins": ["https://loopy-v2.vercel.app", "http://
 
 
 
-stripe.api_key = 'sk_test_51QY9jPD0q75cxrZOPTBljKMlpDort35Y1EUIdO6GG3gqx3Bee9kOnUzvCfAnNJAjfXXhK0tcdeH4YVx8Xfm6r5So00Eal3kb6r'
+stripe.api_key = os.environ.get('STRIPE_API_KEY')
 
 
 
@@ -1099,5 +1101,63 @@ def random_seeds():
     except Exception as e:
         error_trace = traceback.format_exc()
         return jsonify({"error": str(e)}), 500
+@app.route('/fan-chart', methods=['POST'])
+def fan_chart():
+    """
+    Monte Carlo fan chart — runs n_sims perturbed simulations and returns
+    percentile bands (5/25/50/75/95) per node plus a matplotlib plot.
+
+    Expected JSON:
+    {
+        "nodes": [...], "edges": [...],
+        "iterations": 200,
+        "n_sims": 200,
+        "sigma_base": 0.25
+    }
+    """
+    try:
+        data = request.json
+        result = run_fan_chart(
+            data,
+            iterations=data.get('iterations', 200),
+            n_sims=data.get('n_sims', 200),
+            sigma_base=data.get('sigma_base', 0.25)
+        )
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+
+
+@app.route('/optimize-parameters', methods=['POST'])
+def optimize_parameters():
+    """
+    Two-stage parameter optimization: grid search + simulated annealing.
+    Returns top-5 (retention, decay, delay) configurations by score.
+
+    Expected JSON:
+    {
+        "nodes": [...], "edges": [...],
+        "ret_vals": [0.0, 0.25, 0.5, 0.75, 1.0],   (optional)
+        "decay_vals": [0.0, 0.25, 0.5, 0.75, 1.0], (optional)
+        "delay_vals": [0, 2, 4, 6, 8, 10],          (optional)
+        "iterations": 200,
+        "max_refine_iters": 150
+    }
+    """
+    try:
+        data = request.json
+        result = run_parameter_optimization(
+            data,
+            ret_vals=data.get('ret_vals'),
+            decay_vals=data.get('decay_vals'),
+            delay_vals=data.get('delay_vals'),
+            steps=data.get('iterations', 200),
+            max_refine_iters=data.get('max_refine_iters', 150)
+        )
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

@@ -153,7 +153,8 @@ class CLDEngine {
                 const result = eval(value);
                 return typeof result === 'number' && !isNaN(result) ? result : defaultValue;
             } catch (e) {
-                console.warn(`Failed to evaluate expression: ${value}`, e);
+                if (typeof showToast === 'function') showToast(`Expression error: "${value}" — ${e.message}`, 'error');
+                console.error(`Failed to evaluate expression: ${value}`, e);
                 return defaultValue;
             }
         }
@@ -402,7 +403,8 @@ class CLDEngine {
             const result = new Function('ctx', `with(ctx){return (${formula})}`)(context);
             return typeof result === 'number' && !isNaN(result) ? result : currentValue;
         } catch (e) {
-            console.warn(`Formula evaluation failed for node ${nodeId}:`, e);
+            if (typeof showToast === 'function') showToast(`Formula error (node "${nodeId}"): ${e.message}`, 'error');
+            console.error(`Formula evaluation failed for node ${nodeId}:`, e);
             return currentValue;
         }
     }

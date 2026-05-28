@@ -1,9 +1,10 @@
-const BEHAVIOR_COLORS = {
-    'Optimal':       '#2ecc71',
-    'Over-damped':   '#3498db',
-    'Unconstrained': '#e74c3c',
-    'Error':         '#95a5a6'
-};
+// coolwarm_r palette — 11 bins, bin 0 = best (lowest combo) = warm red,
+// bin 10 = worst (highest combo) = cool blue  (matches notebook)
+const RANK_PALETTE = [
+    '#b40426', '#c93c35', '#d95847', '#e8765a', '#f5a073',
+    '#f7e4d8',
+    '#c5d4e8', '#9ab7d4', '#6e9bbf', '#4480b0', '#3b4cc0'
+];
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('generate3DParamSpace')?.addEventListener('click', generate3DParamSpace);
@@ -44,7 +45,7 @@ async function generate3DParamSpace() {
         const iterations     = parseInt(document.getElementById('iterations3D').value);
 
         const totalPoints = retentionSteps * decaySteps * delaySteps;
-        statusDiv.innerHTML = `<div class="loading">Running ${totalPoints} simulations on the backend...</div>`;
+        statusDiv.innerHTML = `<div class="loading">Running ${totalPoints} simulations on the backend…</div>`;
 
         const response = await fetch(`${ADVANCED_API_URL}/param-space-3d`, {
             method: 'POST',
@@ -76,39 +77,46 @@ async function generate3DParamSpace() {
         document.getElementById('paramSpace3DStatus').innerHTML = `<div class="error">Error: ${error.message}</div>`;
     } finally {
         generateBtn.disabled = false;
-        generateBtn.textContent = 'Generate 3D Parameter Space';
+        generateBtn.textContent = 'Generate 3D Map';
     }
 }
 
 function render3DPlot(points, container) {
-    // Group points by behavior class for separate colored traces
-    const groups = {};
-    points.forEach(p => {
-        if (!groups[p.behavior]) groups[p.behavior] = { x: [], y: [], z: [], text: [] };
-        groups[p.behavior].x.push(p.retention);
-        groups[p.behavior].y.push(p.decay);
-        groups[p.behavior].z.push(p.delay);
-        groups[p.behavior].text.push(
-            `Behavior: ${p.behavior}<br>Retention: ${p.retention}<br>Decay: ${p.decay}<br>Delay: ${p.delay}`
-        );
-    });
+    const colors = points.map(p => RANK_PALETTE[Math.min(p.rank_bin ?? 5, 10)]);
 
-    const traces = Object.entries(groups).map(([behavior, data]) => ({
+    const allTrace = {
         type: 'scatter3d',
         mode: 'markers',
-        name: behavior,
-        x: data.x,
-        y: data.y,
-        z: data.z,
-        text: data.text,
+        name: 'All points',
+        x: points.map(p => p.retention),
+        y: points.map(p => p.decay),
+        z: points.map(p => p.delay),
+        text: points.map(p =>
+            `Ret: ${p.retention}  Decay: ${p.decay}  Delay: ${p.delay}<br>` +
+            `Score: ${p.combo}  (bin ${p.rank_bin}/10)<br>` +
+            `Eigen dist: ${p.dist}  Max Z: ${p.z}  Shape: ${p.shape}`
+        ),
         hoverinfo: 'text',
-        marker: {
-            size: 6,
-            color: BEHAVIOR_COLORS[behavior] || '#aaa',
-            opacity: 0.85,
-            line: { width: 0 }
-        }
-    }));
+        marker: { size: 4, color: colors, opacity: 0.80, line: { width: 0 } }
+    };
+
+    // Top-25 best points (lowest rank_bin)
+    const top25 = points.slice().sort((a, b) => (a.combo ?? 0) - (b.combo ?? 0)).slice(0, 25);
+    const topTrace = {
+        type: 'scatter3d',
+        mode: 'markers+text',
+        name: 'Top 25',
+        x: top25.map(p => p.retention),
+        y: top25.map(p => p.decay),
+        z: top25.map(p => p.delay),
+        text: top25.map((_, i) => `${i + 1}`),
+        textposition: 'top center',
+        hoverinfo: 'text',
+        hovertext: top25.map(p =>
+            `#${top25.indexOf(p)+1}  Ret:${p.retention} Dec:${p.decay} Dly:${p.delay}<br>Score:${p.combo}`
+        ),
+        marker: { size: 7, symbol: 'diamond', color: 'black', line: { color: 'white', width: 1 } }
+    };
 
     const layout = {
         scene: {
@@ -116,33 +124,48 @@ function render3DPlot(points, container) {
             yaxis: { title: 'Decay' },
             zaxis: { title: 'Delay' }
         },
-        legend: { title: { text: 'Behavior' } },
+        legend: { orientation: 'h', x: 0, y: 1.08 },
         margin: { l: 0, r: 0, t: 40, b: 0 },
-        title: 'Parameter Space: Retention × Decay × Delay',
+        title: 'Parameter Space — Retention × Decay × Delay (color = score bin)',
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor:  'rgba(0,0,0,0)',
         font: { color: '#ccc' }
     };
 
-    Plotly.newPlot(container, traces, layout, { responsive: true });
+    Plotly.newPlot(container, [allTrace, topTrace], layout, { responsive: true });
 }
 
 function renderSummaryTable(points, container) {
-    const counts = {};
-    points.forEach(p => { counts[p.behavior] = (counts[p.behavior] || 0) + 1; });
-    const total = points.length;
+    // Top-10 table
+    const top10 = points.slice().sort((a, b) => (a.combo ?? 0) - (b.combo ?? 0)).slice(0, 10);
 
-    const rows = Object.entries(counts)
-        .map(([b, n]) => `<tr>
-            <td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${BEHAVIOR_COLORS[b] || '#aaa'};margin-right:6px"></span>${b}</td>
-            <td>${n}</td>
-            <td>${((n / total) * 100).toFixed(1)}%</td>
-        </tr>`)
-        .join('');
+    const rows = top10.map((p, i) => {
+        const swatch = `<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${RANK_PALETTE[Math.min(p.rank_bin ?? 5, 10)]};margin-right:6px;vertical-align:middle"></span>`;
+        return `<tr>
+            <td style="padding:4px 10px">${i + 1}</td>
+            <td style="padding:4px 10px">${swatch}${p.rank_bin}/10</td>
+            <td style="padding:4px 10px">${p.retention}</td>
+            <td style="padding:4px 10px">${p.decay}</td>
+            <td style="padding:4px 10px">${p.delay}</td>
+            <td style="padding:4px 10px">${p.combo}</td>
+            <td style="padding:4px 10px">${p.dist}</td>
+            <td style="padding:4px 10px">${p.z}</td>
+        </tr>`;
+    }).join('');
 
     container.innerHTML = `
-        <table style="margin-top:16px;border-collapse:collapse;font-size:13px;">
-            <thead><tr><th style="padding:6px 12px;text-align:left">Behavior</th><th style="padding:6px 12px">Points</th><th style="padding:6px 12px">Share</th></tr></thead>
+        <h4 style="margin-top:16px">Top 10 Configurations (lowest score = best)</h4>
+        <table style="border-collapse:collapse;font-size:12px">
+            <thead><tr style="border-bottom:1px solid #555">
+                <th style="padding:4px 10px">#</th>
+                <th style="padding:4px 10px">Bin</th>
+                <th style="padding:4px 10px">Retention</th>
+                <th style="padding:4px 10px">Decay</th>
+                <th style="padding:4px 10px">Delay</th>
+                <th style="padding:4px 10px">Score</th>
+                <th style="padding:4px 10px">Eigen dist</th>
+                <th style="padding:4px 10px">Max Z</th>
+            </tr></thead>
             <tbody>${rows}</tbody>
         </table>`;
 }
