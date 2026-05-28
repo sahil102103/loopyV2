@@ -2,7 +2,7 @@ window.CONFIG = {
     // Backend API URL — auto-detects dev vs production
     API_URL: (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
         ? 'http://127.0.0.1:5000'
-        : 'https://loopy-v2.vercel.app', // TODO: replace with your production backend URL if different
+        : 'https://loopyv2-640o.onrender.com',
 
     FIREBASE: {
         apiKey: "AIzaSyAMo1LOHvEl5ediXHkgdAgCaxSaPh9Tv7s",
