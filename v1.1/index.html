@@ -222,7 +222,8 @@
 			<div class="tab-dropdown">
 				<button type="button" class="tablink tab-dropdown-trigger">Advanced <span class="tab-chevron">&#9662;</span></button>
 				<div class="tab-dropdown-menu">
-					<button type="button" class="tablink" id="advancedAnalysisTab" data-page="AdvancedAnalysis" onclick="openPage('AdvancedAnalysis')">Fan Chart & Optimization</button>
+					<button type="button" class="tablink" id="fanChartTab" data-page="FanChart" onclick="openPage('FanChart')">Fan Chart</button>
+					<button type="button" class="tablink" id="optimizationTab" data-page="Optimization" onclick="openPage('Optimization')">Optimization</button>
 					<button type="button" class="tablink" id="parameterSpaceTab" data-page="ParameterSpace" onclick="openPage('ParameterSpace')">Parameter Space</button>
 					<button type="button" class="tablink" id="generateDiagramTab" data-page="Generate" onclick="openPage('Generate')">Generate Diagram</button>
 					<div class="tab-dropdown-divider hidden" id="researchDivider"></div>
@@ -553,10 +554,9 @@
 			</div>
 		</div>
 
-		<!-- Advanced Analysis Section -->
-		<div id="AdvancedAnalysis" class="tabcontent">
+		<!-- ── Fan Chart ─────────────────────────────────────────────────── -->
+		<div id="FanChart" class="tabcontent">
 
-			<!-- ── Fan Chart ─────────────────────────────────────────────────── -->
 			<h2>Fan Chart</h2>
 			<p>Monte Carlo uncertainty analysis — runs many simulations with perturbed edge weights based on confidence values, producing confidence bands per node.</p>
 			<div class="analysis-controls">
@@ -564,13 +564,19 @@
 					<label for="fanChartSims">Simulations</label>
 					<input type="number" id="fanChartSims" value="200" min="50" max="500" step="50">
 				</div>
+				<div class="control-row">
+					<label for="fanChartNoise" title="Extra random jitter added to every edge each run, regardless of confidence. Raise this to widen the spread and reveal multi-modal (e.g. bimodal) outcomes.">Noise</label>
+					<input type="number" id="fanChartNoise" value="0" min="0" max="1" step="0.05">
+				</div>
 				<button id="runFanChart" class="button">Run Fan Chart</button>
 			</div>
 			<div id="fanChartResults"></div>
 
-			<hr class="section-divider">
+		</div>
 
-			<!-- ── Parameter Optimization ────────────────────────────────────── -->
+		<!-- ── Parameter Optimization ────────────────────────────────────── -->
+		<div id="Optimization" class="tabcontent">
+
 			<h2>Parameter Optimization</h2>
 			<p>Finds the best (retention, decay, delay) combination for your graph using a grid search followed by simulated annealing refinement. Returns top 5 configurations ranked by stability score.</p>
 			<div class="analysis-controls">

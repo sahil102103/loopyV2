@@ -476,6 +476,30 @@ div[big=yes] .play_button_label{
 	color: var(--text-secondary);
 }
 
+/* Editable numeric value next to a slider */
+.component_slider_value_input{
+	margin-bottom: 4px;
+	padding: 1px 4px;
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--text-primary);
+	background: var(--bg-primary);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+}
+
+/* Dropdown select (e.g. edge functional form) */
+.component_select{
+	width: calc(100% - 20px);
+	margin-bottom: 8px;
+	padding: 5px 6px;
+	font-size: 13px;
+	color: var(--text-primary);
+	background: var(--bg-primary);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+}
+
 /* Component buttons */
 .component_button{
 	width: calc(100% - 20px);

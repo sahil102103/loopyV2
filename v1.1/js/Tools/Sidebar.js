@@ -154,14 +154,30 @@ function Sidebar(loopy){
 			}
 		}))
 
+		// Quick source/sink toggles — set a default constant inflow/outflow without
+		// writing an expression. Refine via "Functional Form / Source / Sink…".
+		page.addComponent(new ComponentFormulaToggle({
+			label: 'Source (constant inflow): ',
+			prop: 'sourceFormula',
+			defaultFormula: '0.05'
+		}));
+		page.addComponent(new ComponentFormulaToggle({
+			label: 'Sink (constant outflow): ',
+			prop: 'sinkFormula',
+			defaultFormula: '0.05'
+		}));
+
+		page.addComponent(new ComponentHTML({
+			html: "<span style='font-size:11px;color:var(--text-secondary)'>Open the editor below for custom Value / Source / Sink expressions.</span>"
+		}));
 		page.addComponent(new ComponentButton({
-			label: "Create/Edit Formula",
+			label: "Functional Form / Source / Sink…",
 			onclick: function(node){
 				publish("modal", ["formula_editor"]);
 				// Store the current node for the modal to access
 				window.currentFormulaNode = node;
 			}
-		}));	
+		}));
 		self.addPage("Node", page);
 	})();
 	
@@ -219,6 +235,20 @@ function Sidebar(loopy){
 
 		}));
 
+
+		page.addComponent("functionalForm", new ComponentSelect({
+			label: "Functional Form:",
+			options: [
+				{ value: "linear",    text: "Linear (default)" },
+				{ value: "tanh",      text: "Saturating (tanh)" },
+				{ value: "quadratic", text: "Accelerating (x·|x|)" },
+				{ value: "relu",      text: "Positive only (ReLU)" },
+				{ value: "step",      text: "Threshold (sign)" }
+			],
+			oninput: function(value){
+				Edge.defaultFunctionalForm = value;
+			}
+		}));
 
 		page.addComponent("signal", new ComponentCheckbox({
 			label: 'Show Signal: ',
@@ -829,11 +859,49 @@ function ComponentSlider(config){
     var label = _createLabel(config.label);  // Create a label for the slider component
     labelContainer.appendChild(label);
 
-    // Create value label to display the current value (default to the first option on load)
-	var value = _createLabel(`${config.label === "Color:" ? getColor(config.options[0]) : config.options[0]}`);
+    // The Color slider shows a color NAME (categorical) — keep it a read-only label.
+    // All other sliders are numeric, so expose an editable number input alongside the
+    // slider so users can TYPE an exact/arbitrary value instead of only the discrete steps.
+    var isColor = (config.label === "Color:");
+    var sortedOptions = config.options.slice().sort(function(a, b){ return a - b; });
+    var optMin = sortedOptions[0];
+    var optMax = sortedOptions[sortedOptions.length - 1];
+
+    var value;  // the value-display element (label for color, <input> for numeric)
+    if(isColor){
+        value = _createLabel(getColor(config.options[0]));
+    } else {
+        value = document.createElement("input");
+        value.type = "number";
+        value.className = "component_slider_value_input";
+        value.min = optMin;
+        value.max = optMax;
+        value.step = "any";              // allow arbitrary values, not just 0.1 steps
+        value.value = config.options[0];
+        value.style.width = "56px";
+        // Don't let typing in the box start a slider drag.
+        value.addEventListener("mousedown", function(e){ e.stopPropagation(); });
+        value.addEventListener("change", function(){
+            var v = parseFloat(value.value);
+            if(isNaN(v)){ value.value = self.getValue(); return; }  // revert garbage
+            if(v < optMin) v = optMin;
+            if(v > optMax) v = optMax;                              // clamp to slider range
+            value.value = v;
+            self.setValue(v);
+            if(config.oninput) config.oninput(v);
+            movePointer();
+        });
+    }
     labelContainer.appendChild(value);
 
     self.dom.appendChild(labelContainer);
+
+    // Reflect the current value in the display (handles off-grid typed values too).
+    var updateDisplay = function(){
+        var v = self.getValue();
+        if(isColor) value.innerHTML = getColor(v);
+        else value.value = v;
+    };
 
     // Create the slider container DOM
     var sliderDOM = document.createElement("div");
@@ -854,8 +922,16 @@ function ComponentSlider(config){
 
     // Function to move the pointer to the correct position based on the current value
     var movePointer = function(){
-        var value = self.getValue();  // Get the current value of the slider
-        var optionIndex = config.options.indexOf(value);  // Find the index of the current value
+        var current = self.getValue();  // Get the current value of the slider
+        var optionIndex = config.options.indexOf(current);  // Find the index of the current value
+        if(optionIndex === -1){
+            // Typed value isn't one of the discrete options — snap pointer to nearest.
+            var bestD = Infinity;
+            for(var i = 0; i < config.options.length; i++){
+                var d = Math.abs(config.options[i] - current);
+                if(d < bestD){ bestD = d; optionIndex = i; }
+            }
+        }
         var x = (optionIndex + 0.5) * (250 / config.options.length);  // Calculate the position of the pointer
         pointer.style.left = (x - 7.5) + "px";  // Adjust pointer position (7.5px is half of the pointer width)
     };
@@ -885,7 +961,7 @@ function ComponentSlider(config){
         // Trigger the oninput callback if provided
         if(config.oninput){
             config.oninput(option);
-			value.innerHTML = config.label === "Color:" ? getColor(self.getValue()) : self.getValue(); // Update the value label to show the current option
+            updateDisplay(); // Update the value display to show the current option
         }
 
         // Move the pointer to the new position
@@ -924,7 +1000,7 @@ function ComponentSlider(config){
     // Show function to initialize the slider position and value label
     self.show = function(){
         movePointer();  // Move the pointer to the correct position
-		value.innerHTML = config.label === "Color:" ? getColor(self.getValue()) : self.getValue(); // Update the value label to show the current option
+        updateDisplay(); // Update the value display to show the current value
     };
 
     // Function to set the background color of the slider
@@ -979,15 +1055,40 @@ function ComponentSliderGlobal(config) {
 		self.page.onedit();
     };
 
-    // Create value label to display the current value (default to the first option on load)
-    var valueLabel = _createLabel(config.label === "Color:" ? getColor(config.options[0]) : config.options[0]);
+    // Global sliders are always numeric — expose an editable number input so users
+    // can type an exact/arbitrary value instead of only the discrete steps.
+    var sortedOptions = config.options.slice().sort(function(a, b){ return a - b; });
+    var optMin = sortedOptions[0];
+    var optMax = sortedOptions[sortedOptions.length - 1];
+
+    var valueLabel = document.createElement("input");
+    valueLabel.type = "number";
+    valueLabel.className = "component_slider_value_input";
+    valueLabel.min = optMin;
+    valueLabel.max = optMax;
+    valueLabel.step = "any";
+    valueLabel.value = config.options[0];
+    valueLabel.style.width = "56px";
+    valueLabel.addEventListener("mousedown", function(e){ e.stopPropagation(); });
+    valueLabel.addEventListener("change", function(){
+        var v = parseFloat(valueLabel.value);
+        if(isNaN(v)){ valueLabel.value = self.getValue(); return; }
+        if(v < optMin) v = optMin;
+        if(v > optMax) v = optMax;
+        valueLabel.value = v;
+        self.setValue(v);
+        if(config.oninput) config.oninput(v);
+        movePointer();
+    });
     labelContainer.appendChild(valueLabel);
 
     self.dom.appendChild(labelContainer);
 
+    var updateDisplay = function(){ valueLabel.value = self.getValue(); };
+
     // Create the slider container DOM
     var sliderDOM = document.createElement("div");
-    sliderDOM.setAttribute("class", "component_slider");  
+    sliderDOM.setAttribute("class", "component_slider");
     self.dom.appendChild(sliderDOM);
 
     // Slider DOM: add graphic and pointer elements
@@ -1004,11 +1105,18 @@ function ComponentSliderGlobal(config) {
 
     // Function to move the pointer to the correct position based on the current value
     var movePointer = function () {
-        var value = self.getValue();  
-        var optionIndex = config.options.indexOf(value);
-		// console.log(optionIndex)
-        var x = (optionIndex + 0.5) * (250 / config.options.length);  
-        pointer.style.left = (x - 7.5) + "px";  
+        var current = self.getValue();
+        var optionIndex = config.options.indexOf(current);
+        if(optionIndex === -1){
+            // Typed value isn't a discrete option — snap pointer to nearest.
+            var bestD = Infinity;
+            for(var i = 0; i < config.options.length; i++){
+                var d = Math.abs(config.options[i] - current);
+                if(d < bestD){ bestD = d; optionIndex = i; }
+            }
+        }
+        var x = (optionIndex + 0.5) * (250 / config.options.length);
+        pointer.style.left = (x - 7.5) + "px";
     };
 
     // Event handlers for slider interaction
@@ -1035,7 +1143,7 @@ function ComponentSliderGlobal(config) {
 
         if (config.oninput) {
             config.oninput(option);
-            valueLabel.innerHTML = config.label === "Color:" ? getColor(option) : option; 
+            updateDisplay();
         }
 
         movePointer();
@@ -1071,8 +1179,8 @@ function ComponentSliderGlobal(config) {
 
     // Show function to initialize the slider position and value label
     self.show = function () {
-        movePointer();  
-        valueLabel.innerHTML = config.label === "Color:" ? getColor(self.getValue()) : self.getValue();
+        movePointer();
+        updateDisplay();
     };
 
     // New setValue function that applies to all edges
@@ -1137,6 +1245,65 @@ function ComponentCheckbox(config) {
     // Show: Sync checkbox state with the component's value
     self.show = function() {
         checkbox.checked = self.getValue();
+    };
+}
+
+// Dropdown select bound to a model property (e.g. edge functional form).
+// config.options = [{value, text}, ...]
+function ComponentSelect(config) {
+    var self = this;
+    Component.apply(self);
+
+    self.dom = document.createElement("div");
+    var label = _createLabel(config.label);
+    self.dom.appendChild(label);
+
+    var select = document.createElement("select");
+    select.className = "component_select";
+    config.options.forEach(function(opt){
+        var o = document.createElement("option");
+        o.value = opt.value;
+        o.textContent = opt.text;
+        select.appendChild(o);
+    });
+    select.onchange = function(){
+        self.setValue(select.value);
+        if(config.oninput) config.oninput(select.value);
+    };
+    self.dom.appendChild(select);
+
+    self.show = function(){
+        var v = self.getValue();
+        select.value = (v === undefined || v === null || v === "") ? config.options[0].value : v;
+    };
+}
+
+// A simple on/off toggle that sets a node's source/sink formula property to a
+// sensible default constant (config.defaultFormula) when checked, and clears it
+// when unchecked. Lets users mark a source/sink without writing an expression,
+// while still reflecting any custom formula set via the formula editor.
+function ComponentFormulaToggle(config) {
+    var self = this;
+    Component.apply(self);
+
+    self.dom = document.createElement("div");
+    var label = _createLabel(config.label);
+    var checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "component_checkbox";
+
+    checkbox.onchange = function(){
+        if(!self.page.target) return;
+        self.page.target[config.prop] = checkbox.checked ? config.defaultFormula : null;
+        publish("model/changed");
+        self.page.onedit();
+    };
+
+    self.dom.appendChild(label);
+    self.dom.appendChild(checkbox);
+
+    self.show = function(){
+        checkbox.checked = !!(self.page.target && self.page.target[config.prop]);
     };
 }
 

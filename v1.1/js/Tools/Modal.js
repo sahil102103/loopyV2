@@ -19,9 +19,15 @@ function Modal(loopy){
 		self.isShowing = true;
 	};
 	self.hide = function(){
+		// Set hidden state FIRST so a throwing onhide can't leave the overlay
+		// up (which would block all menus) or isShowing stuck true.
 		document.getElementById("modal_container").setAttribute("show","no");
-		if(self.currentPage.onhide) self.currentPage.onhide();
 		self.isShowing = false;
+		try {
+			if(self.currentPage && self.currentPage.onhide) self.currentPage.onhide();
+		} catch(e) {
+			console.warn("modal onhide failed:", e);
+		}
 	};
 
 	// Close button
@@ -305,6 +311,7 @@ function Modal(loopy){
 			  background: #ffffff;
 			  border-radius: 12px;
 			  overflow: hidden;
+			  position: relative;
 			  padding: 16px 16px 14px;
 			  width: 100%;
 			  box-sizing: border-box;
@@ -531,6 +538,61 @@ function Modal(loopy){
 			.formula-editor-root .action-btn.save   { background: #1a1a2e; color: #fff; }
 			.formula-editor-root .action-btn.clear  { background: #fee2e2; color: #991b1b; }
 			.formula-editor-root .action-btn.cancel { background: #f1f1f1; color: #444; }
+			/* Title header + help toggle */
+			.formula-editor-root .fe-header {
+			  position: relative;
+			  display: flex;
+			  align-items: center;
+			  justify-content: center;
+			  margin-bottom: 10px;
+			}
+			.formula-editor-root .fe-header h3 { margin: 0; }
+			.formula-editor-root .fe-help-btn {
+			  position: absolute;
+			  right: 0;
+			  top: 50%;
+			  transform: translateY(-50%);
+			  width: 24px; height: 24px;
+			  border-radius: 50%;
+			  border: 1.5px solid #d0d0d0;
+			  background: #f5f5f5;
+			  color: #555;
+			  font-weight: 700;
+			  font-size: 0.85rem;
+			  line-height: 1;
+			  padding: 0;
+			  cursor: pointer;
+			  display: flex; align-items: center; justify-content: center;
+			}
+			.formula-editor-root .fe-help-btn:hover { background: #e9e9f5; color: #1a1a2e; }
+			/* Help overlay panel */
+			.formula-editor-root .fe-help {
+			  display: none;
+			  position: absolute;
+			  inset: 0;
+			  z-index: 5;
+			  background: #fff;
+			  border-radius: 12px;
+			  padding: 18px 20px;
+			  overflow-y: auto;
+			  box-sizing: border-box;
+			}
+			.formula-editor-root .fe-help.open { display: block; }
+			.formula-editor-root .fe-help h4 { font-size: 1rem; margin: 0 0 6px; color: #111; }
+			.formula-editor-root .fe-help h5 { font-size: 0.78rem; margin: 13px 0 4px; color: #1a1a2e; text-transform: uppercase; letter-spacing: 0.04em; }
+			.formula-editor-root .fe-help p { font-size: 0.82rem; line-height: 1.45; color: #444; margin: 4px 0; }
+			.formula-editor-root .fe-help ul { margin: 4px 0; padding-left: 18px; }
+			.formula-editor-root .fe-help li { font-size: 0.82rem; line-height: 1.5; color: #444; }
+			.formula-editor-root .fe-help code { font-family: 'Menlo','Consolas',monospace; background: #f0f0f5; padding: 1px 5px; border-radius: 4px; color: #3730a3; font-size: 0.78rem; }
+			.formula-editor-root .fe-help table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+			.formula-editor-root .fe-help th, .formula-editor-root .fe-help td { text-align: left; padding: 4px 6px; border-bottom: 1px solid #eee; font-size: 0.79rem; vertical-align: top; }
+			.formula-editor-root .fe-help-callout { background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; padding: 8px 10px; margin: 10px 0; font-size: 0.8rem; line-height: 1.45; color: #6d4c00; }
+			.formula-editor-root .fe-help-close {
+			  position: absolute; top: 10px; right: 12px;
+			  border: none; background: transparent;
+			  font-size: 1.3rem; line-height: 1; cursor: pointer; color: #999; padding: 2px 6px;
+			}
+			.formula-editor-root .fe-help-close:hover { color: #333; }
 		`;
 			document.head.appendChild(style);
 		}
@@ -540,10 +602,60 @@ function Modal(loopy){
 		root.className = 'formula-editor-root';
 		page.dom.appendChild(root);
 
-		// Title
+		// Title + help toggle
+		var header = document.createElement('div');
+		header.className = 'fe-header';
 		var title = document.createElement('h3');
 		title.textContent = 'Formula Editor';
-		root.appendChild(title);
+		header.appendChild(title);
+		var helpBtn = document.createElement('button');
+		helpBtn.className = 'fe-help-btn';
+		helpBtn.textContent = '?';
+		helpBtn.title = 'How formulas work';
+		header.appendChild(helpBtn);
+		root.appendChild(header);
+
+		// Help overlay panel (hidden until "?" is clicked)
+		var help = document.createElement('div');
+		help.className = 'fe-help';
+		help.innerHTML = `
+			<button class="fe-help-close" title="Close">&times;</button>
+			<h4>How formulas work</h4>
+			<p>Each node has three optional formulas. Pick a tab, type an expression, and Save. They run in the <b>Advanced</b> analyses (Advanced Simulation, Fan Chart, Stability Maps).</p>
+
+			<h5>The three tabs</h5>
+			<ul>
+				<li><b>Value</b> — replaces the node's normal edge-driven update with your expression. Use for a node whose value you want to <i>define</i> directly.</li>
+				<li><b>Source</b> — an external inflow. Each tick, the result is <b>added</b> to the node's value.</li>
+				<li><b>Sink</b> — an external outflow. Each tick, the result is <b>subtracted</b> from the node's value.</li>
+			</ul>
+
+			<div class="fe-help-callout"><b>Source &amp; Sink are amounts, not multipliers.</b> The value you enter is added/subtracted each tick — it is <i>not</i> multiplied in. For a proportional drain (e.g. lose 5% of the current value per tick), use the current value: <code>0.05 * x</code>.</div>
+
+			<h5>Variables you can use</h5>
+			<table>
+				<tr><th>Variable</th><th>Meaning</th></tr>
+				<tr><td><code>x</code> or <code>val</code></td><td>this node's current value (Source/Sink)</td></tr>
+				<tr><td><code>t</code></td><td>current timestep (0, 1, 2, …)</td></tr>
+				<tr><td><code>Math.*</code>, <code>pi</code>, <code>e</code></td><td>math functions &amp; constants (<code>Math.exp</code>, <code>Math.sin</code>, …)</td></tr>
+				<tr><td>other node names</td><td>available in the <b>Value</b> tab only</td></tr>
+			</table>
+
+			<h5>Examples</h5>
+			<ul>
+				<li>Constant inflow — <b>Source</b>: <code>0.05</code></li>
+				<li>Constant drain — <b>Sink</b>: <code>0.05</code></li>
+				<li>Lose 5% of value per tick — <b>Sink</b>: <code>0.05 * x</code></li>
+				<li>Demand that grows over time — <b>Sink</b>: <code>0.01 * t</code></li>
+				<li>Oscillating supply — <b>Source</b>: <code>0.1 * (1 + Math.sin(t / 5))</code></li>
+				<li>Decaying boost — <b>Source</b>: <code>0.2 * Math.exp(-0.1 * t)</code></li>
+			</ul>
+
+			<p style="color:#888;">Tip: the quick <b>Source</b>/<b>Sink</b> checkboxes in the node panel just set a constant <code>0.05</code> here — open this editor to customize it. If a formula errors, that tick contributes 0 (the run won't crash).</p>
+		`;
+		root.appendChild(help);
+		helpBtn.onclick = function() { help.classList.toggle('open'); };
+		help.querySelector('.fe-help-close').onclick = function() { help.classList.remove('open'); };
 
 		// Tabs: Value / Sink / Source
 		var tabBar = document.createElement('div');
@@ -551,9 +663,9 @@ function Modal(loopy){
 		root.appendChild(tabBar);
 
 		var tabDefs = [
-			{ key: 'formula',      label: 'Value',  desc: "Overrides edge-based updates — variables: t, Y0, other node labels.",  placeholder: 'e.g., Y0 * Math.exp(-0.1 * t)' },
-			{ key: 'sinkFormula',  label: 'Sink',   desc: "Drain multiplier applied each tick — use x for the current value.",    placeholder: 'e.g., 0.95  or  1 - 0.01 * t' },
-			{ key: 'sourceFormula',label: 'Source', desc: "Inflow multiplier applied each tick — use x for the current value.",   placeholder: 'e.g., 1.05  or  1 + 0.01 * t' },
+			{ key: 'formula',      label: 'Value',  desc: "Overrides edge-based updates — variables: t, other node names.",         placeholder: 'e.g., Y0 * Math.exp(-0.1 * t)' },
+			{ key: 'sinkFormula',  label: 'Sink',   desc: "Amount subtracted each tick — use x for the current value. (See ? )",  placeholder: 'e.g., 0.05  or  0.05 * x' },
+			{ key: 'sourceFormula',label: 'Source', desc: "Amount added each tick — use x for the current value. (See ? )",       placeholder: 'e.g., 0.05  or  0.01 * t' },
 		];
 
 		var activeTab = 'formula';

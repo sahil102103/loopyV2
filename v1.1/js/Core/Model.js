@@ -605,7 +605,12 @@ function Model(loopy){
 				node.flow,
 				node.pass ? 1 : 0,
 				encodeURIComponent(node.floor),
-				encodeURIComponent(node.ceiling)
+				encodeURIComponent(node.ceiling),
+				// 10 - formula, 11 - sinkFormula, 12 - sourceFormula
+				// (double-encoded like the label so they survive the load decode)
+				encodeURIComponent(encodeURIComponent(node.formula || "")),
+				encodeURIComponent(encodeURIComponent(node.sinkFormula || "")),
+				encodeURIComponent(encodeURIComponent(node.sourceFormula || ""))
 			]);
 		}
 		data.push(nodes);
@@ -630,7 +635,8 @@ function Model(loopy){
 				edge.damper,
 				edge.lag,
 				edge.edgeLabelX,
-				edge.edgeLabelY
+				edge.edgeLabelY,
+				edge.functionalForm || "linear"   // 8 - functional form
 			];
 			if(dataEdge.f==dataEdge.t){
 				dataEdge.push(Math.round(edge.rotation));
@@ -677,6 +683,12 @@ function Model(loopy){
 		var labels = data[2];
 		var UID = data[3];
 
+		// Decode an optional formula field (null when absent/empty); never throw.
+		var _decodeFormula = function(v){
+			if(v === undefined || v === null || v === "") return null;
+			try { return decodeURIComponent(v); } catch(e){ return v; }
+		};
+
 		// Nodes
 		for(var i=0;i<nodes.length;i++){
 			var node = nodes[i];
@@ -692,6 +704,9 @@ function Model(loopy){
 				pass: node[7] === 1,
 				floor: _parseInfinity(decodeURIComponent(node[8])),
 				ceiling: _parseInfinity(decodeURIComponent(node[9])),
+				formula: _decodeFormula(node[10]),
+				sinkFormula: _decodeFormula(node[11]),
+				sourceFormula: _decodeFormula(node[12]),
 			});
 		}
 
@@ -707,6 +722,7 @@ function Model(loopy){
 			};
 			if(edge[4]) edgeConfig.lag = edge[5];
 			if(edge[5]) edgeConfig.rotation=edge[6];
+			if(edge[8]) edgeConfig.functionalForm = edge[8];
 			self.addEdge(edgeConfig);
 		}
 

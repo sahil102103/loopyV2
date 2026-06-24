@@ -97,7 +97,8 @@ function convertToAdvancedFormat(nodesToInclude, edgesToInclude) {
         correlation: edge.strength,
         decay: edge.damper ?? 0,
         delay: edge.lag ?? 0,         // matches EDGE_DEFAULTS in notebook (no delay by default)
-        confidence: edge.confidence ?? 0.8
+        confidence: edge.confidence ?? 0.8,
+        functional_form: edge.functionalForm || 'linear'
     }));
 
     return { nodes, edges };
@@ -317,11 +318,12 @@ async function runFanChart() {
         const graphData = convertToAdvancedFormat(loopy.model.nodes, loopy.model.edges);
         const nSims = parseInt(document.getElementById('fanChartSims')?.value) || 200;
         const iterations = parseInt(document.getElementById('simIterations')?.value) || 200;
+        const noiseFloor = parseFloat(document.getElementById('fanChartNoise')?.value) || 0;
 
         const response = await fetch(`${ADVANCED_API_URL}/fan-chart`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...graphData, iterations, n_sims: nSims, sigma_base: 0.25 })
+            body: JSON.stringify({ ...graphData, iterations, n_sims: nSims, sigma_base: 0.25, noise_floor: noiseFloor })
         });
 
         if (!response.ok) throw new Error(`Backend error: ${response.status}`);

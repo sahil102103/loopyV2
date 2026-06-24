@@ -52,6 +52,32 @@ def _edge_factor(e):
     return corr * (1.0 - decay)
 
 
+def _apply_form(form, x):
+    """
+    Transform a source value through an edge's functional form before it is scaled
+    by the edge factor. Every form maps 0 -> 0 so a quiescent system stays quiescent
+    and the default ('linear') exactly reproduces the original additive behaviour.
+    """
+    if not form or form == "linear":
+        return x
+    if form == "tanh":            # saturating (soft clamp to ±1)
+        return math.tanh(x)
+    if form == "quadratic":       # sign-preserving square — accelerating influence
+        return x * abs(x)
+    if form == "cubic":
+        return x ** 3
+    if form == "relu":            # only positive influence passes
+        return x if x > 0 else 0.0
+    if form == "step":            # direction only (threshold at 0)
+        return 1.0 if x > 0 else (-1.0 if x < 0 else 0.0)
+    return x
+
+
+def _edge_contribution(e, src_v):
+    """Per-edge contribution: functional-form transform of the source, then scaled."""
+    return _edge_factor(e) * _apply_form(e.get("functional_form", "linear"), src_v)
+
+
 def simulate_two_phase(G: nx.DiGraph, init_vals: dict, steps: int):
     """
     Core two-phase propagation engine with delay awareness.
@@ -93,7 +119,7 @@ def simulate_two_phase(G: nx.DiGraph, init_vals: dict, steps: int):
             delay_e = e.get("delay", 0)
             src_t = t - delay_e
             src_v = hist[u][src_t] if src_t >= 0 else 0.0
-            nxt[v] += src_v * _edge_factor(e)
+            nxt[v] += _edge_contribution(e, src_v)
         
         # Context for bound evaluation
         ctx_common = {
@@ -125,7 +151,7 @@ def simulate_two_phase(G: nx.DiGraph, init_vals: dict, steps: int):
                 src_v = hist[pred][src_t] if src_t >= 0 else 0.0
                 if src_v is None:
                     src_v = 0.0
-                inputs[pred] = src_v * _edge_factor(e)
+                inputs[pred] = _edge_contribution(e, src_v)
             
             if formulas[n]:
                 ctx = {
@@ -496,7 +522,8 @@ def run_advanced_simulation(graph_data, iterations=200):
                    correlation=edge_data.get('correlation', 1.0),
                    decay=edge_data.get('decay', 0.0),
                    delay=edge_data.get('delay', 0),
-                   confidence=edge_data.get('confidence', edge_data.get('certainty', 1.0)))
+                   confidence=edge_data.get('confidence', edge_data.get('certainty', 1.0)),
+                   functional_form=edge_data.get('functional_form', 'linear'))
     
     # Initial values
     init_vals = {n: G.nodes[n]['start_amount'] for n in G.nodes}
@@ -574,7 +601,8 @@ def run_stability_analysis(graph_data, decay_range, delay_range, iterations=200)
                    correlation=edge_data.get('correlation', 1.0),
                    decay=0.0,  # Will be varied
                    delay=0,    # Will be varied
-                   confidence=edge_data.get('confidence', edge_data.get('certainty', 1.0)))
+                   confidence=edge_data.get('confidence', edge_data.get('certainty', 1.0)),
+                   functional_form=edge_data.get('functional_form', 'linear'))
     
     # Create parameter grids
     decay_min, decay_max, decay_steps = decay_range
@@ -654,7 +682,8 @@ def run_3d_param_space(graph_data, retention_range, decay_range, delay_range,
                    correlation=edge_data.get('correlation', 1.0),
                    decay=edge_data.get('decay', 0.0),
                    delay=0,
-                   confidence=edge_data.get('confidence', edge_data.get('certainty', 1.0)))
+                   confidence=edge_data.get('confidence', edge_data.get('certainty', 1.0)),
+                   functional_form=edge_data.get('functional_form', 'linear'))
 
     retention_values = np.linspace(retention_range[0], retention_range[1], int(retention_range[2]))
     decay_values     = np.linspace(decay_range[0],     decay_range[1],     int(decay_range[2]))
@@ -721,7 +750,7 @@ def run_3d_param_space(graph_data, retention_range, decay_range, delay_range,
 # MONTE CARLO UNCERTAINTY (Fan Chart)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _perturb_graph_by_confidence(G_in, *, sigma_base=0.25, rng=None):
+def _perturb_graph_by_confidence(G_in, *, sigma_base=0.25, noise_floor=0.0, rng=None):
     """
     Resample each edge's correlation using certainty-driven logic:
       c = 1.0  → keep exact correlation (deterministic)
@@ -729,6 +758,10 @@ def _perturb_graph_by_confidence(G_in, *, sigma_base=0.25, rng=None):
       0 < c < 1:
           with prob c:       keep corr unchanged
           with prob (1-c):   sample Normal(corr, sigma_base*(1-c)), clipped to [-1,1]
+
+    `noise_floor` adds an independent Gaussian jitter to EVERY edge regardless of
+    confidence. This guarantees spread across Monte Carlo runs (so bimodal outcome
+    distributions can emerge) even when all edges are fully confident (c = 1.0).
     """
     if rng is None:
         rng = np.random.default_rng()
@@ -749,11 +782,14 @@ def _perturb_graph_by_confidence(G_in, *, sigma_base=0.25, rng=None):
                 sigma = max(1e-6, sigma_base * (1.0 - c))
                 new_corr = float(np.clip(rng.normal(loc=corr0, scale=sigma), -1.0, 1.0))
 
+        if noise_floor > 0.0:
+            new_corr = float(np.clip(new_corr + rng.normal(0.0, noise_floor), -1.0, 1.0))
+
         d['correlation'] = new_corr
     return G
 
 
-def simulate_fan_paths(G_ref, steps, *, n_sims=200, sigma_base=0.25, seed=42):
+def simulate_fan_paths(G_ref, steps, *, n_sims=200, sigma_base=0.25, noise_floor=0.0, seed=42):
     """
     Monte-Carlo envelope for node values.
     Returns dict: {node: np.ndarray(n_sims × T)}
@@ -763,7 +799,7 @@ def simulate_fan_paths(G_ref, steps, *, n_sims=200, sigma_base=0.25, seed=42):
     paths = {n: [] for n in G_ref.nodes}
 
     for _ in range(n_sims):
-        Gs = _perturb_graph_by_confidence(G_ref, sigma_base=sigma_base, rng=rng)
+        Gs = _perturb_graph_by_confidence(G_ref, sigma_base=sigma_base, noise_floor=noise_floor, rng=rng)
         hist = simulate_two_phase(Gs, init_vals, steps)
         for n in G_ref.nodes:
             arr = np.asarray([v for v in hist[n] if v is not None], dtype=float)
@@ -772,7 +808,7 @@ def simulate_fan_paths(G_ref, steps, *, n_sims=200, sigma_base=0.25, seed=42):
     return {n: np.vstack(lst) for n, lst in paths.items() if lst}
 
 
-def run_fan_chart(graph_data, iterations=200, n_sims=200, sigma_base=0.25):
+def run_fan_chart(graph_data, iterations=200, n_sims=200, sigma_base=0.25, noise_floor=0.0):
     """
     Run Monte Carlo fan chart simulation.
 
@@ -801,9 +837,10 @@ def run_fan_chart(graph_data, iterations=200, n_sims=200, sigma_base=0.25):
                    correlation=edge_data.get('correlation', 1.0),
                    decay=edge_data.get('decay', 0.6),
                    delay=edge_data.get('delay', 0),
-                   confidence=edge_data.get('confidence', 0.8))
+                   confidence=edge_data.get('confidence', 0.8),
+                   functional_form=edge_data.get('functional_form', 'linear'))
 
-    mc = simulate_fan_paths(G, iterations, n_sims=n_sims, sigma_base=sigma_base)
+    mc = simulate_fan_paths(G, iterations, n_sims=n_sims, sigma_base=sigma_base, noise_floor=noise_floor)
     if not mc:
         return {"success": False, "error": "All simulations failed"}
 
@@ -1001,7 +1038,8 @@ def run_parameter_optimization(graph_data, ret_vals=None, decay_vals=None, delay
                    correlation=edge_data.get('correlation', 1.0),
                    decay=edge_data.get('decay', 0.6),
                    delay=edge_data.get('delay', 0),
-                   confidence=edge_data.get('confidence', 0.8))
+                   confidence=edge_data.get('confidence', 0.8),
+                   functional_form=edge_data.get('functional_form', 'linear'))
 
     if not G.nodes:
         return {"success": False, "error": "Empty graph"}

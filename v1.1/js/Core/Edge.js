@@ -9,12 +9,13 @@ Edge.MAX_SIGNALS = 100;
 Edge.MAX_SIGNALS_PER_EDGE = 10; // Do we really want this : Ask Dr. Oet
 Edge.defaultStrength = 1;
 Edge.defaultStrengthMultiplier = 1
-Edge.defaultConfidence = 1
+Edge.defaultConfidence = 0.5 // <1 so Monte Carlo / fan-chart edges get perturbed (enables bimodal distributions)
 Edge.radius = 60;
 Edge.damper = 0;
 Edge.DEFAULT_SIGNAL = true;
 
 Edge.defaultLag = 0;
+Edge.defaultFunctionalForm = "linear"; // how the source signal is transformed before scaling
 
 
 function Edge(model, config){
@@ -39,7 +40,8 @@ function Edge(model, config){
 		strength: Edge.defaultStrength,
 		strengthMultiplier: Edge.defaultStrengthMultiplier,
 		confidence: Edge.defaultConfidence,
-		damper: Edge.damper
+		damper: Edge.damper,
+		functionalForm: Edge.defaultFunctionalForm
 	});
 
 	// Get my NODES

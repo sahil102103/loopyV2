@@ -38,6 +38,18 @@ function SavedModels(loopy) {
         localStorage.setItem(LOCAL_KEY, JSON.stringify(models));
     }
 
+    // decodeURIComponent throws (URIError) on malformed % sequences — e.g. a node
+    // label containing a literal "%". Fall back to the raw string so a single bad
+    // field can't abort the whole load and leave the modal stuck open.
+    function _safeDecode(str) {
+        try {
+            return decodeURIComponent(str);
+        } catch (e) {
+            console.warn("decodeURIComponent failed, using raw data:", e);
+            return str;
+        }
+    }
+
     // ── Save ──
 
     self.saveModel = function(name, callback) {
@@ -183,7 +195,7 @@ function SavedModels(loopy) {
             }
             if (!found) { callback(new Error("Model not found")); return; }
             try {
-                var decoded = decodeURIComponent(found.data);
+                var decoded = _safeDecode(found.data);
                 loopy.model.deserialize(decoded);
                 if (found.viewState) {
                     var view = JSON.parse(found.viewState);
@@ -213,7 +225,7 @@ function SavedModels(loopy) {
             }
             var d = snap.data();
             try {
-                var decoded = decodeURIComponent(d.data);
+                var decoded = _safeDecode(d.data);
                 loopy.model.deserialize(decoded);
 
                 if (d.viewState) {
@@ -314,10 +326,12 @@ function SavedModels(loopy) {
                     var id = this.getAttribute("data-load-id");
                     var name = this.getAttribute("data-load-name");
                     self.loadModel(id, function(err) {
+                        // Always close the modal so its overlay never traps the UI,
+                        // even if the load failed partway through.
+                        loopy.modal.hide();
                         if (err) {
                             alert("Failed to load model.");
                         } else {
-                            loopy.modal.hide();
                             loopy.model.dirty();
                         }
                     });

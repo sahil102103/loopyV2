@@ -1112,7 +1112,8 @@ def fan_chart():
         "nodes": [...], "edges": [...],
         "iterations": 200,
         "n_sims": 200,
-        "sigma_base": 0.25
+        "sigma_base": 0.25,
+        "noise_floor": 0.0
     }
     """
     try:
@@ -1121,7 +1122,8 @@ def fan_chart():
             data,
             iterations=data.get('iterations', 200),
             n_sims=data.get('n_sims', 200),
-            sigma_base=data.get('sigma_base', 0.25)
+            sigma_base=data.get('sigma_base', 0.25),
+            noise_floor=data.get('noise_floor', 0.0)
         )
         return jsonify(result), 200
     except Exception as e:
