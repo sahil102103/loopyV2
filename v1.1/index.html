@@ -603,12 +603,40 @@
 		<!-- New Diagram Generation Section -->
 		<div id="Generate" class="tabcontent">
 			<h2>Diagram Generator</h2>
-			<label for="apiKeyDiagramGenerator">OpenAI API Key (For Generate explanation feature):</label>
-			<input type="text" id="apiKeyDiagramGenerator" placeholder="Enter OpenAI API Key">
-			<textarea id="description" rows="4" cols="50" placeholder="Enter your description here..."></textarea><br>
-			<button id="generateDiagramButton">Generate Diagram</button>
-			<br>
-			<pre id="output"></pre>
+			<p class="gen-sub">Describe a system in plain English and generate a causal loop diagram directly on the canvas — nodes, links, and polarities are laid out automatically.</p>
+
+			<div class="gen-field">
+				<label for="genModel">Model</label>
+				<select id="genModel" class="gen-select"><!-- populated by generateDiagram.js --></select>
+				<span class="gen-hint">Choose any provider — you'll need an API key for the one you pick.</span>
+			</div>
+
+			<div class="gen-field">
+				<label for="apiKeyDiagramGenerator" id="genKeyLabel">API Key</label>
+				<input type="password" id="apiKeyDiagramGenerator" placeholder="…" autocomplete="off">
+				<span class="gen-hint" id="genKeyHint">Stored only in your browser (localStorage), sent only to the selected provider.</span>
+			</div>
+
+			<div class="gen-field">
+				<label for="description">Description</label>
+				<textarea id="description" rows="5" placeholder="e.g. Model the predator–prey dynamics between foxes and rabbits, including the grass they depend on."></textarea>
+			</div>
+
+			<div class="gen-examples">
+				<span class="gen-ex-label">Try:</span>
+				<button type="button" class="gen-chip" data-prompt="Model the predator–prey dynamics between foxes, rabbits, and the grass the rabbits eat.">Predator–prey</button>
+				<button type="button" class="gen-chip" data-prompt="Model employee burnout: how workload drives stress, stress lowers productivity and rest, and low productivity increases workload.">Employee burnout</button>
+				<button type="button" class="gen-chip" data-prompt="Model startup growth: users drive revenue, revenue funds hiring and marketing, marketing brings users, but churn reduces users.">Startup growth</button>
+				<button type="button" class="gen-chip" data-prompt="Model climate feedback: CO2 emissions raise temperature, temperature melts ice, less ice lowers reflectivity which further raises temperature.">Climate feedback</button>
+			</div>
+
+			<div class="gen-options">
+				<label class="gen-check"><input type="checkbox" id="genReplace" checked> Replace current diagram</label>
+				<span class="gen-hint">Uncheck to add the generated nodes to your existing model.</span>
+			</div>
+
+			<button id="generateDiagramButton" class="button">Generate Diagram</button>
+			<div id="genStatus" class="gen-status"></div>
 		</div>
 
 	</div>

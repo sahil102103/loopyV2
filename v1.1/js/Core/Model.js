@@ -90,6 +90,7 @@ function Model(loopy){
 				label: node.label,
 				hue: node.hue,
 				radius: node.radius,
+					retention: node.retention,
 				flow: node.flow,
 				pass: node.pass,
 				floor: isFinite(node.floor) ? node.floor : String(node.floor),
@@ -610,7 +611,9 @@ function Model(loopy){
 				// (double-encoded like the label so they survive the load decode)
 				encodeURIComponent(encodeURIComponent(node.formula || "")),
 				encodeURIComponent(encodeURIComponent(node.sinkFormula || "")),
-				encodeURIComponent(encodeURIComponent(node.sourceFormula || ""))
+				encodeURIComponent(encodeURIComponent(node.sourceFormula || "")),
+				// 13 - retention (raw number; 0 is valid and must round-trip)
+				node.retention
 			]);
 		}
 		data.push(nodes);
@@ -707,6 +710,8 @@ function Model(loopy){
 				formula: _decodeFormula(node[10]),
 				sinkFormula: _decodeFormula(node[11]),
 				sourceFormula: _decodeFormula(node[12]),
+				// retention: keep 0; only fall back to the default when absent (old saves)
+				retention: (node[13] === undefined || node[13] === null) ? undefined : Number(node[13]),
 			});
 		}
 

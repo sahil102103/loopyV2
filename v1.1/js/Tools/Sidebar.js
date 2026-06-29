@@ -128,7 +128,7 @@ function Sidebar(loopy){
 		page.addComponent("retention", new ComponentSlider({
 			bg: "lag",
 			label: "Node Retention:",
-			options: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+			options: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
 			//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
 			oninput: function(value){
 				Node.DEFAULT_RETENTION = value;
@@ -580,7 +580,7 @@ function Sidebar(loopy){
 			item: "Node",
 			label: "Node Retention:",
 			globalProp: 'retention',
-			options: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+			options: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
 			//options: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1],
 			oninput: function(value){
 				Node.DEFAULT_RETENTION = value;
