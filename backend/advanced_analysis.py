@@ -1044,18 +1044,23 @@ def run_parameter_optimization(graph_data, ret_vals=None, decay_vals=None, delay
     if not G.nodes:
         return {"success": False, "error": "Empty graph"}
 
-    # Stage 1: global grid search
-    grid_results = global_search_uniform(
-        G,
-        ret_vals=ret_vals or np.linspace(0.0, 1.0, 5).tolist(),
-        decay_vals=decay_vals or np.linspace(0.0, 1.0, 5).tolist(),
-        delay_vals=delay_vals or list(range(0, 11, 2)),
-        steps=steps,
-        topk=3
+    # Resolve the sweep grids once so Stage 1 and the per-node search agree.
+    _ret   = ret_vals   or np.linspace(0.0, 1.0, 5).tolist()
+    _decay = decay_vals or np.linspace(0.0, 1.0, 5).tolist()
+    _delay = delay_vals or list(range(0, 11, 2))
+
+    # Stage 1: global grid search — computed ONCE and reused for both the top-5
+    # ranking and the per-node search below (previously the full grid was
+    # evaluated twice, which roughly doubled the runtime).
+    full_grid = global_search_uniform(
+        G, ret_vals=_ret, decay_vals=_decay, delay_vals=_delay,
+        steps=steps, topk=len(_ret) * len(_decay) * len(_delay)
     )
 
-    if not grid_results:
+    if not full_grid:
         return {"success": False, "error": "Grid search produced no results"}
+
+    grid_results = full_grid[:3]
 
     # Stage 2: local refinement around best grid result
     refined = local_refine_unique(
@@ -1091,14 +1096,7 @@ def run_parameter_optimization(graph_data, ret_vals=None, decay_vals=None, delay
     # Per-node individual optimization:
     # For each node, find the parameter config where that node achieves "Optimal"
     # and has the lowest combined score. Uses the same grid results.
-    all_grid = global_search_uniform(
-        G,
-        ret_vals=ret_vals or np.linspace(0.0, 1.0, 5).tolist(),
-        decay_vals=decay_vals or np.linspace(0.0, 1.0, 5).tolist(),
-        delay_vals=delay_vals or list(range(0, 11, 2)),
-        steps=steps,
-        topk=len(ret_vals or [5]) * len(decay_vals or [5]) * len(list(range(0, 11, 2)))
-    ) or grid_results
+    all_grid = full_grid or grid_results
 
     node_best = {}
     for node_name in G.nodes:
