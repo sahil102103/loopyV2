@@ -196,42 +196,58 @@
 		<div class="tabs">
 			<button type="button" class="tablink active" id="canvasTab" data-page="Canvas" onclick="openPage('Canvas')">Canvas</button>
 
+			<!-- Menus grouped by user intent (not feature name). Premium items stay
+			     visible but greyed with an upgrade prompt (see openPremiumPage). -->
+
+			<!-- Simulate: run the model and watch behavior / uncertainty over time -->
 			<div class="tab-dropdown">
-				<button type="button" class="tablink tab-dropdown-trigger">Analysis <span class="tab-chevron">&#9662;</span></button>
+				<button type="button" class="tablink tab-dropdown-trigger">Simulate <span class="tab-chevron">&#9662;</span></button>
 				<div class="tab-dropdown-menu">
 					<button type="button" class="tablink" id="timeSeriesTab" data-page="TimeSeries" onclick="openPage('TimeSeries')">Time Series</button>
 					<button type="button" class="tablink" id="legacyTimeSeriesTab" data-page="LegacyTimeSeries" onclick="openPage('LegacyTimeSeries')">Legacy Time Series</button>
 					<div class="tab-dropdown-divider"></div>
 					<button type="button" class="tablink" id="crisisAnalysisTab" data-page="CrisisAnalysis" onclick="openPage('CrisisAnalysis')">Crisis Analysis</button>
-					<button type="button" class="tablink" id="cldAnalysisTab" data-page="CLDAnalysis" onclick="openPage('CLDAnalysis')">CLD Analysis</button>
-					<button type="button" class="tablink" id="visualAnalysisTab" data-page="VisualAnalysis" onclick="openPage('VisualAnalysis')">Visual Analysis</button>
-					<button type="button" class="tablink hidden" id="cycleAnalysisTab" data-page="CycleAnalysis" onclick="openPage('CycleAnalysis')">Cycle Detection</button>
-					<button type="button" class="tablink hidden" id="correlationTab" data-page="Correlation" onclick="openPage('Correlation')">Correlation</button>
-					</div>
+					<button type="button" class="tablink" id="fanChartTab" data-page="FanChart" onclick="openPage('FanChart')">Fan Chart</button>
+				</div>
 			</div>
 
+			<!-- Stability: tune parameters and assess robustness -->
 			<div class="tab-dropdown">
-				<button type="button" class="tablink tab-dropdown-trigger">Data <span class="tab-chevron">&#9662;</span></button>
+				<button type="button" class="tablink tab-dropdown-trigger">Stability <span class="tab-chevron">&#9662;</span></button>
+				<div class="tab-dropdown-menu">
+					<button type="button" class="tablink" id="optimizationTab" data-page="Optimization" onclick="openPage('Optimization')">Optimization</button>
+					<button type="button" class="tablink" id="parameterSpaceTab" data-page="ParameterSpace" onclick="openPage('ParameterSpace')">Parameter Space</button>
+					<div class="tab-dropdown-divider"></div>
+					<button type="button" class="tablink premium locked" id="randomSeedsTab" data-page="RandomSeeds" onclick="openPremiumPage('RandomSeeds')">Random Seeds <span class="tab-lock" aria-hidden="true">&#128274;</span></button>
+					<button type="button" class="tablink premium locked" id="boxPlotTab" data-page="BoxPlot" onclick="openPremiumPage('BoxPlot')">Box Plot <span class="tab-lock" aria-hidden="true">&#128274;</span></button>
+					<button type="button" class="tablink premium locked" id="violinPlotTab" data-page="ViolinPlot" onclick="openPremiumPage('ViolinPlot')">Violin Plot <span class="tab-lock" aria-hidden="true">&#128274;</span></button>
+				</div>
+			</div>
+
+			<!-- Structure: understand the diagram's topology and relationships -->
+			<div class="tab-dropdown">
+				<button type="button" class="tablink tab-dropdown-trigger">Structure <span class="tab-chevron">&#9662;</span></button>
+				<div class="tab-dropdown-menu">
+					<button type="button" class="tablink" id="cldAnalysisTab" data-page="CLDAnalysis" onclick="openPage('CLDAnalysis')">CLD Analysis</button>
+					<button type="button" class="tablink" id="visualAnalysisTab" data-page="VisualAnalysis" onclick="openPage('VisualAnalysis')">Visual Analysis</button>
+					<div class="tab-dropdown-divider"></div>
+					<button type="button" class="tablink premium locked" id="cycleAnalysisTab" data-page="CycleAnalysis" onclick="openPremiumPage('CycleAnalysis')">Cycle Detection <span class="tab-lock" aria-hidden="true">&#128274;</span></button>
+					<button type="button" class="tablink premium locked" id="correlationTab" data-page="Correlation" onclick="openPremiumPage('Correlation')">Correlation <span class="tab-lock" aria-hidden="true">&#128274;</span></button>
+					<button type="button" class="tablink premium locked" id="degreeCentralityTab" data-page="DegreeCentrality" onclick="openPremiumPage('DegreeCentrality')">Graph Centralities <span class="tab-lock" aria-hidden="true">&#128274;</span></button>
+				</div>
+			</div>
+
+			<!-- Evidence: ground edges in citations / data -->
+			<div class="tab-dropdown">
+				<button type="button" class="tablink tab-dropdown-trigger">Evidence <span class="tab-chevron">&#9662;</span></button>
 				<div class="tab-dropdown-menu">
 					<button type="button" class="tablink" id="viewDatabaseTab" data-page="ViewDatabase" onclick="openPage('ViewDatabase')">Edge Explanations (View)</button>
 					<button type="button" class="tablink" id="nodeConnectionsTab" data-page="NodeConnections" onclick="openPage('NodeConnections')">Edge Explanations (Create)</button>
-					<button type="button" class="tablink hidden" id="degreeCentralityTab" data-page="DegreeCentrality" onclick="openPage('DegreeCentrality')">Graph Centralities</button>
 				</div>
 			</div>
 
-			<div class="tab-dropdown">
-				<button type="button" class="tablink tab-dropdown-trigger">Advanced <span class="tab-chevron">&#9662;</span></button>
-				<div class="tab-dropdown-menu">
-					<button type="button" class="tablink" id="fanChartTab" data-page="FanChart" onclick="openPage('FanChart')">Fan Chart</button>
-					<button type="button" class="tablink" id="optimizationTab" data-page="Optimization" onclick="openPage('Optimization')">Optimization</button>
-					<button type="button" class="tablink" id="parameterSpaceTab" data-page="ParameterSpace" onclick="openPage('ParameterSpace')">Parameter Space</button>
-					<button type="button" class="tablink" id="generateDiagramTab" data-page="Generate" onclick="openPage('Generate')">Generate Diagram</button>
-					<div class="tab-dropdown-divider hidden" id="researchDivider"></div>
-					<button type="button" class="tablink hidden" id="boxPlotTab" data-page="BoxPlot" onclick="openPage('BoxPlot')">Box Plot</button>
-					<button type="button" class="tablink hidden" id="violinPlotTab" data-page="ViolinPlot" onclick="openPage('ViolinPlot')">Violin Plot</button>
-					<button type="button" class="tablink hidden" id="randomSeedsTab" data-page="RandomSeeds" onclick="openPage('RandomSeeds')">Random Seeds</button>
-				</div>
-			</div>
+			<!-- Generate: create a model from a description -->
+			<button type="button" class="tablink" id="generateDiagramTab" data-page="Generate" onclick="openPage('Generate')">Generate</button>
 
 			<button type="button" class="tablink hidden" id="adminTab" data-page="AdminPanel" onclick="openPage('AdminPanel')" style="margin-left:auto;">Admin</button>
 		</div>
@@ -549,7 +565,25 @@
 			</div>
 			<div id="paramSpace3DResults">
 				<div id="paramSpace3DStatus"></div>
+
 				<div id="paramSpace3DPlot" style="width:100%; height:600px;"></div>
+
+				<!-- 2D slice preview with axis pickers alongside it. Z is the hidden
+				     axis the slider moves through; X/Y define each slice. -->
+				<div id="sliceSection" style="display:none; margin-top:18px;">
+					<h4 style="margin:0 0 4px;">2D slice preview</h4>
+					<p class="gen-sub" style="margin:0 0 12px;">Assign axes, then drag the slider to step through <span id="sliceAxisLabel">Z</span> slices — preview each 2D slice before committing to a projection.</p>
+					<div class="slice-layout">
+						<div id="axisAssignRow" class="axis-panel">
+							<div class="axis-panel-title">Axes</div>
+							<label>X<select id="axisX" class="axis-select"></select></label>
+							<label>Y<select id="axisY" class="axis-select"></select></label>
+							<label>Z (slider)<select id="axisZ" class="axis-select"></select></label>
+						</div>
+						<div id="paramSpace3DSlice"></div>
+					</div>
+				</div>
+
 				<div id="paramSpace3DTable"></div>
 			</div>
 		</div>
@@ -811,14 +845,51 @@
 
 
   	
-  // Unlock researcher-only tabs and features
+  // Unlock researcher-only (premium) features: they stay visible for everyone
+  // but are greyed + locked until the user has researcher/admin access.
   window.unlockResearcherFeatures = function() {
+      // Enable premium features — remove the greyed/locked state.
+      document.querySelectorAll('.premium.locked').forEach(function(el) {
+          el.classList.remove('locked');
+      });
+      // Any other researcher-only hidden elements (except the admin tab).
       document.querySelectorAll('.hidden').forEach(function(el) {
-          // Don't unhide the admin tab — that's controlled separately
           if (el.id !== 'adminTab') el.classList.remove('hidden');
       });
       var loadPythonPackages = document.getElementById('loadPythonPackages');
       if (loadPythonPackages) loadPythonPackages.style.display = 'none';
+  };
+
+  // Premium tab click: open it for researchers/admins, else show an upgrade prompt.
+  window.openPremiumPage = function(page) {
+      if (window.isResearcher || window.isAdmin) {
+          openPage(page);
+      } else {
+          showUpgradePrompt();
+      }
+  };
+
+  // Informational upgrade dialog (no payment wiring — Stripe checkout is deferred).
+  window.showUpgradePrompt = function() {
+      if (document.getElementById('_upgrade_overlay')) return;
+      var overlay = document.createElement('div');
+      overlay.id = '_upgrade_overlay';
+      overlay.className = 'upgrade-overlay';
+      overlay.innerHTML =
+          '<div class="upgrade-dialog" role="dialog" aria-modal="true" aria-label="Premium feature">' +
+              '<div class="upgrade-badge"><span aria-hidden="true">&#128274;</span> Premium feature</div>' +
+              '<h3>Unlock advanced analysis</h3>' +
+              '<p>This tool is part of FlowCLD\'s researcher toolkit — cycle detection, correlation, graph centralities, and distribution &amp; sensitivity analysis.</p>' +
+              '<p class="upgrade-sub">Upgrade to a researcher account to unlock it. All free features remain fully available.</p>' +
+              '<div class="upgrade-actions"><button type="button" class="button" id="_upgrade_close">Got it</button></div>' +
+          '</div>';
+      document.body.appendChild(overlay);
+      function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) close(); });
+      document.getElementById('_upgrade_close').onclick = close;
+      document.addEventListener('keydown', function esc(e) {
+          if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+      });
   };
 
   window.showAdminTab = function() {

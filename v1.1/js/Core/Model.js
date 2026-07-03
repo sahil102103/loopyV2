@@ -613,7 +613,9 @@ function Model(loopy){
 				encodeURIComponent(encodeURIComponent(node.sinkFormula || "")),
 				encodeURIComponent(encodeURIComponent(node.sourceFormula || "")),
 				// 13 - retention (raw number; 0 is valid and must round-trip)
-				node.retention
+				node.retention,
+				// 14 - radius (node circle size; label text auto-fits this)
+				node.radius
 			]);
 		}
 		data.push(nodes);
@@ -712,6 +714,8 @@ function Model(loopy){
 				sourceFormula: _decodeFormula(node[12]),
 				// retention: keep 0; only fall back to the default when absent (old saves)
 				retention: (node[13] === undefined || node[13] === null) ? undefined : Number(node[13]),
+				// radius: node circle size (drives label text size); default when absent
+				radius: (node[14] === undefined || node[14] === null) ? undefined : Number(node[14]),
 			});
 		}
 

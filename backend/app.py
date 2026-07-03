@@ -520,23 +520,16 @@ def generate_stability_map():
         if np.isnan(stability_matrix).any() or np.isinf(stability_matrix).any():
             return jsonify({"error": "Stability matrix contains invalid values."}), 500
 
-        plt.figure(figsize=(10, 6))
-        plt.imshow(
-            stability_matrix, cmap="coolwarm", 
-            extent=[decay_min, decay_max, delay_min, delay_max],
-            origin="lower", aspect="auto",
-            vmin=0.0,
-            vmax=1.0
-        )
-        plt.colorbar(label="Stability Measure")
-        plt.xlabel("Decay Factor")
-        plt.ylabel("Delay")
-        plt.title("Stability Map")
-        buf = BytesIO()
-        plt.savefig(buf, format='png')
-        plt.close()
-        buf.seek(0)
-        return send_file(buf, mimetype='image/png')
+        return jsonify({
+            "matrix": np.round(stability_matrix, 3).tolist(),
+            "x": np.round(decay_factors, 4).tolist(),
+            "y": np.round(delays, 4).tolist(),
+            "x_label": "Decay Factor",
+            "y_label": "Delay",
+            "title": "Stability Map",
+            "vmin": 0.0,
+            "vmax": 1.0,
+        })
     except Exception as e:
         error_trace = traceback.format_exc()
         print(error_trace)
@@ -572,23 +565,16 @@ def generate_decay_retention_map():
                 elif "Over-damped" in classification.values():
                     stability_matrix[i, j] = 0.2
 
-        plt.figure(figsize=(10, 6))
-        plt.imshow(
-            stability_matrix, cmap="coolwarm",
-            extent=[decay_min, decay_max, retention_min, retention_max],
-            origin="lower", aspect="auto",
-            vmin=0.0,
-            vmax=1.0
-        )
-        plt.colorbar(label="Stability Measure")
-        plt.xlabel("Decay Factor")
-        plt.ylabel("Retention Parameter")
-        plt.title("Decay-Retention Stability Map")
-        buf = BytesIO()
-        plt.savefig(buf, format='png')
-        plt.close()
-        buf.seek(0)
-        return send_file(buf, mimetype='image/png')
+        return jsonify({
+            "matrix": np.round(stability_matrix, 3).tolist(),
+            "x": np.round(decay_factors, 4).tolist(),
+            "y": np.round(retentions, 4).tolist(),
+            "x_label": "Decay Factor",
+            "y_label": "Retention Parameter",
+            "title": "Decay-Retention Stability Map",
+            "vmin": 0.0,
+            "vmax": 1.0,
+        })
     except Exception as e:
         error_trace = traceback.format_exc()
         print(error_trace)
@@ -625,24 +611,16 @@ def generate_retention_delay_map():
                 else:
                     stability_matrix[i, j] = 0.2
 
-        plt.figure(figsize=(10, 6))
-        plt.imshow(
-            stability_matrix, cmap="coolwarm",
-            extent=[retention_min, retention_max, delay_min, delay_max],
-            origin="lower", aspect="auto",
-            vmin=0.0,
-            vmax=1.0
-        )
-        plt.colorbar(label="Stability Measure")
-        plt.xlabel("Retention Parameter")
-        plt.ylabel("Delay Parameter")
-        plt.title("Retention-Delay Stability Map")
-
-        buf = BytesIO()
-        plt.savefig(buf, format='png')
-        plt.close()
-        buf.seek(0)
-        return send_file(buf, mimetype='image/png')
+        return jsonify({
+            "matrix": np.round(stability_matrix, 3).tolist(),
+            "x": np.round(retentions, 4).tolist(),
+            "y": np.round(delays, 4).tolist(),
+            "x_label": "Retention Parameter",
+            "y_label": "Delay Parameter",
+            "title": "Retention-Delay Stability Map",
+            "vmin": 0.0,
+            "vmax": 1.0,
+        })
 
     except Exception as e:
         error_trace = traceback.format_exc()

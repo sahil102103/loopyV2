@@ -399,6 +399,95 @@ h4 {
     margin: var(--space-xs, 4px) 0;
 }
 
+/* Premium (researcher) menu items: visible for everyone, greyed + locked
+   until the user has access. Unlocking removes .locked (see unlockResearcherFeatures). */
+.tab-dropdown-menu .tablink.premium {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.tab-dropdown-menu .tablink.premium .tab-lock {
+    font-size: 11px;
+    opacity: 0.75;
+    flex: 0 0 auto;
+}
+.tab-dropdown-menu .tablink.premium:not(.locked) .tab-lock {
+    display: none;   /* unlocked → behaves like a normal item */
+}
+.tab-dropdown-menu .tablink.premium.locked {
+    color: var(--text-secondary, #9aa0aa);
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.tab-dropdown-menu .tablink.premium.locked:hover {
+    background: transparent;
+    color: var(--text-secondary, #9aa0aa);
+}
+
+/* Upgrade prompt dialog */
+.upgrade-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.45);
+    backdrop-filter: blur(2px);
+}
+.upgrade-dialog {
+    background: var(--bg-primary, #fff);
+    color: var(--text-primary, #1a1d23);
+    border-radius: 12px;
+    padding: 24px 26px 20px;
+    max-width: 440px;
+    width: calc(100% - 48px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.22);
+    font-family: 'Inter', sans-serif;
+}
+.upgrade-badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--accent, #4a7cff);
+    background: rgba(74,124,255,0.1);
+    border: 1px solid rgba(74,124,255,0.3);
+    border-radius: 999px;
+    padding: 4px 12px;
+    margin-bottom: 12px;
+}
+.upgrade-dialog h3 {
+    margin: 0 0 10px;
+    font-size: 18px;
+    font-weight: 700;
+}
+.upgrade-dialog p {
+    margin: 0 0 10px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-secondary, #5f6673);
+}
+.upgrade-dialog .upgrade-sub { font-size: 13px; }
+.upgrade-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+.upgrade-actions .button {
+    background: var(--accent, #4a7cff);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 9px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.upgrade-actions .button:hover { filter: brightness(0.95); }
+
 .tabcontent {
     display: none;
     padding-left: 20px;
@@ -1131,6 +1220,48 @@ h4 {
     cursor: pointer;
 }
 .gen-select:focus { outline: none; border-color: var(--accent, #4a7cff); box-shadow: 0 0 0 3px rgba(74,124,255,0.18); }
+
+/* 3D parameter-space: 2D slice preview with axis pickers alongside */
+.slice-layout {
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+.axis-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 150px;
+    padding: 12px 14px;
+    background: rgba(0,0,0,0.03);
+    border: 1px solid var(--border, #e2e5ea);
+    border-radius: 8px;
+}
+.axis-panel-title { font-weight: 600; font-size: 13px; color: var(--text-primary, #1a1d23); }
+.axis-panel label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary, #5f6673);
+}
+#paramSpace3DSlice {
+    flex: 1 1 480px;
+    min-width: 340px;
+    height: 480px;
+}
+.axis-select {
+    padding: 5px 8px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text-primary, #1a1d23);
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border, #d4d8e0);
+    border-radius: 6px;
+    cursor: pointer;
+}
 .gen-check { display: flex; align-items: center; gap: 8px; color: var(--text-primary, #1a1d23); font-size: 13px; cursor: pointer; }
 .gen-check input { margin: 0; }
 

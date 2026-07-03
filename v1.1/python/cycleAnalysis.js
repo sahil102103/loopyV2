@@ -408,10 +408,12 @@ document.getElementById("generateAllStabilityMaps").onclick = async () => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
-        }).then(r => {
+        }).then(async r => {
             if (!r.ok) throw new Error(`${label}: HTTP ${r.status}`);
-            return r.blob();
-        }).then(blob => ({ label, url: URL.createObjectURL(blob) }));
+            const data = await r.json();
+            if (data && data.error) throw new Error(`${label}: ${data.error}`);
+            return { label, data };
+        });
 
     try {
         const results = await Promise.all([
@@ -426,34 +428,43 @@ document.getElementById("generateAllStabilityMaps").onclick = async () => {
         container.style.flexWrap = "wrap";
         container.style.gap = "12px";
 
-        for (const { label, url } of results) {
+        for (const { label, data } of results) {
             const wrap = document.createElement("div");
             wrap.style.flex = "1 1 30%";
-            wrap.style.minWidth = "260px";
-            wrap.style.textAlign = "center";
+            wrap.style.minWidth = "300px";
 
             const title = document.createElement("div");
             title.textContent = label;
             title.style.fontWeight = "bold";
+            title.style.textAlign = "center";
             title.style.marginBottom = "4px";
 
-            const img = document.createElement("img");
-            img.src = url;
-            img.alt = label;
-            img.style.width = "100%";
-
-            const dlBtn = document.createElement("a");
-            dlBtn.href = url;
-            dlBtn.download = `stability_map_${label.replace(/\s+/g, "_").toLowerCase()}.png`;
-            dlBtn.textContent = "Download PNG";
-            dlBtn.style.display = "inline-block";
-            dlBtn.style.marginTop = "6px";
-            dlBtn.style.fontSize = "12px";
+            // Plot the raw stability matrix client-side (no server-rendered image).
+            const plotDiv = document.createElement("div");
+            plotDiv.style.width = "100%";
+            plotDiv.style.height = "300px";
 
             wrap.appendChild(title);
-            wrap.appendChild(img);
-            wrap.appendChild(dlBtn);
+            wrap.appendChild(plotDiv);
             container.appendChild(wrap);
+
+            Plotly.newPlot(plotDiv, [{
+                z: data.matrix,
+                x: data.x,
+                y: data.y,
+                type: "heatmap",
+                colorscale: "RdBu",
+                reversescale: true,           // low = blue, high = red (matches old coolwarm)
+                zmin: data.vmin,
+                zmax: data.vmax,
+                colorbar: { title: "Stability", thickness: 12 },
+                hovertemplate: `${data.x_label}: %{x}<br>${data.y_label}: %{y}<br>Stability: %{z}<extra></extra>`
+            }], {
+                margin: { l: 55, r: 10, t: 8, b: 45 },
+                xaxis: { title: data.x_label },
+                yaxis: { title: data.y_label },
+                font: { size: 11 }
+            }, { responsive: true, displaylogo: false });
         }
     } catch (error) {
         console.error("Error generating stability maps:", error);
