@@ -5,6 +5,7 @@ Extracted from Jupyter notebook - comprehensive two-phase simulation with stabil
 
 import math
 import random
+import re
 import numpy as np
 import pandas as pd
 import networkx as nx
@@ -17,10 +18,36 @@ from scipy.stats import norm, rankdata, gaussian_kde
 from sklearn.mixture import GaussianMixture
 from io import BytesIO
 import base64
+from urllib.parse import unquote as _url_unquote
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CORE SIMULATION ENGINE (Two-Phase Propagation)
 # ═══════════════════════════════════════════════════════════════════════════════
+
+_PCT_HEX = re.compile(r"%[0-9A-Fa-f]{2}")
+
+
+def _decode_expr(s):
+    """
+    Decode Loopy/fcld URL-encoded expression strings (formulas, sink/source, bounds).
+
+    .loopy exports store expressions with percent-encoding, e.g.
+        nxt%5B'Inflation'%5D   →   nxt['Inflation']
+    Evaluating the encoded form makes Python parse `%5B` as modulo (`% 5`) then
+    identifier `B` → SyntaxError: invalid decimal literal.
+
+    Idempotent for already-decoded strings. Peels up to two layers because native
+    FlowCLD serialize() double-encodes formula fields.
+    """
+    if s is None or not isinstance(s, str):
+        return s
+    out = s
+    for _ in range(2):
+        if not _PCT_HEX.search(out):
+            break
+        out = _url_unquote(out)
+    return out
+
 
 def _parse_num_or_expr(txt, fallback):
     """Parse a numeric value or expression string."""
@@ -39,7 +66,7 @@ def _eval_bound(bound, ctx, default):
         return float(bound)
     if isinstance(bound, str) and bound.strip():
         try:
-            return float(eval(bound, {}, ctx))
+            return float(eval(_decode_expr(bound), {}, ctx))
         except Exception:
             pass
     return default
@@ -99,12 +126,13 @@ def simulate_two_phase(G: nx.DiGraph, init_vals: dict, steps: int):
     """
     hist = {n: [init_vals.get(n, 0.0)] for n in G}
     converters = [n for n in G if G.nodes[n].get("retention", 1.0) == 0.0]
-    formulas = {n: G.nodes[n].get("formula") for n in converters}
+    # Decode once: .loopy / fcld formulas arrive URL-encoded (nxt%5B'x'%5D)
+    formulas = {n: _decode_expr(G.nodes[n].get("formula")) for n in converters}
     
     # Gather sink & source settings
-    sink_nodes = {n: G.nodes[n]["sink_formula"]
+    sink_nodes = {n: _decode_expr(G.nodes[n]["sink_formula"])
                   for n in G if G.nodes[n].get("sink_formula") is not None}
-    source_nodes = {n: G.nodes[n]["source_formula"]
+    source_nodes = {n: _decode_expr(G.nodes[n]["source_formula"])
                     for n in G if G.nodes[n].get("source_formula") is not None}
     
     for t in range(steps):
@@ -182,27 +210,28 @@ def simulate_two_phase(G: nx.DiGraph, init_vals: dict, steps: int):
             ceil_b = _eval_bound(G.nodes[n].get("ceiling", math.inf), ctx_conv, math.inf)
             hist[n][-1] = float(np.clip(val, floor_b, ceil_b))
         
-        # Phase D: apply sink & source deltas (additive, not multiplicative)
+        # Phase D: apply sink & source multipliers *after* updates
+        # (multiplicative, matching the notebook source of truth)
         for n, expr in sink_nodes.items():
             try:
                 ctx_sink = {"t": t, "x": hist[n][-1], "val": hist[n][-1],
                            "math": math, "np": np, "e": math.e}
-                delta = float(eval(expr, {}, ctx_sink))
+                factor = float(eval(expr, {}, ctx_sink))
             except Exception as err:
-                print(f"⚠️ sink error @ '{n}': {err} (using 0.0)")
-                delta = 0.0
-            hist[n][-1] -= delta
+                print(f"⚠️ sink error @ '{n}': {err} (using 1.0)")
+                factor = 1.0
+            hist[n][-1] *= factor
 
         for n, expr in source_nodes.items():
             try:
                 ctx_src = {"t": t, "x": hist[n][-1], "val": hist[n][-1],
                           "math": math, "np": np, "e": math.e}
-                delta = float(eval(expr, {}, ctx_src))
+                factor = float(eval(expr, {}, ctx_src))
             except Exception as err:
-                print(f"⚠️ source error @ '{n}': {err} (using 0.0)")
-                delta = 0.0
-            hist[n][-1] += delta
-    
+                print(f"⚠️ source error @ '{n}': {err} (using 1.0)")
+                factor = 1.0
+            hist[n][-1] *= factor
+
     return hist
 
 
@@ -750,6 +779,128 @@ def run_3d_param_space(graph_data, retention_range, decay_range, delay_range,
 # MONTE CARLO UNCERTAINTY (Fan Chart)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def _node_fan_sigma(G, *, fan_sigma=0.25, driver_conf=0.90):
+    """
+    Per-node per-step process-noise std: fan_sigma * (1 - mean inbound confidence).
+    Nodes with no inbound edges (exogenous drivers) use driver_conf. High-confidence
+    relationships give tight bands; low-confidence relationships widen them.
+    """
+    sig = {}
+    for n in G.nodes:
+        preds = list(G.predecessors(n))
+        if preds:
+            cs = [float(G[p][n].get("confidence", G[p][n].get("certainty", 1.0)))
+                  for p in preds]
+            c = float(np.mean(cs))
+        else:
+            c = float(driver_conf)
+        c = 0.0 if c < 0.0 else (1.0 if c > 1.0 else c)
+        sig[n] = max(0.0, float(fan_sigma) * (1.0 - c))
+    return sig
+
+
+def simulate_two_phase_noisy(G, init_vals, steps, *, sigma_map=None, rng=None):
+    """
+    Faithful copy of simulate_two_phase with one addition: after each node's value
+    is committed it is multiplied by (1 + N(0, sigma_map[n])), so the shock enters
+    the next step's raw[]/nxt[] context and propagates through the formulas. This is
+    what gives formula-driven (converter) nodes real spread in the fan chart, since
+    converters ignore edge perturbations. Delay handling, functional forms, dynamic
+    bounds and multiplicative sink/source are unchanged from simulate_two_phase.
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+    if sigma_map is None:
+        sigma_map = {n: 0.0 for n in G}
+
+    def _shock(n):
+        s = sigma_map.get(n, 0.0)
+        return (1.0 + float(rng.normal(0.0, s))) if s > 0.0 else 1.0
+
+    hist = {n: [init_vals.get(n, 0.0)] for n in G}
+    converters = [n for n in G if G.nodes[n].get("retention", 1.0) == 0.0]
+    formulas = {n: _decode_expr(G.nodes[n].get("formula")) for n in converters}
+    sink_nodes = {n: _decode_expr(G.nodes[n]["sink_formula"])
+                  for n in G if G.nodes[n].get("sink_formula") is not None}
+    source_nodes = {n: _decode_expr(G.nodes[n]["source_formula"])
+                    for n in G if G.nodes[n].get("source_formula") is not None}
+
+    for t in range(steps):
+        nxt = {n: 0.0 for n in G}
+        for n in G:
+            ret = G.nodes[n].get("retention", 1.0)
+            nxt[n] += ret * hist[n][t]
+        for u, v, e in G.edges(data=True):
+            delay_e = e.get("delay", 0)
+            src_t = t - delay_e
+            src_v = hist[u][src_t] if src_t >= 0 else 0.0
+            nxt[v] += _edge_contribution(e, src_v)
+
+        ctx_common = {"t": t, "history": hist, "raw": {k: hist[k][t] for k in G},
+                      "nxt": nxt, "math": math, "np": np}
+
+        # Phase B — stocks get noise then clip
+        for n in G:
+            ret = G.nodes[n].get("retention", 1.0)
+            if ret > 0:
+                floor_b = _eval_bound(G.nodes[n].get("floor", -math.inf), ctx_common, -math.inf)
+                ceil_b = _eval_bound(G.nodes[n].get("ceiling", math.inf), ctx_common, math.inf)
+                val = float(nxt[n]) * _shock(n)
+                hist[n].append(float(np.clip(val, floor_b, ceil_b)))
+            else:
+                hist[n].append(None)
+
+        # Phase C — converters: eval formula, apply noise, then clip
+        for n in converters:
+            inputs = {}
+            for pred in G.predecessors(n):
+                e = G[pred][n]
+                delay_e = e.get("delay", 0)
+                src_t = t + 1 - delay_e
+                src_v = hist[pred][src_t] if src_t >= 0 else 0.0
+                if src_v is None:
+                    src_v = 0.0
+                inputs[pred] = _edge_contribution(e, src_v)
+
+            if formulas[n]:
+                ctx = {"t": t, "inputs": inputs, "history": hist,
+                       "raw": {k: hist[k][t] for k in G},
+                       "nxt": {k: hist[k][-1] for k in G},
+                       "math": math, "np": np}
+                try:
+                    val = float(eval(formulas[n], {}, ctx))
+                except Exception as err:
+                    print(f"⚠️ formula error @ '{n}': {err}")
+                    val = hist[n][-2] if len(hist[n]) >= 2 else 0.0
+            else:
+                val = float(sum(inputs.values()))
+
+            val *= _shock(n)
+            ctx_conv = {"t": t, "history": hist, "raw": {k: hist[k][t] for k in G},
+                        "nxt": {k: hist[k][-1] for k in G}, "math": math, "np": np}
+            floor_b = _eval_bound(G.nodes[n].get("floor", -math.inf), ctx_conv, -math.inf)
+            ceil_b = _eval_bound(G.nodes[n].get("ceiling", math.inf), ctx_conv, math.inf)
+            hist[n][-1] = float(np.clip(val, floor_b, ceil_b))
+
+        # Phase D — multiplicative sink/source (matches simulate_two_phase)
+        for n, expr in sink_nodes.items():
+            try:
+                factor = float(eval(expr, {}, {"t": t, "x": hist[n][-1], "val": hist[n][-1],
+                                               "math": math, "np": np, "e": math.e}))
+            except Exception:
+                factor = 1.0
+            hist[n][-1] *= factor
+        for n, expr in source_nodes.items():
+            try:
+                factor = float(eval(expr, {}, {"t": t, "x": hist[n][-1], "val": hist[n][-1],
+                                               "math": math, "np": np, "e": math.e}))
+            except Exception:
+                factor = 1.0
+            hist[n][-1] *= factor
+
+    return hist
+
+
 def _perturb_graph_by_confidence(G_in, *, sigma_base=0.25, noise_floor=0.0, rng=None):
     """
     Resample each edge's correlation using certainty-driven logic:
@@ -792,15 +943,25 @@ def _perturb_graph_by_confidence(G_in, *, sigma_base=0.25, noise_floor=0.0, rng=
 def simulate_fan_paths(G_ref, steps, *, n_sims=200, sigma_base=0.25, noise_floor=0.0, seed=42):
     """
     Monte-Carlo envelope for node values.
+
+    Two independent sources of variation are combined (matching the notebook) so the
+    fan is non-degenerate for both leaky-stock models (driven by inbound edges) and
+    formula-driven models (converters that ignore edges):
+      1. each edge's 'correlation' is resampled by its confidence/certainty, and
+      2. each node receives per-step multiplicative process noise whose scale is
+         sigma_base * (1 - mean inbound-edge confidence).
+    `noise_floor` additionally jitters every edge regardless of confidence.
+
     Returns dict: {node: np.ndarray(n_sims × T)}
     """
     rng = np.random.default_rng(seed)
     init_vals = {n: G_ref.nodes[n].get('start_amount', 0.0) for n in G_ref.nodes}
+    sigma_map = _node_fan_sigma(G_ref, fan_sigma=sigma_base)
     paths = {n: [] for n in G_ref.nodes}
 
     for _ in range(n_sims):
         Gs = _perturb_graph_by_confidence(G_ref, sigma_base=sigma_base, noise_floor=noise_floor, rng=rng)
-        hist = simulate_two_phase(Gs, init_vals, steps)
+        hist = simulate_two_phase_noisy(Gs, init_vals, steps, sigma_map=sigma_map, rng=rng)
         for n in G_ref.nodes:
             arr = np.asarray([v for v in hist[n] if v is not None], dtype=float)
             paths[n].append(arr)

@@ -353,6 +353,10 @@ function openPage(pageName) {
         window.dispatchEvent(new Event('resize'));
     }
 
+    if (pageName === 'Tables') {
+        if (window.tablesView) window.tablesView.render();
+    }
+
     if (pageName === 'AdminPanel') {
         if (window.adminPanel) window.adminPanel.renderPanel();
     }

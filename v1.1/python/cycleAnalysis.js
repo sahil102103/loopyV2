@@ -214,7 +214,7 @@ document.getElementById('cycleAnalysisTab').onclick = async () => {
     };
 
     try {
-        const response = await fetch(`${BACKEND_URL}/cycle-analysis`, {
+        const response = await fetch(`${BACKEND_URL}/graph/feedback-cycles`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -250,7 +250,7 @@ document.getElementById('crisisAnalysisTab').addEventListener('click', async (ev
             throw new Error("No valid time series data to send.");
         }
 
-        const response = await fetch(`${BACKEND_URL}/crisis-analysis`, {
+        const response = await fetch(`${BACKEND_URL}/series/rolling-z-plots`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ time_series_data: timeSeriesData, start_iteration: 0 })
@@ -284,7 +284,7 @@ document.getElementById('degreeCentralityTab').onclick = async () => {
     await loadInitialData();
 
     try {
-        const response = await fetch(`${BACKEND_URL}/degree-centrality`, {
+        const response = await fetch(`${BACKEND_URL}/graph/centrality`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ edges: edgePairs, edge_polarities: edgePolarities })
@@ -312,7 +312,7 @@ document.getElementById('visualAnalysisTab').onclick = async () => {
             throw new Error("No edges found. Please create a graph with nodes and edges first.");
         }
 
-        const response = await fetch(`${BACKEND_URL}/visual-analysis`, {
+        const response = await fetch(`${BACKEND_URL}/simulation/two-phase/value-histograms`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...data, edge_polarities: edgePolarities })
@@ -360,7 +360,7 @@ document.getElementById('correlationTab').addEventListener('click', async (event
             throw new Error("No valid edges provided for correlation analysis.");
         }
 
-        const response = await fetch(`${BACKEND_URL}/correlation-analysis`, {
+        const response = await fetch(`${BACKEND_URL}/series/correlation-heatmap`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ edges: edgePairs, time_series_data: timeSeriesData })
@@ -417,9 +417,9 @@ document.getElementById("generateAllStabilityMaps").onclick = async () => {
 
     try {
         const results = await Promise.all([
-            fetchMap("generate-stability-map",       { ...data, decayRange, delayRange },               "Decay vs Delay"),
-            fetchMap("generate-decay-retention-map", { ...data, decayRange, retentionRange },             "Decay vs Retention"),
-            fetchMap("generate-retention-delay-map", { ...data, retentionRange, delayRange },             "Retention vs Delay"),
+            fetchMap("parameter-maps/decay-vs-delay",       { ...data, decayRange, delayRange },     "Decay vs Delay"),
+            fetchMap("parameter-maps/decay-vs-retention",   { ...data, decayRange, retentionRange }, "Decay vs Retention"),
+            fetchMap("parameter-maps/retention-vs-delay",   { ...data, retentionRange, delayRange }, "Retention vs Delay"),
         ]);
 
         const container = document.getElementById("stabilityMapPlot");
@@ -488,7 +488,7 @@ document.getElementById('boxPlotTab').onclick = async () => {
         return;
     }
     try {
-        const response = await fetch(`${BACKEND_URL}/boxplots`, {
+        const response = await fetch(`${BACKEND_URL}/series/boxplots`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ time_series_data: window.advancedTimeSeries }),
@@ -526,7 +526,7 @@ document.getElementById('violinPlotTab').onclick = async () => {
         return;
     }
     try {
-        const response = await fetch(`${BACKEND_URL}/violinplots`, {
+        const response = await fetch(`${BACKEND_URL}/series/violinplots`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ time_series_data: window.advancedTimeSeries }),
@@ -558,7 +558,7 @@ document.getElementById('randomSeedsTab').onclick = async () => {
     await loadInitialData();
 
     try {
-        const response = await fetch(`${BACKEND_URL}/random-seeds`, {
+        const response = await fetch(`${BACKEND_URL}/simulation/seed-sensitivity`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ edges: edgePairs, edge_polarities: edgePolarities })

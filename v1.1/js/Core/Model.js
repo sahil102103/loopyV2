@@ -680,7 +680,15 @@ function Model(loopy){
 
 		self.clear();
 
-		var data = JSON.parse(dataString);
+		// Most sources pass real JSON; our own export encodes quotes as %22, so
+		// fall back to decoding first if a raw parse fails (e.g. importing an
+		// exported .loopy file directly).
+		var data;
+		try {
+			data = JSON.parse(dataString);
+		} catch(e) {
+			data = JSON.parse(decodeURIComponent(dataString));
+		}
 
 		// Get from array!
 		var nodes = data[0];
@@ -689,49 +697,116 @@ function Model(loopy){
 		var UID = data[3];
 
 		// Decode an optional formula field (null when absent/empty); never throw.
+		// fcld stores formulas once-encoded (nxt%5B'x'%5D); native serialize()
+		// double-encodes so they survive an outer load decode. Peel while %HH remains.
 		var _decodeFormula = function(v){
 			if(v === undefined || v === null || v === "") return null;
-			try { return decodeURIComponent(v); } catch(e){ return v; }
+			var s = String(v);
+			for(var k=0; k<2; k++){
+				if(!/%[0-9A-Fa-f]{2}/.test(s)) break;
+				try { s = decodeURIComponent(s); } catch(e){ break; }
+			}
+			return s.trim() === "" ? null : s;
 		};
+		var _num = function(v){
+			return (v === undefined || v === null || v === "") ? undefined : Number(v);
+		};
+
+		// Detect the fcld ("hacked" FlowCLD) variant by its NODE layout.
+		// fcld nodes put a numeric RETENTION at index 10 and the value-formula at
+		// index 11; native nodes put the value-formula (a string/expression, often
+		// empty) at index 10 and retention (a number) at index 13. Edge shapes are
+		// identical between the two (both 10-wide with a form string at index 8),
+		// so the node layout is the only reliable discriminator. Require a majority
+		// of nodes to have a numeric index-10 so a lone numeric native formula
+		// can't trip it. See parse branches below for the full index maps.
+		var _isNumericStr = function(v){
+			if(typeof v === "number") return isFinite(v);
+			if(typeof v === "string" && v.trim() !== "") return isFinite(Number(v));
+			return false;
+		};
+		var _fcldNodeCount = Array.isArray(nodes) ? nodes.filter(function(n){
+			return Array.isArray(n) && n.length >= 15 && _isNumericStr(n[10]);
+		}).length : 0;
+		var isFcld = Array.isArray(nodes) && nodes.length > 0 && _fcldNodeCount > nodes.length / 2;
 
 		// Nodes
 		for(var i=0;i<nodes.length;i++){
 			var node = nodes[i];
 
-			self.addNode({
-				id: node[0],
-				x: node[1],
-				y: node[2],
-				init: node[3],
-				label: decodeURIComponent(node[4]),
-				hue: node[5],
-				flow: node[6],
-				pass: node[7] === 1,
-				floor: _parseInfinity(decodeURIComponent(node[8])),
-				ceiling: _parseInfinity(decodeURIComponent(node[9])),
-				formula: _decodeFormula(node[10]),
-				sinkFormula: _decodeFormula(node[11]),
-				sourceFormula: _decodeFormula(node[12]),
-				// retention: keep 0; only fall back to the default when absent (old saves)
-				retention: (node[13] === undefined || node[13] === null) ? undefined : Number(node[13]),
-				// radius: node circle size (drives label text size); default when absent
-				radius: (node[14] === undefined || node[14] === null) ? undefined : Number(node[14]),
-			});
+			if(isFcld){
+				// fcld node: [id,x,y,init,label,hue,flow,pass,floor,ceiling,
+				//             retention, valueFormula, sinkFormula?, flag, radius]
+				self.addNode({
+					id: node[0],
+					x: node[1],
+					y: node[2],
+					init: node[3],
+					label: decodeURIComponent(node[4]),
+					hue: node[5],
+					flow: node[6],
+					pass: node[7] === 1,
+					floor: _parseInfinity(decodeURIComponent(node[8])),
+					ceiling: _parseInfinity(decodeURIComponent(node[9])),
+					retention: _num(node[10]),
+					formula: _decodeFormula(node[11]),
+					sinkFormula: (typeof node[12] === "string" && node[12].trim() !== "") ? _decodeFormula(node[12]) : null,
+					sourceFormula: null,
+					radius: _num(node[14]),
+				});
+			} else {
+				self.addNode({
+					id: node[0],
+					x: node[1],
+					y: node[2],
+					init: node[3],
+					label: decodeURIComponent(node[4]),
+					hue: node[5],
+					flow: node[6],
+					pass: node[7] === 1,
+					floor: _parseInfinity(decodeURIComponent(node[8])),
+					ceiling: _parseInfinity(decodeURIComponent(node[9])),
+					formula: _decodeFormula(node[10]),
+					sinkFormula: _decodeFormula(node[11]),
+					sourceFormula: _decodeFormula(node[12]),
+					// retention: keep 0; only fall back to the default when absent (old saves)
+					retention: _num(node[13]),
+					// radius: node circle size (drives label text size); default when absent
+					radius: _num(node[14]),
+				});
+			}
 		}
 
 		// Edges
 		for(var i=0;i<edges.length;i++){
 			var edge = edges[i];
-			var edgeConfig = {
-				from: edge[0],
-				to: edge[1],
-				arc: edge[2],
-				strength: edge[3],
-				damper: edge[4]
-			};
-			if(edge[4]) edgeConfig.lag = edge[5];
-			if(edge[5]) edgeConfig.rotation=edge[6];
-			if(edge[8]) edgeConfig.functionalForm = edge[8];
+			var edgeConfig;
+			if(isFcld){
+				// fcld edge: [from,to,arc,strength,confidence,delay,lx,ly,form,_]
+				// (no per-edge decay → damper 0 so signal actually propagates)
+				edgeConfig = {
+					from: edge[0],
+					to: edge[1],
+					arc: edge[2],
+					strength: edge[3],
+					confidence: _num(edge[4]),
+					damper: 0
+				};
+				if(edge[5]) edgeConfig.lag = Number(edge[5]);
+				if(typeof edge[8] === "string") edgeConfig.functionalForm = edge[8];
+			} else {
+				// legacy / native layout: [from,to,arc,strength,damper,lag,lx,ly,form]
+				edgeConfig = {
+					from: edge[0],
+					to: edge[1],
+					arc: edge[2],
+					strength: edge[3],
+					damper: edge[4]
+				};
+				if(edge[4]) edgeConfig.lag = edge[5];
+				if(edge[5]) edgeConfig.rotation = edge[6];
+				if(edge[8]) edgeConfig.functionalForm = edge[8];
+			}
 			self.addEdge(edgeConfig);
 		}
 

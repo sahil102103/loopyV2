@@ -1,7 +1,7 @@
 # Gunicorn configuration — auto-loaded when the server is started with
 # `gunicorn app:app` from this directory (as on Render).
 #
-# Why this exists: heavy analyses like /optimize-parameters run a large
+# Why this exists: heavy analyses like /optimization/parameter-search run a large
 # parameter sweep that can take well over gunicorn's DEFAULT 30s worker
 # timeout. When a worker is killed mid-request, gunicorn returns a bare 500
 # page with no CORS header, which the browser surfaces as a misleading

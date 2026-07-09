@@ -18,6 +18,7 @@
 		84: "label", // (T)ext
 		83: "save", // (S)ave
 		80: "pan", // (P)an
+		76: "layout", // (L)ayout — auto-arrange graph
 
 		// Zoom controls
 		187: "zoom_in", // + key

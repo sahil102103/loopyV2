@@ -36,7 +36,7 @@
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
 	<!-- Styles! -->
-	<link href="css/loopy.css?v=3" rel="stylesheet" />
+	<link href="css/loopy.css?v=4" rel="stylesheet" />
 	<link href="css/balloon.css" rel="stylesheet" />
 	<link href="styles.css?v=5" rel="stylesheet">
 	
@@ -195,6 +195,7 @@
 	<div id="data-window">
 		<div class="tabs">
 			<button type="button" class="tablink active" id="canvasTab" data-page="Canvas" onclick="openPage('Canvas')">Canvas</button>
+			<button type="button" class="tablink" id="tablesTab" data-page="Tables" onclick="openPage('Tables')">Tables</button>
 
 			<!-- Menus grouped by user intent (not feature name). Premium items stay
 			     visible but greyed with an upgrade prompt (see openPremiumPage). -->
@@ -267,9 +268,85 @@
 			</div>
 		</div>
 
+		<!-- Tables: spreadsheet-style editing of the SAME model as the Canvas.
+		     Row bodies are filled by js/Tools/TablesView.js from window.loopy.model. -->
+		<div id="Tables" class="tabcontent">
+			<div class="tables-view">
+				<p class="tv-intro">Edit the same model as the Canvas in spreadsheet form. Changes sync both ways — switch to Canvas to see them on the diagram.</p>
+
+				<div class="tv-toolbar">
+					<button type="button" class="tv-text-btn" onclick="tablesView.expandAll()">Expand all</button>
+					<button type="button" class="tv-text-btn" onclick="tablesView.collapseAll()">Collapse all</button>
+				</div>
+
+				<div class="tv-section" data-section="nodes">
+					<div class="tv-section-header">
+						<div class="tv-section-titlegroup" role="button" tabindex="0">
+							<button type="button" class="tv-collapse-btn" aria-expanded="true" title="Collapse / expand">&#9662;</button>
+							<h3>Nodes <span id="tvNodeCount" class="tv-count"></span></h3>
+						</div>
+						<div class="tv-section-actions">
+							<button type="button" class="tv-showall-btn" title="Show every row (remove scroll limit)">Show all</button>
+							<button type="button" class="tv-add-btn" onclick="tablesView.addNode()">+ Add node</button>
+						</div>
+					</div>
+					<div class="tv-scroll">
+						<table class="tv-table">
+							<thead>
+								<tr>
+									<th>Name</th>
+									<th>Start</th>
+									<th>Retention</th>
+									<th>Floor</th>
+									<th>Ceiling</th>
+									<th class="tv-th-toggle">&fnof;(x)</th>
+									<th>Formula</th>
+									<th class="tv-th-toggle">Sink</th>
+									<th>Sink formula</th>
+									<th class="tv-th-toggle">Source</th>
+									<th>Source formula</th>
+									<th class="tv-th-actions"></th>
+								</tr>
+							</thead>
+							<tbody id="tvNodesBody"></tbody>
+						</table>
+					</div>
+				</div>
+
+				<div class="tv-section" data-section="edges">
+					<div class="tv-section-header">
+						<div class="tv-section-titlegroup" role="button" tabindex="0">
+							<button type="button" class="tv-collapse-btn" aria-expanded="true" title="Collapse / expand">&#9662;</button>
+							<h3>Edges <span id="tvEdgeCount" class="tv-count"></span></h3>
+						</div>
+						<div class="tv-section-actions">
+							<button type="button" class="tv-showall-btn" title="Show every row (remove scroll limit)">Show all</button>
+							<button type="button" class="tv-add-btn" onclick="tablesView.addEdge()">+ Add edge</button>
+						</div>
+					</div>
+					<div class="tv-scroll">
+						<table class="tv-table">
+							<thead>
+								<tr>
+									<th>Source</th>
+									<th>Target</th>
+									<th>Correlation</th>
+									<th>Decay</th>
+									<th>Confidence</th>
+									<th>Delay</th>
+									<th class="tv-th-actions"></th>
+								</tr>
+							</thead>
+							<tbody id="tvEdgesBody"></tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		</div>
+
 
 		<div id="TimeSeries" class="tabcontent">
-			<p>Re-run the advanced simulation with custom iterations, or view the results from the last Play run.</p>
+			<p>Run the two-phase simulation. The backend returns raw series; charts are built in the browser with Chart.js (hover, legend toggle, range trim) — same stack as Legacy Time Series.</p>
 			<div class="analysis-controls">
 				<div class="control-row">
 					<label for="advancedIterations">Iterations</label>
@@ -710,7 +787,8 @@
 <script src="js/Core/Label.js" defer></script>
 <script src="js/Tools/PageUI.js" defer></script>
 <script src="js/Tools/Sidebar.js?v=3" defer></script>
-<script src="js/Tools/Toolbar.js" defer></script>
+<script src="js/Tools/GraphLayout.js?v=1" defer></script>
+<script src="js/Tools/Toolbar.js?v=2" defer></script>
 <script src="js/Tools/PlayControls.js" defer></script>
 <script src="js/Tools/Modal.js?v=5" defer></script>
 <script src="js/Tools/Ink.js" defer></script>
@@ -723,16 +801,17 @@
 <script src="js/Tools/MultipleSelect.js" defer></script>
 <script src="js/Tools/SavedModels.js?v=3" defer></script>
 <script src="js/Tools/AdminPanel.js" defer></script>
+<script src="js/Tools/TablesView.js?v=2" defer></script>
 <script src="js/Out/Outputs.js" defer></script>
 <script src="js/Libraries/math.js" defer></script>
 
 
-<script src="python/cycleAnalysis.js" defer></script>
+<script src="python/cycleAnalysis.js?v=2" defer></script>
 <script src="python/generateDiagram.js" defer></script>
-<script src="python/advancedAnalysis.js" defer></script>
+<script src="python/advancedAnalysis.js?v=4" defer></script>
 <script src="python/cldAnalysis.js" defer></script>
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-<script src="js/paramSpace3D.js" defer></script>
+<script src="js/paramSpace3D.js?v=2" defer></script>
 
 <!-- CLD Engine Files -->
 <script src="js/Libraries/cldEngine.js" defer></script>

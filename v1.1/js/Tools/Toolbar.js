@@ -181,6 +181,101 @@ function Toolbar(loopy) {
         }
     });
 
+    // ── Auto-layout: reorganize nodes so relationships are easier to read ──
+    self.addDivider();
+
+    var layoutWrap = document.createElement("div");
+    layoutWrap.className = "toolbar_layout_wrap";
+    layoutWrap.style.position = "relative";
+
+    var layoutBtn = document.createElement("div");
+    layoutBtn.className = "toolbar_button zoom_button";
+    layoutBtn.setAttribute("data-balloon", "Auto-layout graph (L) — arrange nodes so links are easier to follow");
+    layoutBtn.setAttribute("data-balloon-pos", "right");
+    layoutBtn.textContent = "\u25A6"; // ▦ grid-ish icon
+    layoutBtn.style.fontSize = "14px";
+    layoutBtn.title = "Auto-layout";
+
+    var layoutMenu = document.createElement("div");
+    layoutMenu.className = "toolbar_layout_menu";
+    layoutMenu.style.display = "none";
+
+    function _runLayout(mode) {
+        layoutMenu.style.display = "none";
+        if (!loopy.model || !loopy.model.nodes.length) {
+            if (typeof window.showToast === "function") {
+                window.showToast("Add some nodes first", "error", true);
+            }
+            return;
+        }
+        if (typeof GraphLayout === "undefined" || !GraphLayout.apply) {
+            console.error("GraphLayout not loaded");
+            return;
+        }
+        try {
+            var result = GraphLayout.apply(loopy.model, { mode: mode, fitView: true, normalizeArcs: true });
+            if (typeof window.showToast === "function") {
+                var label = mode === "force" ? "Force layout" : (mode === "circle" ? "Circle layout" : "Grid layout");
+                window.showToast(label + " · " + result.nodeCount + " nodes (Undo to revert)", "success", true);
+            }
+        } catch (err) {
+            console.error(err);
+            if (typeof window.showToast === "function") {
+                window.showToast("Layout failed: " + err.message, "error", true);
+            }
+        }
+    }
+
+    [
+        { mode: "force",  label: "Force (recommended)", hint: "Cluster related nodes" },
+        { mode: "circle", label: "Circle",              hint: "Even ring overview" },
+        { mode: "grid",   label: "Grid",                hint: "Compact rows" },
+    ].forEach(function (item) {
+        var row = document.createElement("button");
+        row.type = "button";
+        row.className = "toolbar_layout_item";
+        row.innerHTML = "<strong>" + item.label + "</strong><span>" + item.hint + "</span>";
+        row.addEventListener("click", function (e) {
+            e.stopPropagation();
+            _runLayout(item.mode);
+        });
+        layoutMenu.appendChild(row);
+    });
+
+    layoutBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        // Plain click → force layout (most useful). Shift/Alt → open menu.
+        if (e.shiftKey || e.altKey) {
+            layoutMenu.style.display = layoutMenu.style.display === "none" ? "block" : "none";
+        } else {
+            _runLayout("force");
+        }
+    });
+    // Right-click / long affordance: always show menu
+    layoutBtn.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        layoutMenu.style.display = layoutMenu.style.display === "none" ? "block" : "none";
+    });
+    // Small chevron strip to open menu without shift
+    var menuToggle = document.createElement("div");
+    menuToggle.className = "toolbar_layout_caret";
+    menuToggle.textContent = "\u25BE";
+    menuToggle.title = "More layout options";
+    menuToggle.addEventListener("click", function (e) {
+        e.stopPropagation();
+        layoutMenu.style.display = layoutMenu.style.display === "none" ? "block" : "none";
+    });
+
+    layoutWrap.appendChild(layoutBtn);
+    layoutWrap.appendChild(menuToggle);
+    layoutWrap.appendChild(layoutMenu);
+    self.dom.appendChild(layoutWrap);
+
+    document.addEventListener("click", function () {
+        layoutMenu.style.display = "none";
+    });
+
     // Keyboard shortcuts for zoom
     subscribe("key/zoom_in", function() {
         loopy.model.zoomIn();
@@ -194,6 +289,10 @@ function Toolbar(loopy) {
     subscribe("key/pan", function() {
         loopy.ink.reset();
         self.setTool("pan");
+    });
+    // L = force auto-layout
+    subscribe("key/layout", function () {
+        if (loopy.mode === Loopy.MODE_EDIT) _runLayout("force");
     });
 
     // Select the default button

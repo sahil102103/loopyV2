@@ -31,3 +31,11 @@ firestore_export/
 
 # Optional: GitHub configuration
 .github/
+
+# Local notebook debugging (source-of-truth experiments; not for commits)
+flowclddebugging/
+
+# Local model assets and coding-agent instructions
+models/
+AGENTS.md
+CLAUDE.md

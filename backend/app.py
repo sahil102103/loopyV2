@@ -50,10 +50,36 @@ CORS(app, resources={r"/*": {"origins": ["https://loopy-v2.vercel.app", "http://
 
 stripe.api_key = os.environ.get('STRIPE_API_KEY')
 
+# ── Route naming ─────────────────────────────────────────────────────────────
+# Primary paths describe what the handler does. Old paths remain as aliases
+# so existing clients keep working.
+#
+#   /health                              health / env smoke
+#   /simulation/two-phase                notebook SoT two-phase sim
+#   /simulation/monte-carlo-fan          MC fan chart
+#   /simulation/seed-sensitivity         multi-seed two-phase
+#   /simulation/two-phase/value-histograms  two-phase then value histograms
+#   /optimization/parameter-search       parameter optimization
+#   /parameter-maps/stability-sweep      advanced stability map
+#   /parameter-maps/3d                   retention×decay×delay
+#   /parameter-maps/decay-vs-delay       decay × delay grid
+#   /parameter-maps/decay-vs-retention
+#   /parameter-maps/retention-vs-delay
+#   /graph/feedback-cycles               signed feedback loop listing
+#   /graph/centrality                    degree/betweenness/…
+#   /series/rolling-z-plots              rolling-Z plots of uploaded series
+#   /series/correlation-heatmap
+#   /series/boxplots | violinplots
+#   /series/gmm-density | gmm-synthetic  GMM analysis of uploaded series
+#   /legacy/signal-graph/init            old signal-buffer graph
+#   /billing/checkout-session            Stripe
 
 
+
+
+@app.route('/health')
 @app.route('/')
-def index():
+def health_index():
     # Access environment variables
     backendURL = os.environ.get('BACKEND_URL')
     db_url = os.environ.get('DATABASE_URL')
@@ -170,8 +196,9 @@ delay_buffers = {}
 passnodes = set()
 
 
+@app.route('/legacy/signal-graph/init', methods=['POST'])
 @app.route('/initialize-graph', methods=['POST'])
-def initialize_graph_data():
+def legacy_signal_graph_init():
     """
     Endpoint to receive all necessary graph info from the frontend and
     populate/update the global variables by calling `build_graph_from_data`.
@@ -328,8 +355,9 @@ def simulate_signal_transfer(iterations=100, decay_factor=0.9, delay=None, use_d
 #########################
 
 # Route 1: Cycle Analysis
+@app.route('/graph/feedback-cycles', methods=['POST'])
 @app.route('/cycle-analysis', methods=['POST'])
-def cycle_analysis():
+def graph_feedback_cycles():
     try:
         data = request.json
         edges = data.get('edges', [])
@@ -364,8 +392,9 @@ def cycle_analysis():
 
 
 # Route 2: Crisis Analysis
+@app.route('/series/rolling-z-plots', methods=['POST'])
 @app.route('/crisis-analysis', methods=['POST'])
-def crisis_analysis():
+def series_rolling_z_plots():
     try:
         data = request.json
         time_series_data = data.get("time_series_data", {})
@@ -390,8 +419,9 @@ def crisis_analysis():
 
 
 # Route 3: Degree Centrality
+@app.route('/graph/centrality', methods=['POST'])
 @app.route('/degree-centrality', methods=['POST'])
-def degree_centrality():
+def graph_centrality():
     try:
         data = request.json
         G = create_graph(data['edges'], data['edge_polarities'])
@@ -416,8 +446,9 @@ def degree_centrality():
 
 
 # Route 4: Visual Analysis
+@app.route('/simulation/two-phase/value-histograms', methods=['POST'])
 @app.route('/visual-analysis', methods=['POST'])
-def visual_analysis():
+def simulation_two_phase_value_histograms():
     try:
         data = request.json
 
@@ -448,8 +479,9 @@ def visual_analysis():
         return jsonify({"error": str(e), "traceback": error_trace}), 500
 
 
+@app.route('/series/correlation-heatmap', methods=['POST'])
 @app.route('/correlation-analysis', methods=['POST'])
-def correlation_analysis():
+def series_correlation_heatmap():
     try:
         data = request.json
         time_series_data = data.get("time_series_data", {})
@@ -488,8 +520,9 @@ def correlation_analysis():
         return jsonify({"error": str(e)}), 500
     
 
-@app.route("/generate-stability-map", methods=["POST"])
-def generate_stability_map():
+@app.route('/parameter-maps/decay-vs-delay', methods=["POST"])
+@app.route('/generate-stability-map', methods=["POST"])
+def parameter_map_decay_vs_delay():
     try:
         data = request.json
         G = build_twophase_graph_from_legacy(data)
@@ -536,8 +569,9 @@ def generate_stability_map():
         return jsonify({"error": str(e)}), 500
     
 
-@app.route("/generate-decay-retention-map", methods=["POST"])
-def generate_decay_retention_map():
+@app.route('/parameter-maps/decay-vs-retention', methods=["POST"])
+@app.route('/generate-decay-retention-map', methods=["POST"])
+def parameter_map_decay_vs_retention():
     try:
         data = request.json
         G = build_twophase_graph_from_legacy(data)
@@ -581,8 +615,9 @@ def generate_decay_retention_map():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/generate-retention-delay-map", methods=["POST"])
-def generate_retention_delay_map():
+@app.route('/parameter-maps/retention-vs-delay', methods=["POST"])
+@app.route('/generate-retention-delay-map', methods=["POST"])
+def parameter_map_retention_vs_delay():
     try:
         data = request.json
         G = build_twophase_graph_from_legacy(data)
@@ -628,8 +663,9 @@ def generate_retention_delay_map():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/billing/checkout-session', methods=['POST'])
 @app.route('/create-checkout-session', methods=['POST'])
-def create_checkout_session():
+def billing_checkout_session():
     try:
         data = request.json
         amount = data.get('amount', 2000)  # Default to $20.00 if not provided
@@ -657,8 +693,9 @@ def create_checkout_session():
         return jsonify({'error': str(e)}), 400
 
 
+@app.route('/series/gmm-density', methods=['POST'])
 @app.route('/simulation', methods=['POST'])
-def run_simulation():
+def series_gmm_density():
     try:
         # Log incoming data
         data = request.json.get('time_series_data')
@@ -727,8 +764,9 @@ def run_simulation():
             os.remove("simulation.png")
 
 
+@app.route('/series/gmm-synthetic', methods=['POST'])
 @app.route('/simulation2', methods=['POST'])
-def simulation2():
+def series_gmm_synthetic():
     try:
         # Get time series data from the request
         data = request.json.get('time_series_data', {})
@@ -787,8 +825,9 @@ def simulation2():
 # ADVANCED ANALYSIS ENDPOINTS (from Jupyter notebook)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@app.route('/simulation/two-phase', methods=['POST'])
 @app.route('/advanced-simulation', methods=['POST'])
-def advanced_simulation():
+def simulation_two_phase():
     """
     Run advanced two-phase simulation with full stability analysis.
     
@@ -828,8 +867,9 @@ def advanced_simulation():
         return jsonify({"error": str(e), "trace": error_trace}), 500
 
 
+@app.route('/parameter-maps/stability-sweep', methods=['POST'])
 @app.route('/advanced-stability-map', methods=['POST'])
-def advanced_stability_map():
+def parameter_map_stability_sweep():
     """
     Generate advanced stability parameter space map.
     
@@ -870,8 +910,9 @@ def advanced_stability_map():
         return jsonify({"error": str(e), "trace": error_trace}), 500
 
 
+@app.route('/parameter-maps/3d', methods=['POST'])
 @app.route('/param-space-3d', methods=['POST'])
-def param_space_3d():
+def parameter_map_3d():
     """
     Sweep retention × decay × delay and return a point cloud for 3D visualization.
 
@@ -901,8 +942,9 @@ def param_space_3d():
         return jsonify({"error": str(e), "trace": error_trace}), 500
 
 
+@app.route('/series/boxplots', methods=['POST'])
 @app.route('/boxplots', methods=['POST'])
-def generate_boxplots():
+def series_boxplots():
     try:
         # Get time series data from the request
         data = request.json.get('time_series_data', {})
@@ -958,8 +1000,9 @@ def generate_boxplots():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/series/violinplots', methods=['POST'])
 @app.route('/violinplots', methods=['POST'])
-def generate_violin_plots():
+def series_violinplots():
     try:
         # Get time series data from the request
         data = request.json.get('time_series_data', {})
@@ -1021,8 +1064,9 @@ def generate_violin_plots():
         return jsonify({'error': str(e)}), 500
     
 
+@app.route('/simulation/seed-sensitivity', methods=['POST'])
 @app.route('/random-seeds', methods=['POST'])
-def random_seeds():
+def simulation_seed_sensitivity():
     try:
         data = request.json
         G = build_twophase_graph_from_legacy(data)
@@ -1079,8 +1123,9 @@ def random_seeds():
     except Exception as e:
         error_trace = traceback.format_exc()
         return jsonify({"error": str(e)}), 500
+@app.route('/simulation/monte-carlo-fan', methods=['POST'])
 @app.route('/fan-chart', methods=['POST'])
-def fan_chart():
+def simulation_monte_carlo_fan():
     """
     Monte Carlo fan chart — runs n_sims perturbed simulations and returns
     percentile bands (5/25/50/75/95) per node plus a matplotlib plot.
@@ -1108,8 +1153,9 @@ def fan_chart():
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
 
+@app.route('/optimization/parameter-search', methods=['POST'])
 @app.route('/optimize-parameters', methods=['POST'])
-def optimize_parameters():
+def optimization_parameter_search():
     """
     Two-stage parameter optimization: grid search + simulated annealing.
     Returns top-5 (retention, decay, delay) configurations by score.

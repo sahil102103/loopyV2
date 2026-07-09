@@ -252,6 +252,11 @@ function Node(model, config){
 						}
 					});
 				}
+				// fcld/backend formula dialect: expose nxt/raw (keyed by full node
+				// label, incl. spaces) and math, matching simulate_two_phase's context.
+				var _vals = {};
+				if (self.model && self.model.nodes) self.model.nodes.forEach(function(n){ _vals[n.label] = n.value; });
+				scope.nxt = _vals; scope.raw = _vals; scope.math = Math;
 				var result = math.evaluate(self.formula, scope);
 				if (!isNaN(result) && isFinite(result)) {
 					self.nextValue = result;
@@ -302,6 +307,11 @@ function Node(model, config){
 						}
 					});
 				}
+				// fcld/backend formula dialect: expose nxt/raw (keyed by full node
+				// label, incl. spaces) and math, matching simulate_two_phase's context.
+				var _vals = {};
+				if (self.model && self.model.nodes) self.model.nodes.forEach(function(n){ _vals[n.label] = n.value; });
+				scope.nxt = _vals; scope.raw = _vals; scope.math = Math;
 				// Evaluate formula
 				var result = math.evaluate(self.formula, scope);
 				if (!isNaN(result) && isFinite(result)) {

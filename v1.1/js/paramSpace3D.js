@@ -101,7 +101,7 @@ async function generate3DParamSpace() {
         const totalPoints = retentionSteps * decaySteps * delaySteps;
         statusDiv.innerHTML = `<div class="loading">Running ${totalPoints} simulations on the backend…</div>`;
 
-        const response = await fetch(`${ADVANCED_API_URL}/param-space-3d`, {
+        const response = await fetch(`${ADVANCED_API_URL}/parameter-maps/3d`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
