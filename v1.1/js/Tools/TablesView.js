@@ -46,6 +46,16 @@ Rendering strategy (avoids stealing focus while typing):
 		return l.trim() === "" ? "(unnamed)" : l;
 	}
 
+	function _nextNodeLabel(m) {
+		var base = "New node";
+		if (m.isNodeLabelAvailable(base)) return base;
+		for (var i = 2; i < 10000; i++) {
+			var candidate = base + " " + i;
+			if (m.isNodeLabelAvailable(candidate)) return candidate;
+		}
+		return base + " " + Date.now();
+	}
+
 	// ── numeric formatting / parsing ────────────────────────────────────────
 	function _numStr(v) {
 		if (v === undefined || v === null || (typeof v === "number" && !isFinite(v))) return "";
@@ -70,6 +80,12 @@ Rendering strategy (avoids stealing focus while typing):
 		var n = Number(raw);
 		if (!isFinite(n) || n < 0) return { ok: false };
 		return { ok: true, value: Math.round(n) };
+	}
+
+	function _parseUnitInterval(raw) {
+		var result = _parseFinite(raw);
+		if (!result.ok || result.value < 0 || result.value > 1) return { ok: false };
+		return result;
 	}
 
 	function _parseFloor(raw) {
@@ -190,7 +206,14 @@ Rendering strategy (avoids stealing focus while typing):
 				_toast("Node name can't be empty");
 				return;
 			}
-			node.label = v;
+			if (!model().isNodeLabelAvailable(v, node)) {
+				nameInp.value = (node.label === undefined || node.label === null) ? "" : String(node.label);
+				_flashInvalid(nameInp);
+				_toast("Node names must be unique");
+				return;
+			}
+			node.label = v.trim();
+			nameInp.value = node.label;
 			_refreshEndpointLabels(node.id, _nodeLabel(node));
 			_commit();
 		});
@@ -382,13 +405,13 @@ Rendering strategy (avoids stealing focus while typing):
 		_cell(tr, _numInput(
 			function () { return edge.damper; },
 			function (x) { edge.damper = x; },
-			{ errMsg: "Decay must be a number" }
+			{ parse: _parseUnitInterval, errMsg: "Decay must be between 0 and 1" }
 		));
 		// Confidence
 		_cell(tr, _numInput(
 			function () { return edge.confidence; },
 			function (x) { edge.confidence = x; },
-			{ errMsg: "Confidence must be a number" }
+			{ parse: _parseUnitInterval, errMsg: "Confidence must be between 0 and 1" }
 		));
 		// Delay (lag, integer ≥ 0)
 		_cell(tr, _numInput(
@@ -514,7 +537,7 @@ Rendering strategy (avoids stealing focus while typing):
 			var n = m.nodes.length;
 			var x = 120 + (n % 6) * 150;
 			var y = 120 + Math.floor(n / 6) * 130;
-			newNode = m.addNode({ x: x, y: y, label: "New node" });
+			newNode = m.addNode({ x: x, y: y, label: _nextNodeLabel(m) });
 		} finally {
 			_rendering = false;
 		}

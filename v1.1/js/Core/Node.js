@@ -99,6 +99,31 @@ function Node(model, config){
 	self.sinkFormula = config.sinkFormula || null;
 	self.sourceFormula = config.sourceFormula || null;
 
+	function _formulaContext(){
+		var values = {};
+		if (self.model && self.model.nodes) {
+			self.model.nodes.forEach(function(node) {
+				values[node.label] = node.value;
+			});
+		}
+		return {
+			t: (typeof tick !== 'undefined') ? tick : 0,
+			x: self.value,
+			val: self.value,
+			Y0: self.init,
+			raw: values,
+			nxt: values,
+			inputs: {}
+		};
+	}
+
+	function _evaluateFormula(){
+		if (typeof FormulaEvaluator === 'undefined') {
+			throw new Error('Formula evaluator is unavailable');
+		}
+		return FormulaEvaluator.evaluate(self.formula, _formulaContext());
+	}
+
 	// MOUSE.
 	var _controlsVisible = false;
 	var _controlsAlpha = 0;
@@ -240,24 +265,9 @@ function Node(model, config){
 		}
 
 		// Formula-based update (if formula is present and in play mode)
-		if (_isPlaying && self.formula && typeof math !== 'undefined') {
+		if (_isPlaying && self.formula) {
 			try {
-				var scope = {};
-				scope.t = (typeof tick !== 'undefined') ? tick : 0;
-				scope.Y0 = self.init;
-				if (self.model && self.model.nodes) {
-					self.model.nodes.forEach(function(node) {
-						if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(node.label)) {
-							scope[node.label] = node.value;
-						}
-					});
-				}
-				// fcld/backend formula dialect: expose nxt/raw (keyed by full node
-				// label, incl. spaces) and math, matching simulate_two_phase's context.
-				var _vals = {};
-				if (self.model && self.model.nodes) self.model.nodes.forEach(function(n){ _vals[n.label] = n.value; });
-				scope.nxt = _vals; scope.raw = _vals; scope.math = Math;
-				var result = math.evaluate(self.formula, scope);
+				var result = _evaluateFormula();
 				if (!isNaN(result) && isFinite(result)) {
 					self.nextValue = result;
 					if (self.nextValue > self.ceiling) self.nextValue = Math.min(self.ceiling, self.nextValue);
@@ -291,47 +301,8 @@ function Node(model, config){
 			self.value = self.init;
 		}
 
-		// Formula-based update (if formula is present and in play mode)
-		if (_isPlaying && self.formula && typeof math !== 'undefined') {
-			try {
-				// Build scope for formula: t, Y0, all node labels as variables
-				var scope = {};
-				scope.t = (typeof tick !== 'undefined') ? tick : 0;
-				scope.Y0 = self.init;
-				// Add all node values by label (if label is a valid variable name)
-				if (self.model && self.model.nodes) {
-					self.model.nodes.forEach(function(node) {
-						// Only add if label is a valid JS identifier
-						if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(node.label)) {
-							scope[node.label] = node.value;
-						}
-					});
-				}
-				// fcld/backend formula dialect: expose nxt/raw (keyed by full node
-				// label, incl. spaces) and math, matching simulate_two_phase's context.
-				var _vals = {};
-				if (self.model && self.model.nodes) self.model.nodes.forEach(function(n){ _vals[n.label] = n.value; });
-				scope.nxt = _vals; scope.raw = _vals; scope.math = Math;
-				// Evaluate formula
-				var result = math.evaluate(self.formula, scope);
-				if (!isNaN(result) && isFinite(result)) {
-					self.value = result;
-					
-					// Apply bounds after formula evaluation
-					if (self.value > self.ceiling) {
-						self.value = Math.min(self.ceiling, self.value);
-					}
-					if (self.value < self.floor) {
-						self.value = Math.max(self.floor, self.value);
-					}
-				}
-			} catch (e) {
-				// If formula fails, do not update value
-				console.warn('Formula evaluation error for node', self.label, ':', e);
-			}
-			// Skip edge-based update for formula nodes
-			return;
-		}
+		// Formula values are committed by Model.update's synchronized compute
+		// phase. Re-evaluating here would advance converter nodes twice per step.
 
 		// updateNodeData();
 

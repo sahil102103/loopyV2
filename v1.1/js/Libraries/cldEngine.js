@@ -120,7 +120,8 @@ class CLDEngine {
                 decay: this.safeEvaluate(edge.decay, 0.0),
                 confidence: this.safeEvaluate(edge.confidence ?? edge.certainty, 1.0),
                 delay: this.safeEvaluate(edge.delay, 0),
-                ...edge
+                ...edge,
+                functionalForm: edge.functionalForm ?? edge.functional_form ?? 'linear'
             });
         }
 
@@ -143,14 +144,14 @@ class CLDEngine {
                 const t = ctx.t !== undefined ? ctx.t : 0;
                 const x = ctx.x !== undefined ? ctx.x : 0;
                 const val = x;
-                const math = Math;
-                const np = this.getNumpyLikeHelpers();
                 const history = ctx.history || {};
                 const raw = ctx.raw || {};
                 const nxt = ctx.nxt || {};
                 const inputs = ctx.inputs || {};
-                const e = Math.E;
-                const result = eval(value);
+                if (typeof FormulaEvaluator === 'undefined') {
+                    throw new Error('Formula evaluator is unavailable');
+                }
+                const result = FormulaEvaluator.evaluate(value, { t, x, val, history, raw, nxt, inputs });
                 return typeof result === 'number' && !isNaN(result) ? result : defaultValue;
             } catch (e) {
                 if (typeof showToast === 'function') showToast(`Expression error: "${value}" — ${e.message}`, 'error');
@@ -177,6 +178,21 @@ class CLDEngine {
             ceil: Math.ceil,
             pow: Math.pow
         };
+    }
+
+    applyEdgeForm(form, value) {
+        switch (form || 'linear') {
+            case 'tanh': return Math.tanh(value);
+            case 'quadratic': return value * Math.abs(value);
+            case 'cubic': return value * value * value;
+            case 'relu': return value > 0 ? value : 0;
+            case 'step': return value > 0 ? 1 : (value < 0 ? -1 : 0);
+            default: return value;
+        }
+    }
+
+    edgeContribution(edge, value) {
+        return edge.correlation * (1.0 - edge.decay) * this.applyEdgeForm(edge.functionalForm, value);
     }
 
     evaluateBound(bound, defaultValue, ctx = {}) {
@@ -232,8 +248,7 @@ class CLDEngine {
                 const srcV = (srcT >= 0 && history[edge.from][srcT] !== undefined)
                     ? (history[edge.from][srcT] === null ? 0 : history[edge.from][srcT])
                     : 0;
-                const factor = edge.correlation * (1.0 - edge.decay);
-                nxt[edge.to] = (nxt[edge.to] || 0) + srcV * factor;
+                nxt[edge.to] = (nxt[edge.to] || 0) + this.edgeContribution(edge, srcV);
             }
 
             // Phase B: commit stocks (retention > 0), converters get null placeholder
@@ -267,7 +282,7 @@ class CLDEngine {
                     let srcV = (srcT >= 0 && history[edge.from][srcT] !== undefined)
                         ? history[edge.from][srcT] : 0;
                     if (srcV === null) srcV = 0;
-                    inputs[edge.from] = srcV * edge.correlation * (1.0 - edge.decay);
+                    inputs[edge.from] = this.edgeContribution(edge, srcV);
                 }
 
                 let val;
@@ -386,22 +401,15 @@ class CLDEngine {
             const raw = extraContext.raw || {};
             const nxt = extraContext.nxt || {};
             const inputs = extraContext.inputs || {};
-            const context = {
+            return this.safeEvaluate(formula, currentValue, {
                 t,
                 x: currentValue,
                 val: currentValue,
-                value: currentValue,
                 raw,
                 nxt,
                 inputs,
-                history,
-                math: Math,
-                np: this.getNumpyLikeHelpers(),
-                Math
-            };
-
-            const result = new Function('ctx', `with(ctx){return (${formula})}`)(context);
-            return typeof result === 'number' && !isNaN(result) ? result : currentValue;
+                history
+            });
         } catch (e) {
             if (typeof showToast === 'function') showToast(`Formula error (node "${nodeId}"): ${e.message}`, 'error');
             console.error(`Formula evaluation failed for node ${nodeId}:`, e);

@@ -20,6 +20,11 @@ from io import BytesIO
 import base64
 from urllib.parse import unquote as _url_unquote
 
+try:
+    from formula_evaluator import FormulaEvaluationError, evaluate_formula
+except ModuleNotFoundError:  # Supports package-style imports in repository-level tests.
+    from backend.formula_evaluator import FormulaEvaluationError, evaluate_formula
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # CORE SIMULATION ENGINE (Two-Phase Propagation)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -66,8 +71,8 @@ def _eval_bound(bound, ctx, default):
         return float(bound)
     if isinstance(bound, str) and bound.strip():
         try:
-            return float(eval(_decode_expr(bound), {}, ctx))
-        except Exception:
+            return evaluate_formula(_decode_expr(bound), ctx)
+        except FormulaEvaluationError:
             pass
     return default
 
@@ -191,8 +196,8 @@ def simulate_two_phase(G: nx.DiGraph, init_vals: dict, steps: int):
                     "math": math, "np": np,
                 }
                 try:
-                    val = float(eval(formulas[n], {}, ctx))
-                except Exception as err:
+                    val = evaluate_formula(formulas[n], ctx)
+                except FormulaEvaluationError as err:
                     print(f"⚠️ formula error @ '{n}': {err}")
                     val = hist[n][-2] if len(hist[n]) >= 2 else 0.0
             else:
@@ -216,8 +221,8 @@ def simulate_two_phase(G: nx.DiGraph, init_vals: dict, steps: int):
             try:
                 ctx_sink = {"t": t, "x": hist[n][-1], "val": hist[n][-1],
                            "math": math, "np": np, "e": math.e}
-                factor = float(eval(expr, {}, ctx_sink))
-            except Exception as err:
+                factor = evaluate_formula(expr, ctx_sink)
+            except FormulaEvaluationError as err:
                 print(f"⚠️ sink error @ '{n}': {err} (using 1.0)")
                 factor = 1.0
             hist[n][-1] *= factor
@@ -226,8 +231,8 @@ def simulate_two_phase(G: nx.DiGraph, init_vals: dict, steps: int):
             try:
                 ctx_src = {"t": t, "x": hist[n][-1], "val": hist[n][-1],
                           "math": math, "np": np, "e": math.e}
-                factor = float(eval(expr, {}, ctx_src))
-            except Exception as err:
+                factor = evaluate_formula(expr, ctx_src)
+            except FormulaEvaluationError as err:
                 print(f"⚠️ source error @ '{n}': {err} (using 1.0)")
                 factor = 1.0
             hist[n][-1] *= factor
@@ -509,6 +514,168 @@ def create_stability_heatmap(decay_values, delay_values, stability_matrix):
 # HIGH-LEVEL ANALYSIS FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
+class GraphValidationError(ValueError):
+    """A user-correctable graph payload error."""
+
+
+_EDGE_FORMS = {"linear", "tanh", "quadratic", "cubic", "relu", "step"}
+_DEFAULT_GRAPH_VALUES = {
+    "start_amount": 0.1,
+    "retention": 1.0,
+    "decay": 0.0,
+    "confidence": 1.0,
+}
+
+
+def _first_present(data, keys, default=None):
+    for key in keys:
+        value = data.get(key)
+        if value is not None and value != "":
+            return value
+    return default
+
+
+def _finite_number(value, field, default):
+    if value is None or value == "":
+        return float(default)
+    if isinstance(value, bool):
+        raise GraphValidationError(f"{field} must be numeric")
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as error:
+        raise GraphValidationError(f"{field} must be numeric") from error
+    if not math.isfinite(number):
+        raise GraphValidationError(f"{field} must be finite")
+    return number
+
+
+def _nonnegative_int(value, field, default=0):
+    number = _finite_number(value, field, default)
+    if number < 0 or not number.is_integer():
+        raise GraphValidationError(f"{field} must be a whole number greater than or equal to zero")
+    return int(number)
+
+
+def _bound_value(value, field, default):
+    if value is None or value == "":
+        return default
+    if isinstance(value, str):
+        text = value.strip()
+        if text.lower() in {"-infinity", "-inf"}:
+            return -math.inf
+        if text.lower() in {"infinity", "+infinity", "inf", "+inf"}:
+            return math.inf
+        try:
+            number = float(text)
+        except ValueError:
+            # A dynamic bound is evaluated later by the restricted expression evaluator.
+            return text
+    else:
+        try:
+            number = float(value)
+        except (TypeError, ValueError) as error:
+            raise GraphValidationError(f"{field} must be numeric or a formula") from error
+    if math.isnan(number):
+        raise GraphValidationError(f"{field} cannot be NaN")
+    return number
+
+
+def _formula_value(value, field):
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str):
+        raise GraphValidationError(f"{field} must be text")
+    return value.strip() or None
+
+
+def build_graph_from_payload(graph_data, *, defaults=None):
+    """Build the canonical NetworkX model used by all notebook-derived APIs."""
+    if not isinstance(graph_data, dict):
+        raise GraphValidationError("Request body must be a JSON object")
+    graph_defaults = dict(_DEFAULT_GRAPH_VALUES)
+    if defaults:
+        graph_defaults.update(defaults)
+    nodes_data = graph_data.get("nodes", [])
+    edges_data = graph_data.get("edges", [])
+    if not isinstance(nodes_data, list) or not isinstance(edges_data, list):
+        raise GraphValidationError("nodes and edges must be arrays")
+
+    graph = nx.DiGraph()
+    names = set()
+    for index, node_data in enumerate(nodes_data, start=1):
+        if not isinstance(node_data, dict):
+            raise GraphValidationError(f"Node {index} must be an object")
+        raw_name = _first_present(node_data, ("name", "label", "id"))
+        name = str(raw_name).strip() if raw_name is not None else ""
+        if not name:
+            raise GraphValidationError(f"Node {index} needs a name")
+        if name in names:
+            raise GraphValidationError(f"Node names must be unique: {name}")
+        names.add(name)
+
+        retention = 0.0 if node_data.get("pass") else _finite_number(
+            _first_present(node_data, ("retention", "ret")), f"Retention for {name}", graph_defaults["retention"]
+        )
+        graph.add_node(
+            name,
+            start_amount=_finite_number(
+                _first_present(node_data, ("start_amount", "startAmount", "start", "initial", "init", "value")),
+                f"Start value for {name}",
+                graph_defaults["start_amount"],
+            ),
+            retention=retention,
+            floor=_bound_value(_first_present(node_data, ("floor", "min", "lower", "lower_bound")), f"Floor for {name}", -math.inf),
+            ceiling=_bound_value(_first_present(node_data, ("ceiling", "ceil", "max", "upper", "upper_bound")), f"Ceiling for {name}", math.inf),
+            formula=_formula_value(_first_present(node_data, ("formula", "expression", "expr")), f"Formula for {name}"),
+            sink_formula=_formula_value(_first_present(node_data, ("sink_formula", "sinkFormula")), f"Sink formula for {name}"),
+            source_formula=_formula_value(_first_present(node_data, ("source_formula", "sourceFormula")), f"Source formula for {name}"),
+        )
+
+    for index, edge_data in enumerate(edges_data, start=1):
+        if not isinstance(edge_data, dict):
+            raise GraphValidationError(f"Edge {index} must be an object")
+        source = _first_present(edge_data, ("source", "from", "src", "u"))
+        target = _first_present(edge_data, ("target", "to", "tgt", "v"))
+        source = str(source).strip() if source is not None else ""
+        target = str(target).strip() if target is not None else ""
+        if not source or not target:
+            raise GraphValidationError(f"Edge {index} needs both a source and target")
+        if source not in names or target not in names:
+            raise GraphValidationError(f"Edge {index} references a node that does not exist")
+
+        form = str(_first_present(edge_data, ("functional_form", "functionalForm"), "linear")).strip().lower()
+        if form not in _EDGE_FORMS:
+            raise GraphValidationError(f"Edge {index} has an unsupported functional form")
+        decay = _finite_number(
+            _first_present(edge_data, ("decay", "damper")),
+            f"Decay for edge {index}",
+            graph_defaults["decay"],
+        )
+        confidence = _finite_number(
+            _first_present(edge_data, ("confidence", "certainty")),
+            f"Confidence for edge {index}",
+            graph_defaults["confidence"],
+        )
+        if not 0.0 <= decay <= 1.0:
+            raise GraphValidationError(f"Decay for edge {index} must be between 0 and 1")
+        if not 0.0 <= confidence <= 1.0:
+            raise GraphValidationError(f"Confidence for edge {index} must be between 0 and 1")
+
+        graph.add_edge(
+            source,
+            target,
+            correlation=_finite_number(_first_present(edge_data, ("correlation", "corr", "strength", "weight")), f"Correlation for edge {index}", 1.0),
+            decay=decay,
+            delay=_nonnegative_int(_first_present(edge_data, ("delay", "lag")), f"Delay for edge {index}"),
+            confidence=confidence,
+            functional_form=form,
+        )
+
+    if not graph.nodes:
+        raise GraphValidationError("Add at least one named node before running analysis")
+    return graph
+
 def run_advanced_simulation(graph_data, iterations=200):
     """
     Run advanced two-phase simulation.
@@ -524,35 +691,7 @@ def run_advanced_simulation(graph_data, iterations=200):
     --------
     dict with simulation results and plots
     """
-    # Build NetworkX graph
-    G = nx.DiGraph()
-    
-    # Add nodes
-    for node_data in graph_data.get('nodes', []):
-        name = node_data.get('name') or node_data.get('id') or node_data.get('label')
-        if not name:
-            continue
-        G.add_node(name,
-                   start_amount=node_data.get('start_amount', 0.1),
-                   retention=0.0 if node_data.get('pass') else node_data.get('retention', 0.9),
-                   floor=node_data.get('floor', -math.inf),
-                   ceiling=node_data.get('ceiling', math.inf),
-                   formula=node_data.get('formula'),
-                   sink_formula=node_data.get('sink_formula', node_data.get('sinkFormula')),
-                   source_formula=node_data.get('source_formula', node_data.get('sourceFormula')))
-
-    # Add edges
-    for edge_data in graph_data.get('edges', []):
-        u = edge_data.get('source', edge_data.get('from', edge_data.get('src')))
-        v = edge_data.get('target', edge_data.get('to', edge_data.get('tgt')))
-        if u is None or v is None:
-            continue
-        G.add_edge(u, v,
-                   correlation=edge_data.get('correlation', 1.0),
-                   decay=edge_data.get('decay', 0.0),
-                   delay=edge_data.get('delay', 0),
-                   confidence=edge_data.get('confidence', edge_data.get('certainty', 1.0)),
-                   functional_form=edge_data.get('functional_form', 'linear'))
+    G = build_graph_from_payload(graph_data, defaults={"retention": 0.9})
     
     # Initial values
     init_vals = {n: G.nodes[n]['start_amount'] for n in G.nodes}
@@ -606,32 +745,7 @@ def run_stability_analysis(graph_data, decay_range, delay_range, iterations=200)
     --------
     dict with stability results
     """
-    # Build graph
-    G = nx.DiGraph()
-    for node_data in graph_data.get('nodes', []):
-        name = node_data.get('name') or node_data.get('id') or node_data.get('label')
-        if not name:
-            continue
-        G.add_node(name,
-                   start_amount=node_data.get('start_amount', 0.1),
-                   retention=0.0 if node_data.get('pass') else node_data.get('retention', 0.9),
-                   floor=node_data.get('floor', -math.inf),
-                   ceiling=node_data.get('ceiling', math.inf),
-                   formula=node_data.get('formula'),
-                   sink_formula=node_data.get('sink_formula', node_data.get('sinkFormula')),
-                   source_formula=node_data.get('source_formula', node_data.get('sourceFormula')))
-
-    for edge_data in graph_data.get('edges', []):
-        u = edge_data.get('source', edge_data.get('from', edge_data.get('src')))
-        v = edge_data.get('target', edge_data.get('to', edge_data.get('tgt')))
-        if u is None or v is None:
-            continue
-        G.add_edge(u, v,
-                   correlation=edge_data.get('correlation', 1.0),
-                   decay=0.0,  # Will be varied
-                   delay=0,    # Will be varied
-                   confidence=edge_data.get('confidence', edge_data.get('certainty', 1.0)),
-                   functional_form=edge_data.get('functional_form', 'linear'))
+    G = build_graph_from_payload(graph_data, defaults={"retention": 0.9})
     
     # Create parameter grids
     decay_min, decay_max, decay_steps = decay_range
@@ -689,30 +803,7 @@ def run_3d_param_space(graph_data, retention_range, decay_range, delay_range,
 
     Points are ranked into 11 bins (0 = best/lowest combo, 10 = worst).
     """
-    G = nx.DiGraph()
-    for node_data in graph_data.get('nodes', []):
-        name = node_data.get('name') or node_data.get('id') or node_data.get('label')
-        if not name:
-            continue
-        G.add_node(name,
-                   start_amount=node_data.get('start_amount', 0.1),
-                   retention=0.0 if node_data.get('pass') else node_data.get('retention', 0.9),
-                   floor=node_data.get('floor', -math.inf),
-                   ceiling=node_data.get('ceiling', math.inf),
-                   formula=node_data.get('formula'),
-                   sink_formula=node_data.get('sink_formula'),
-                   source_formula=node_data.get('source_formula'))
-    for edge_data in graph_data.get('edges', []):
-        u = edge_data.get('source', edge_data.get('from', edge_data.get('src')))
-        v = edge_data.get('target', edge_data.get('to', edge_data.get('tgt')))
-        if u is None or v is None:
-            continue
-        G.add_edge(u, v,
-                   correlation=edge_data.get('correlation', 1.0),
-                   decay=edge_data.get('decay', 0.0),
-                   delay=0,
-                   confidence=edge_data.get('confidence', edge_data.get('certainty', 1.0)),
-                   functional_form=edge_data.get('functional_form', 'linear'))
+    G = build_graph_from_payload(graph_data, defaults={"retention": 0.9})
 
     retention_values = np.linspace(retention_range[0], retention_range[1], int(retention_range[2]))
     decay_values     = np.linspace(decay_range[0],     decay_range[1],     int(decay_range[2]))
@@ -868,8 +959,8 @@ def simulate_two_phase_noisy(G, init_vals, steps, *, sigma_map=None, rng=None):
                        "nxt": {k: hist[k][-1] for k in G},
                        "math": math, "np": np}
                 try:
-                    val = float(eval(formulas[n], {}, ctx))
-                except Exception as err:
+                    val = evaluate_formula(formulas[n], ctx)
+                except FormulaEvaluationError as err:
                     print(f"⚠️ formula error @ '{n}': {err}")
                     val = hist[n][-2] if len(hist[n]) >= 2 else 0.0
             else:
@@ -885,16 +976,16 @@ def simulate_two_phase_noisy(G, init_vals, steps, *, sigma_map=None, rng=None):
         # Phase D — multiplicative sink/source (matches simulate_two_phase)
         for n, expr in sink_nodes.items():
             try:
-                factor = float(eval(expr, {}, {"t": t, "x": hist[n][-1], "val": hist[n][-1],
-                                               "math": math, "np": np, "e": math.e}))
-            except Exception:
+                factor = evaluate_formula(expr, {"t": t, "x": hist[n][-1], "val": hist[n][-1],
+                                                  "math": math, "np": np, "e": math.e})
+            except FormulaEvaluationError:
                 factor = 1.0
             hist[n][-1] *= factor
         for n, expr in source_nodes.items():
             try:
-                factor = float(eval(expr, {}, {"t": t, "x": hist[n][-1], "val": hist[n][-1],
-                                               "math": math, "np": np, "e": math.e}))
-            except Exception:
+                factor = evaluate_formula(expr, {"t": t, "x": hist[n][-1], "val": hist[n][-1],
+                                                  "math": math, "np": np, "e": math.e})
+            except FormulaEvaluationError:
                 factor = 1.0
             hist[n][-1] *= factor
 
@@ -976,30 +1067,10 @@ def run_fan_chart(graph_data, iterations=200, n_sims=200, sigma_base=0.25, noise
     Returns percentile bands (5/25/50/75/95) per node as JSON arrays,
     plus a base64 matplotlib plot.
     """
-    G = nx.DiGraph()
-    for node_data in graph_data.get('nodes', []):
-        name = node_data.get('name') or node_data.get('id') or node_data.get('label')
-        if not name:
-            continue
-        G.add_node(name,
-                   start_amount=node_data.get('start_amount', 0.0),
-                   retention=0.0 if node_data.get('pass') else node_data.get('retention', 1.0),
-                   floor=node_data.get('floor', -math.inf),
-                   ceiling=node_data.get('ceiling', math.inf),
-                   formula=node_data.get('formula'),
-                   sink_formula=node_data.get('sink_formula'),
-                   source_formula=node_data.get('source_formula'))
-    for edge_data in graph_data.get('edges', []):
-        u = edge_data.get('source', edge_data.get('from'))
-        v = edge_data.get('target', edge_data.get('to'))
-        if u is None or v is None:
-            continue
-        G.add_edge(u, v,
-                   correlation=edge_data.get('correlation', 1.0),
-                   decay=edge_data.get('decay', 0.6),
-                   delay=edge_data.get('delay', 0),
-                   confidence=edge_data.get('confidence', 0.8),
-                   functional_form=edge_data.get('functional_form', 'linear'))
+    G = build_graph_from_payload(
+        graph_data,
+        defaults={"start_amount": 0.0, "retention": 1.0, "decay": 0.6, "confidence": 0.8},
+    )
 
     mc = simulate_fan_paths(G, iterations, n_sims=n_sims, sigma_base=sigma_base, noise_floor=noise_floor)
     if not mc:
@@ -1058,7 +1129,12 @@ def apply_config_to_graph(G_base, cfg):
     """Apply a uniform config {retention, decay, delay} to a copy of the graph."""
     G = G_base.copy()
     for n in G.nodes:
-        G.nodes[n]['retention'] = float(cfg.get('retention', G.nodes[n].get('retention', 1.0)))
+        # Formula nodes are notebook converters. Retention must stay zero so
+        # Phase C evaluates their formula instead of turning them into stocks.
+        if G.nodes[n].get('formula'):
+            G.nodes[n]['retention'] = 0.0
+        else:
+            G.nodes[n]['retention'] = float(cfg.get('retention', G.nodes[n].get('retention', 1.0)))
     for u, v in G.edges:
         G[u][v]['decay'] = float(cfg.get('decay', G[u][v].get('decay', 0.6)))
         G[u][v]['delay'] = int(cfg.get('delay', G[u][v].get('delay', 0)))
@@ -1180,30 +1256,10 @@ def run_parameter_optimization(graph_data, ret_vals=None, decay_vals=None, delay
 
     Returns top-5 configurations with scores and classifications.
     """
-    G = nx.DiGraph()
-    for node_data in graph_data.get('nodes', []):
-        name = node_data.get('name') or node_data.get('id') or node_data.get('label')
-        if not name:
-            continue
-        G.add_node(name,
-                   start_amount=node_data.get('start_amount', 0.0),
-                   retention=0.0 if node_data.get('pass') else node_data.get('retention', 1.0),
-                   floor=node_data.get('floor', -math.inf),
-                   ceiling=node_data.get('ceiling', math.inf))
-    for edge_data in graph_data.get('edges', []):
-        u = edge_data.get('source', edge_data.get('from'))
-        v = edge_data.get('target', edge_data.get('to'))
-        if u is None or v is None:
-            continue
-        G.add_edge(u, v,
-                   correlation=edge_data.get('correlation', 1.0),
-                   decay=edge_data.get('decay', 0.6),
-                   delay=edge_data.get('delay', 0),
-                   confidence=edge_data.get('confidence', 0.8),
-                   functional_form=edge_data.get('functional_form', 'linear'))
-
-    if not G.nodes:
-        return {"success": False, "error": "Empty graph"}
+    G = build_graph_from_payload(
+        graph_data,
+        defaults={"start_amount": 0.0, "retention": 1.0, "decay": 0.6, "confidence": 0.8},
+    )
 
     # Resolve the sweep grids once so Stage 1 and the per-node search agree.
     _ret   = ret_vals   or np.linspace(0.0, 1.0, 5).tolist()

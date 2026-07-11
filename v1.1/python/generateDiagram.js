@@ -34,6 +34,25 @@
     var MODEL_STORAGE = "flowcld_diagram_model";
     var DEFAULT_MODEL = "claude-opus-4-8";
 
+    // Diagram-provider keys were previously retained across browser sessions.
+    // Clear those legacy values immediately; new keys live only in sessionStorage.
+    Object.keys(PROVIDERS).forEach(function (provider) {
+        try { localStorage.removeItem(PROVIDERS[provider].store); } catch (e) { /* Storage is optional. */ }
+    });
+
+    function rememberKey(storageKey, apiKey) {
+        try {
+            // Keys used to be persisted in localStorage. Remove any legacy copy
+            // and retain the current key only for this browser tab.
+            localStorage.removeItem(storageKey);
+            sessionStorage.setItem(storageKey, apiKey);
+        } catch (e) { /* Browser storage is optional. */ }
+    }
+
+    function sessionKey(storageKey) {
+        try { return sessionStorage.getItem(storageKey) || ""; } catch (e) { return ""; }
+    }
+
     function providerOf(modelId) {
         for (var i = 0; i < MODELS.length; i++) if (MODELS[i].id === modelId) return MODELS[i].provider;
         return "openai";
@@ -47,7 +66,7 @@
         var el = $("genStatus");
         if (!el) return;
         el.className = "gen-status" + (kind ? " " + kind : "");
-        el.innerHTML = msg;
+        el.textContent = msg;
     }
 
     function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
@@ -310,15 +329,15 @@
         if (!description) { setStatus("Please enter a description.", "warn"); return; }
         if (!apiKey) { setStatus("Please enter your " + providerInfo.name + " API key.", "warn"); return; }
 
-        // Remember the model choice and the per-provider key (local only)
+        // Remember the model choice and the per-provider key for this session only.
         try {
             localStorage.setItem(MODEL_STORAGE, modelId);
-            localStorage.setItem(providerInfo.store, apiKey);
+            rememberKey(providerInfo.store, apiKey);
         } catch (e) { /* ignore */ }
 
         var btn = $("generateDiagramButton");
         if (btn) btn.disabled = true;
-        setStatus('<span class="gen-spinner"></span> Generating with ' + providerInfo.name + '…', "loading");
+        setStatus('Generating with ' + providerInfo.name + '…', "loading");
 
         try {
             var content = await callLLM(modelId, apiKey, SYSTEM_PROMPT, description);
@@ -349,7 +368,7 @@
         if (input) {
             input.placeholder = info.keyPlaceholder;
             var saved = "";
-            try { saved = localStorage.getItem(info.store) || ""; } catch (e) {}
+            saved = sessionKey(info.store);
             input.value = saved;
         }
     }

@@ -90,7 +90,7 @@ function Model(loopy){
 				label: node.label,
 				hue: node.hue,
 				radius: node.radius,
-					retention: node.retention,
+				retention: node.retention,
 				flow: node.flow,
 				pass: node.pass,
 				floor: isFinite(node.floor) ? node.floor : String(node.floor),
@@ -108,6 +108,10 @@ function Model(loopy){
 				lag: edge.lag,
 				strength: edge.strength,
 				damper: edge.damper,
+				confidence: edge.confidence,
+				functionalForm: edge.functionalForm,
+				strengthMultiplier: edge.strengthMultiplier,
+				radius: edge.radius,
 			})),
 			labels: self.labels.map(label => ({
 				id: label.id,
@@ -154,6 +158,10 @@ function Model(loopy){
 				lag: edge.lag,
 				strength: edge.strength,
 				damper: edge.damper,
+				confidence: edge.confidence,
+				functionalForm: edge.functionalForm,
+				strengthMultiplier: edge.strengthMultiplier,
+				radius: edge.radius,
 			});
 		});
 
@@ -211,6 +219,29 @@ function Model(loopy){
 	self.nodeByID = {};
 	self.getNode = function(id){
 		return self.nodeByID[id];
+	};
+	self.isNodeLabelAvailable = function(label, exceptNode){
+		var normalized = (label === undefined || label === null) ? "" : String(label).trim();
+		if (!normalized) return false;
+		for (var i=0; i<self.nodes.length; i++) {
+			var node = self.nodes[i];
+			if (node !== exceptNode && String(node.label).trim() === normalized) return false;
+		}
+		return true;
+	};
+	self.getDuplicateNodeLabels = function(){
+		var seen = {};
+		var duplicates = [];
+		for (var i=0; i<self.nodes.length; i++) {
+			var label = String(self.nodes[i].label || "").trim();
+			var displayLabel = label || "(unnamed)";
+			if (!label || seen[label]) {
+				if (duplicates.indexOf(displayLabel) === -1) duplicates.push(displayLabel);
+			} else {
+				seen[label] = true;
+			}
+		}
+		return duplicates;
 	};
 	// self.nodeLabels = [];
 
@@ -867,6 +898,10 @@ function Model(loopy){
 
 	// Convert current model to CLD Engine format
 	self.toCLDGraph = function() {
+		var duplicateLabels = self.getDuplicateNodeLabels();
+		if (duplicateLabels.length) {
+			throw new Error("Node names must be unique before running analysis: " + duplicateLabels.join(", "));
+		}
 		const graph = {
 			nodes: {},
 			edges: []
@@ -874,11 +909,11 @@ function Model(loopy){
 
 		// Convert nodes
 		for (const node of self.nodes) {
-			graph.nodes[node.id] = {
-				startAmount: node.init || node.value || 0.5,
-				retention: node.retention || 1.0,
-				floor: (node.floor != null && isFinite(node.floor)) ? node.floor : -Infinity,
-				ceiling: (node.ceiling != null && isFinite(node.ceiling)) ? node.ceiling : Infinity,
+			graph.nodes[node.label] = {
+				startAmount: node.init ?? node.value ?? 0.5,
+				retention: node.retention ?? 1.0,
+				floor: node.floor ?? -Infinity,
+				ceiling: node.ceiling ?? Infinity,
 				formula: node.formula || null,
 				sinkFormula: node.sinkFormula || null,
 				sourceFormula: node.sourceFormula || null
@@ -888,12 +923,13 @@ function Model(loopy){
 		// Convert edges
 		for (const edge of self.edges) {
 			graph.edges.push({
-				from: edge.from.id,
-				to: edge.to.id,
-				correlation: edge.strength || 1.0,
-				decay: edge.damper || 0.0,
-				confidence: edge.confidence || 1.0,
-				delay: edge.lag || 0
+				from: edge.from.label,
+				to: edge.to.label,
+				correlation: edge.strength ?? 1.0,
+				decay: edge.damper ?? 0.0,
+				confidence: edge.confidence ?? 1.0,
+				delay: edge.lag ?? 0,
+				functionalForm: edge.functionalForm || "linear"
 			});
 		}
 

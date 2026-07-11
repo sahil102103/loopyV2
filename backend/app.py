@@ -2,9 +2,9 @@ import os
 import math
 import random
 import base64
-import traceback
 import re
 from io import BytesIO
+from html import escape
 
 import numpy as np
 import pandas as pd
@@ -17,7 +17,6 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import stripe
 
-from collections import defaultdict
 from scipy.signal import find_peaks
 from scipy.stats import norm
 from sklearn.mixture import GaussianMixture
@@ -33,6 +32,7 @@ from advanced_analysis import (
     run_3d_param_space,
     run_fan_chart,
     run_parameter_optimization,
+    GraphValidationError,
     simulate_two_phase,
     classify_behavior as classify_behavior_twophase,
     rolling_z as rolling_z_advanced,
@@ -43,12 +43,26 @@ from advanced_analysis import (
 
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": ["https://loopy-v2.vercel.app", "http://127.0.0.1:5501", "http://localhost:5501", "http://127.0.0.1:3000", "http://localhost:3000"]}}, supports_credentials=True)
+_DEFAULT_CORS_ORIGINS = [
+    "https://loopy-v2.vercel.app",
+    "http://127.0.0.1:5501",
+    "http://localhost:5501",
+    "http://127.0.0.1:3000",
+    "http://localhost:3000",
+]
+_cors_origins = [origin.strip() for origin in os.environ.get("CORS_ORIGINS", "").split(",") if origin.strip()]
+CORS(app, resources={r"/*": {"origins": _cors_origins or _DEFAULT_CORS_ORIGINS}}, supports_credentials=True)
 
 
 
 
 stripe.api_key = os.environ.get('STRIPE_API_KEY')
+
+
+def _server_error(message="Request could not be processed."):
+    """Log internal details without returning stack traces to browser clients."""
+    app.logger.exception(message)
+    return jsonify({"error": message}), 500
 
 # ── Route naming ─────────────────────────────────────────────────────────────
 # Primary paths describe what the handler does. Old paths remain as aliases
@@ -80,10 +94,7 @@ stripe.api_key = os.environ.get('STRIPE_API_KEY')
 @app.route('/health')
 @app.route('/')
 def health_index():
-    # Access environment variables
-    backendURL = os.environ.get('BACKEND_URL')
-    db_url = os.environ.get('DATABASE_URL')
-    return f"Secret Key: {backendURL}, DB URL: {db_url}"
+    return jsonify({"status": "ok"}), 200
 
 #########################
 #  Utility Functions    #
@@ -95,18 +106,6 @@ def create_graph(edges, edge_polarities):
         G.add_edge(*edge, polarity=polarity)
     return G
 
-def blended_uniform_normal(mean, low, high, certainty, size=1000):
-    max_variance = 1
-    variance = (1 - certainty) * max_variance
-    samples = []
-    while len(samples) < size:
-        uniform_sample = np.random.uniform(low, high)
-        normal_sample = np.random.normal(mean, np.sqrt(variance))
-        blended_sample = (1 - certainty) * uniform_sample + certainty * normal_sample
-        if low <= blended_sample <= high:
-            samples.append(blended_sample)
-    return samples
-
 def calculate_rolling_z_score(series, window=10):
     rolling_mean = series.rolling(window=window).mean()
     rolling_std = series.rolling(window=window).std()
@@ -115,10 +114,6 @@ def calculate_rolling_z_score(series, window=10):
 def classify_behavior(time_series_data):
     """Delegate to the advanced two-phase classifier for consistency."""
     return classify_behavior_twophase(time_series_data)
-
-def stochastic_value_selection(mean, low, high, certainty):
-    return blended_uniform_normal(mean, low, high, certainty, 1)[0]
-
 
 def build_twophase_graph_from_legacy(data):
     """Convert legacy frontend format to a NetworkX graph for simulate_two_phase."""
@@ -173,181 +168,20 @@ def build_twophase_graph_from_legacy(data):
     return G
 
 
-#########################
-#  Global Variables     #
-#########################
-
-# Below are the previously undefined global variables.
-# We'll initialize them to empty or minimal defaults here.
-edges = []
-edge_weights = []
-edge_polarities = []
-edge_delays = []
-edge_certainties = []
-
-passnodeList = []
-node_floors = {}
-node_ceilings = {}
-
-graph = nx.DiGraph()
-signal_map = {}
-time_series_data = {}
-delay_buffers = {}
-passnodes = set()
-
-
 @app.route('/legacy/signal-graph/init', methods=['POST'])
 @app.route('/initialize-graph', methods=['POST'])
 def legacy_signal_graph_init():
-    """
-    Endpoint to receive all necessary graph info from the frontend and
-    populate/update the global variables by calling `build_graph_from_data`.
-    """
-    data = request.json
-    build_graph_from_data(data)
-    return jsonify({"message": "Graph initialized successfully"}), 200
-
-def build_graph_from_data(data):
-    """
-    Encapsulate all the logic needed to create the graph, signal map,
-    time series data, and delay buffers from a given JSON `data`.
-    """
-    global graph, passnodes, signal_map, time_series_data, delay_buffers
-    global node_floors, node_ceilings
-
-    # Fetch each piece of data, or default if not provided
-    edges = data.get('edges', [])
-    edge_weights = data.get('edgeWeights', [])
-    edge_polarities = data.get('edgePolarities', [])
-    edge_delays = data.get('edgeDelays', [])
-    edge_certainties = data.get('edgeCertainties', [])
-    passnodeList = data.get('passnodeList', [])
-    node_floors = data.get('nodeFloors', {})
-    node_ceilings = data.get('nodeCeilings', {})
-
-
-    # Rebuild the graph from scratch
-    graph = nx.DiGraph()
-    for i, (source, target) in enumerate(edges):
-        w = edge_weights[i] if i < len(edge_weights) else 1.0
-        pol = '+' if edge_polarities[i] > 0 else '-'
-        d = edge_delays[i] if i < len(edge_delays) else 0
-        c = edge_certainties[i] if i < len(edge_certainties) else 1.0
-        print(pol)
-        
-        graph.add_edge(
-            source, 
-            target, 
-            weight=w, 
-            polarity=pol, 
-            delay=d, 
-            certainty=c
-        )
-
-    # Build the passnodes set
-    passnodes = set(passnodeList)
-
-    # Initialize empty signal_map and time_series_data for each node
-    signal_map = {}
-    time_series_data = {node: [] for node in graph.nodes()}
-
-    # Initialize delay_buffers for each edge based on the 'delay'
-    delay_buffers = {
-        (u, v): [0] * graph[u][v]["delay"]
-        for (u, v) in graph.edges()
-    }
-
-def initialize_signal_map():
-    """
-    Initialize the signal map with initial values for each node.
-    Nodes in 'passnodes' get 0.0; other nodes get a random value between 0 and 1.
-    """
-    for node in graph.nodes:
-        if node in passnodes:
-            signal_map[node] = 0.0
-        else:
-            signal_map[node] = random.uniform(0, 1)
-    return signal_map
-
-def accumulate_signals(decay_factor=0.9, global_delay=None, use_delay=True, node_retention=None):
-    """
-    Update the signal map based on incoming signals from connected nodes,
-    with optional system-wide delay.
-    """
-    new_signal_map = defaultdict(float)
-    previous_signal_map = signal_map.copy()  # Store previous values for consistency
-
-    for edge in graph.edges(data=True):
-        predecessor = edge[0]
-        node = edge[1]
-        edge_data = edge[2]
-
-        weight = edge_data["weight"]
-        polarity = edge_data["polarity"]
-        certainty = edge_data["certainty"]
-        # print("everything: ", predecessor, node, edge_data, weight, polarity, certainty)
-
-        # Set delay based on global or edge-specific delay, only if delay is being used
-        delay = global_delay if global_delay is not None else edge_data["delay"]
-
-        if use_delay:
-            # Ensure delay buffer matches the current delay value
-            if len(delay_buffers[(predecessor, node)]) != delay:
-                delay_buffers[(predecessor, node)] = [0] * delay
-
-            # Pop the oldest signal from the delay buffer
-            delayed_signal = delay_buffers[(predecessor, node)].pop(0)
-            if polarity == '+':
-                polarity = 1.0
-            else:
-                polarity = -1.0
-
-            # Calculate the incoming signal with delay
-            incoming_signal = delayed_signal * decay_factor * weight * stochastic_value_selection(polarity, -1, 1, certainty)
-            # Push the current signal to the delay buffer for the next cycle
-            delay_buffers[(predecessor, node)].append(previous_signal_map[predecessor])
-        else:
-            # Skip delay and use the current signal immediately
-            incoming_signal = previous_signal_map[predecessor] * decay_factor * weight * stochastic_value_selection(polarity, -1, 1, certainty)
-
-        # Accumulate the incoming signal to the target node
-        new_signal_map[node] += incoming_signal
-
-    # Update each node's value in signal_map after all calculations
-    for node in graph.nodes():
-        floor_value = node_floors.get(node, float('-inf'))
-        ciel_value = node_ceilings.get(node, float('inf'))
-
-        # Ensure floor_value and ciel_value are valid numbers
-        floor_value = floor_value if floor_value is not None else float('-inf')
-        ciel_value = ciel_value if ciel_value is not None else float('inf')
-		
-        previous_value = float(previous_signal_map[node])
-        new_value = float(new_signal_map[node])
-        floor_value = float(floor_value)
-        ciel_value = float(ciel_value)
-
-        if node in passnodes:
-            # For passnodes, the new signal is solely based on incoming signals
-            signal_map[node] = max(floor_value, min(new_value, ciel_value))
-        else:
-            if not node_retention:
-                signal_map[node] = max(floor_value, min(previous_value * decay_factor + new_value, ciel_value))
-            else:
-                signal_map[node] = max(floor_value, min(previous_value * node_retention + new_value, ciel_value))
-
-    return signal_map
-
-def simulate_signal_transfer(iterations=100, decay_factor=0.9, delay=None, use_delay=True, node_retention=None):
-    """Simulate signal transfer for a given number of iterations, with optional global delay."""
-    initialize_signal_map()
-    for _ in range(iterations):
-        accumulate_signals(decay_factor, global_delay=delay, use_delay=use_delay, node_retention=node_retention)
-        for node in graph.nodes():
-            time_series_data[node].append(signal_map[node])
-
-
-    return time_series_data
+    """Compatibility endpoint that validates legacy input without retaining user state."""
+    data = request.get_json(silent=True) or {}
+    try:
+        graph = build_twophase_graph_from_legacy(data)
+    except Exception:
+        return _server_error("Could not validate the legacy graph.")
+    return jsonify({
+        "message": "Graph validated successfully",
+        "nodes": graph.number_of_nodes(),
+        "edges": graph.number_of_edges(),
+    }), 200
 
 
 #########################
@@ -383,12 +217,12 @@ def graph_feedback_cycles():
         # Generate table as HTML
         table = "<table border='1'><tr><th>Node</th><th>Positive Cycles</th><th>Negative Cycles</th><th>Total Cycles</th></tr>"
         for node, counts in node_cycles.items():
-            table += f"<tr><td>{node}</td><td>{counts['positive']}</td><td>{counts['negative']}</td><td>{counts['positive'] + counts['negative']}</td></tr>"
+            table += f"<tr><td>{escape(str(node))}</td><td>{counts['positive']}</td><td>{counts['negative']}</td><td>{counts['positive'] + counts['negative']}</td></tr>"
         table += "</table>"
 
         return jsonify({'table': table})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return _server_error("Could not analyze feedback cycles.")
 
 
 # Route 2: Crisis Analysis
@@ -414,8 +248,8 @@ def series_rolling_z_plots():
         plt.close()
         buf.seek(0)
         return send_file(buf, mimetype='image/png')
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return _server_error("Could not generate rolling Z-score plots.")
 
 
 # Route 3: Degree Centrality
@@ -438,11 +272,11 @@ def graph_centrality():
         for title, centrality in measures.items():
             table += f"<h3>{title}</h3><table border='1'><tr><th>Node</th><th>Centrality</th></tr>"
             for node, value in sorted(centrality.items(), key=lambda x: x[1], reverse=True):
-                table += f"<tr><td>{node}</td><td>{value:.4f}</td></tr>"
+                table += f"<tr><td>{escape(str(node))}</td><td>{value:.4f}</td></tr>"
             table += "</table><br>"
         return jsonify({"centrality_output": table})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return _server_error("Could not analyze graph centrality.")
 
 
 # Route 4: Visual Analysis
@@ -473,10 +307,8 @@ def simulation_two_phase_value_histograms():
             plot_images.append(f"data:image/png;base64,{encoded}")
 
         return jsonify({"plots": plot_images})
-    except Exception as e:
-        error_trace = traceback.format_exc()
-        print(error_trace)
-        return jsonify({"error": str(e), "traceback": error_trace}), 500
+    except Exception:
+        return _server_error("Could not generate value histograms.")
 
 
 @app.route('/series/correlation-heatmap', methods=['POST'])
@@ -515,9 +347,8 @@ def series_correlation_heatmap():
         buf.seek(0)
         return send_file(buf, mimetype='image/png')
 
-    except Exception as e:
-        print(f"Error in correlation-analysis: {e}")  # Log the error
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return _server_error("Could not generate the correlation heatmap.")
     
 
 @app.route('/parameter-maps/decay-vs-delay', methods=["POST"])
@@ -563,10 +394,8 @@ def parameter_map_decay_vs_delay():
             "vmin": 0.0,
             "vmax": 1.0,
         })
-    except Exception as e:
-        error_trace = traceback.format_exc()
-        print(error_trace)
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return _server_error("Could not generate the decay-delay parameter map.")
     
 
 @app.route('/parameter-maps/decay-vs-retention', methods=["POST"])
@@ -609,10 +438,8 @@ def parameter_map_decay_vs_retention():
             "vmin": 0.0,
             "vmax": 1.0,
         })
-    except Exception as e:
-        error_trace = traceback.format_exc()
-        print(error_trace)
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return _server_error("Could not generate the decay-retention parameter map.")
 
 
 @app.route('/parameter-maps/retention-vs-delay', methods=["POST"])
@@ -657,10 +484,8 @@ def parameter_map_retention_vs_delay():
             "vmax": 1.0,
         })
 
-    except Exception as e:
-        error_trace = traceback.format_exc()
-        print(error_trace)
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return _server_error("Could not generate the retention-delay parameter map.")
 
 
 @app.route('/billing/checkout-session', methods=['POST'])
@@ -689,8 +514,8 @@ def billing_checkout_session():
             cancel_url='https://loopy-v2.vercel.app/v1.1/cancel.html',
         )
         return jsonify({'id': session.id})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
+    except Exception:
+        return _server_error("Could not create the checkout session.")
 
 
 @app.route('/series/gmm-density', methods=['POST'])
@@ -756,8 +581,8 @@ def series_gmm_density():
         plt.close()
         buf.seek(0)
         return send_file(buf, mimetype='image/png')
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return _server_error("Could not generate GMM density plots.")
     finally:
         # Clean up the file after sending
         if os.path.exists("simulation.png"):
@@ -817,8 +642,8 @@ def series_gmm_synthetic():
         # Return the encoded plots
         return jsonify({'plots': plot_data})
 
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        return _server_error("Could not generate synthetic GMM plots.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -861,10 +686,10 @@ def simulation_two_phase():
         result = run_advanced_simulation(data, iterations=iterations)
         return jsonify(result), 200
         
-    except Exception as e:
-        error_trace = traceback.format_exc()
-        print(error_trace)
-        return jsonify({"error": str(e), "trace": error_trace}), 500
+    except GraphValidationError as error:
+        return jsonify({"error": str(error)}), 400
+    except Exception:
+        return _server_error("Could not run the two-phase simulation.")
 
 
 @app.route('/parameter-maps/stability-sweep', methods=['POST'])
@@ -904,10 +729,10 @@ def parameter_map_stability_sweep():
         )
         return jsonify(result), 200
         
-    except Exception as e:
-        error_trace = traceback.format_exc()
-        print(error_trace)
-        return jsonify({"error": str(e), "trace": error_trace}), 500
+    except GraphValidationError as error:
+        return jsonify({"error": str(error)}), 400
+    except Exception:
+        return _server_error("Could not generate the stability sweep.")
 
 
 @app.route('/parameter-maps/3d', methods=['POST'])
@@ -936,10 +761,10 @@ def parameter_map_3d():
             iterations=data.get('iterations', 100)
         )
         return jsonify(result), 200
-    except Exception as e:
-        error_trace = traceback.format_exc()
-        print(error_trace)
-        return jsonify({"error": str(e), "trace": error_trace}), 500
+    except GraphValidationError as error:
+        return jsonify({"error": str(error)}), 400
+    except Exception:
+        return _server_error("Could not generate the 3D parameter space.")
 
 
 @app.route('/series/boxplots', methods=['POST'])
@@ -996,8 +821,8 @@ def series_boxplots():
         # Return the encoded plots
         return jsonify({'plots': plot_data})
 
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        return _server_error("Could not generate box plots.")
 
 
 @app.route('/series/violinplots', methods=['POST'])
@@ -1060,8 +885,8 @@ def series_violinplots():
         # Return the encoded plots
         return jsonify({'plots': plots})
 
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        return _server_error("Could not generate violin plots.")
     
 
 @app.route('/simulation/seed-sensitivity', methods=['POST'])
@@ -1120,9 +945,8 @@ def simulation_seed_sensitivity():
         plot_data = [create_combined_fan_chart(node) for node in G.nodes()]
         return jsonify(plot_data)
 
-    except Exception as e:
-        error_trace = traceback.format_exc()
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return _server_error("Could not run the seed-sensitivity simulation.")
 @app.route('/simulation/monte-carlo-fan', methods=['POST'])
 @app.route('/fan-chart', methods=['POST'])
 def simulation_monte_carlo_fan():
@@ -1149,8 +973,10 @@ def simulation_monte_carlo_fan():
             noise_floor=data.get('noise_floor', 0.0)
         )
         return jsonify(result), 200
-    except Exception as e:
-        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+    except GraphValidationError as error:
+        return jsonify({"error": str(error)}), 400
+    except Exception:
+        return _server_error("Could not run the Monte Carlo fan simulation.")
 
 
 @app.route('/optimization/parameter-search', methods=['POST'])
@@ -1181,9 +1007,12 @@ def optimization_parameter_search():
             max_refine_iters=data.get('max_refine_iters', 150)
         )
         return jsonify(result), 200
-    except Exception as e:
-        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+    except GraphValidationError as error:
+        return jsonify({"error": str(error)}), 400
+    except Exception:
+        return _server_error("Could not optimize model parameters.")
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    debug = os.environ.get("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
+    app.run(host='0.0.0.0', port=5000, debug=debug)

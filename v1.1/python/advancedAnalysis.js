@@ -41,6 +41,29 @@ function _clearNodeClassifications() {
     loopy.model.dirty();
 }
 
+function _backendBound(value, fallback) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (value === Infinity) return 'Infinity';
+    if (value === -Infinity) return '-Infinity';
+    return isFinite(value) ? value : fallback;
+}
+
+function _escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, function(character) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character];
+    });
+}
+
+function _showAnalysisError(containerId, error) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    const message = document.createElement('div');
+    message.className = 'error';
+    message.textContent = 'Error: ' + (error && error.message ? error.message : 'Request failed');
+    container.appendChild(message);
+}
+
 function triggerBackgroundAdvancedSim(iterations = 200) {
     if (!loopy.model.nodes.length || !loopy.model.edges.length) return;
 
@@ -49,7 +72,15 @@ function triggerBackgroundAdvancedSim(iterations = 200) {
     window.advancedSimStatus = 'running';
     _setSimBadge('running');
 
-    const graphData = convertToAdvancedFormat(loopy.model.nodes, loopy.model.edges);
+    let graphData;
+    try {
+        graphData = convertToAdvancedFormat(loopy.model.nodes, loopy.model.edges);
+    } catch (error) {
+        window.advancedSimStatus = 'error';
+        _setSimBadge('error');
+        if (typeof showToast === 'function') showToast(error.message, 'error', false);
+        return;
+    }
 
     window.advancedSimPromise = fetch(`${ADVANCED_API_URL}/simulation/two-phase`, {
         method:  'POST',
@@ -78,13 +109,21 @@ function triggerBackgroundAdvancedSim(iterations = 200) {
  * @returns {Object} - Formatted data for advanced backend
  */
 function convertToAdvancedFormat(nodesToInclude, edgesToInclude) {
+    const labels = new Set();
+    nodesToInclude.forEach(node => {
+        const label = String(node.label ?? '').trim();
+        if (!label) throw new Error('Every node needs a name before simulation can run.');
+        if (labels.has(label)) throw new Error(`Node names must be unique before simulation: ${label}`);
+        labels.add(label);
+    });
+
     // Convert nodes
     const nodes = nodesToInclude.map(node => ({
-        name: node.label,
+        name: String(node.label).trim(),
         start_amount: node.init ?? 0.1,
         retention: node.retention ?? 1.0,  // matches notebook default (simulate_two_phase uses 1.0)
-        floor: isFinite(node.floor) ? node.floor : -999999,
-        ceiling: isFinite(node.ceiling) ? node.ceiling : 999999,
+        floor: _backendBound(node.floor, '-Infinity'),
+        ceiling: _backendBound(node.ceiling, 'Infinity'),
         ...(node.formula       && { formula:        node.formula }),
         ...(node.sinkFormula   && { sink_formula:   node.sinkFormula }),
         ...(node.sourceFormula && { source_formula: node.sourceFormula }),
@@ -92,8 +131,8 @@ function convertToAdvancedFormat(nodesToInclude, edgesToInclude) {
     }));
 
     const edges = edgesToInclude.map(edge => ({
-        source: edge.from.label,
-        target: edge.to.label,
+        source: String(edge.from.label).trim(),
+        target: String(edge.to.label).trim(),
         correlation: edge.strength,
         decay: edge.damper ?? 0,
         delay: edge.lag ?? 0,         // matches EDGE_DEFAULTS in notebook (no delay by default)
@@ -167,7 +206,7 @@ async function runAdvancedSimulation() {
 
     } catch (error) {
         console.error('Advanced Simulation Error:', error);
-        document.getElementById('advancedSimulationResults').innerHTML = `<div class="error">Error: ${error.message}</div>`;
+        _showAnalysisError('advancedSimulationResults', error);
     } finally {
         clearTabLoading();
     }
@@ -687,7 +726,10 @@ function displayAdvancedSimulationResults(result) {
                 item.style.color = '#721c24';
             }
 
-            item.innerHTML = '<strong>' + node + '</strong>: ' + classification;
+            const nodeName = document.createElement('strong');
+            nodeName.textContent = node;
+            item.appendChild(nodeName);
+            item.appendChild(document.createTextNode(': ' + classification));
             classificationsList.appendChild(item);
         }
         classSection.appendChild(classificationsList);
@@ -799,7 +841,7 @@ async function runFanChart() {
         displayFanChartResults(result, 'fanChartResults');
     } catch (error) {
         console.error('Fan Chart Error:', error);
-        document.getElementById('fanChartResults').innerHTML = `<div class="error">Error: ${error.message}</div>`;
+        _showAnalysisError('fanChartResults', error);
     } finally {
         clearTabLoading();
     }
@@ -849,7 +891,7 @@ async function runParameterOptimization() {
         displayOptimizationResults(result);
     } catch (error) {
         console.error('Optimization Error:', error);
-        document.getElementById('optimizationResults').innerHTML = `<div class="error">Error: ${error.message}</div>`;
+        _showAnalysisError('optimizationResults', error);
     } finally {
         clearTabLoading();
     }
@@ -868,7 +910,7 @@ function displayOptimizationResults(result) {
         const classEntries = Object.entries(cfg.classifications)
             .map(([node, cls]) => {
                 const bg = BEHAVIOR_COLORS_OPT[cls] || '#333';
-                return `<span style="background:${bg};color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;margin:2px;display:inline-block">${node}: ${cls}</span>`;
+                return `<span style="background:${bg};color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;margin:2px;display:inline-block">${_escapeHtml(node)}: ${_escapeHtml(cls)}</span>`;
             }).join('');
         return `<tr style="border-bottom:1px solid #2a2a2a">
             <td style="padding:8px 10px;text-align:center;font-weight:700">${cfg.rank}</td>
@@ -887,12 +929,12 @@ function displayOptimizationResults(result) {
             const allBeh = Object.entries(info.all_behaviors)
                 .map(([n, cls]) => {
                     const bg = BEHAVIOR_COLORS_OPT[cls] || '#333';
-                    return `<span style="background:${bg};color:#fff;padding:2px 5px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">${n}: ${cls}</span>`;
+                    return `<span style="background:${bg};color:#fff;padding:2px 5px;border-radius:3px;font-size:10px;margin:1px;display:inline-block">${_escapeHtml(n)}: ${_escapeHtml(cls)}</span>`;
                 }).join('');
             const nodeBg = BEHAVIOR_COLORS_OPT[info.behavior] || '#333';
             return `<tr style="border-bottom:1px solid #2a2a2a">
-                <td style="padding:8px 10px;font-weight:600">${nodeName}</td>
-                <td style="padding:8px 10px"><span style="background:${nodeBg};color:#fff;padding:2px 8px;border-radius:3px;font-size:11px">${info.behavior}</span></td>
+                <td style="padding:8px 10px;font-weight:600">${_escapeHtml(nodeName)}</td>
+                <td style="padding:8px 10px"><span style="background:${nodeBg};color:#fff;padding:2px 8px;border-radius:3px;font-size:11px">${_escapeHtml(info.behavior)}</span></td>
                 <td style="padding:8px 10px;font-family:monospace">${info.config.retention.toFixed(2)}</td>
                 <td style="padding:8px 10px;font-family:monospace">${info.config.decay.toFixed(2)}</td>
                 <td style="padding:8px 10px;font-family:monospace">${info.config.delay}</td>
@@ -939,5 +981,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 console.log('Advanced Analysis module loaded');
-
-

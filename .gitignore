@@ -29,9 +29,6 @@ firebase-debug.log
 serviceAccountKey.json
 firestore_export/
 
-# Optional: GitHub configuration
-.github/
-
 # Local notebook debugging (source-of-truth experiments; not for commits)
 flowclddebugging/
 

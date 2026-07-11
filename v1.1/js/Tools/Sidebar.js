@@ -80,6 +80,13 @@ function Sidebar(loopy){
 		page.addComponent("label", new ComponentInput({
 			label: "Name:",
 			id: "label",
+			validate: function(value, node) {
+				if (!String(value || "").trim()) return "Node name cannot be empty";
+				if (node && node.model && !node.model.isNodeLabelAvailable(value, node)) {
+					return "Node names must be unique";
+				}
+				return null;
+			}
 		}));
 
 		page.addComponent("hue", new ComponentSlider({
@@ -116,7 +123,7 @@ function Sidebar(loopy){
 			// Update the existing title component
 			var titleElement = page.dom.querySelector("h3"); // Assumes <h3> is used for the title
 			if (titleElement) {
-				titleElement.innerHTML = `Node (${node.label || "Unnamed"})`;
+				titleElement.textContent = `Node (${node.label || "Unnamed"})`;
 			}
 		
 			// Focus on the name field IF IT'S "" or "?"
@@ -304,7 +311,7 @@ function Sidebar(loopy){
 			// Update the existing title component
 			var titleElement = page.dom.querySelector("h3"); // Assumes <h3> is used for the title
 			if (titleElement) {
-				titleElement.innerHTML = `Edge (${fromNode} → ${toNode})`;
+				titleElement.textContent = `Edge (${fromNode} → ${toNode})`;
 			}
 		};
 	})();
@@ -803,8 +810,19 @@ function ComponentInput(config) {
     var input = _createInput(className, id, config.textarea);
 
 
-    input.oninput = function(event) {
-        var value = input.value;
+	input.oninput = function(event) {
+		var value = input.value;
+		if (self.propName === "label") value = value.trim();
+		if (config.validate) {
+			var validationError = config.validate(value, self.page.target);
+			if (validationError) {
+				input.style.borderColor = "red";
+				input.title = validationError;
+				return;
+			}
+			input.style.borderColor = "";
+			input.title = "";
+		}
 		if (value.toLowerCase() == "infinity") {
 			value = Infinity
 		} else if (value.toLowerCase() == "-infinity") {
@@ -823,10 +841,20 @@ function ComponentInput(config) {
             }
         } else {
             self.setValue(value);
-        }
-    };
+		}
+	};
 
-    self.dom.appendChild(label);
+	input.onblur = function() {
+		if (!config.validate) return;
+		var validationError = config.validate(input.value, self.page.target);
+		if (validationError) {
+			input.value = self.getValue();
+			input.style.borderColor = "";
+			input.title = "";
+		}
+	};
+
+	self.dom.appendChild(label);
     self.dom.appendChild(input);
 
     // Show
