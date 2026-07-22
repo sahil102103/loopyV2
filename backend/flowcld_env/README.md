@@ -11,10 +11,11 @@ Gymnasium API shape so an adapter can be added without changing this package.
 - `engine.py`: injected notebook source-of-truth adapter
 - `objectives.py`: stabilize/disrupt potentials, PBRS transitions, move costs
 - `reward_validation.py`: blinded expert-rank comparison and reward ablations
-- `agents.py`: stable policy contract plus random and one-ply greedy baselines
+- `agents.py`: framework-independent policy lifecycle plus stateless baselines
+- `epsilon_greedy.py`: serializable epsilon-greedy action-value baseline
 - `features.py`: fixed-width signed graph and legal-action encoding
 - `learning.py`: serializable actor/value heads and n-step actor-critic training
-- `benchmark.py`: seed-matched random, greedy, and learned evaluation curves
+- `benchmark.py`: seed-matched policy curves and detailed outcome metrics
 - `candidates.py`: bounded autonomous structural motifs before safety filtering
 - `planning.py`: bounded policy/critic-guided lookahead through fresh environments
 - `league.py`: frozen policy profiles and an empirical NashConv proxy
@@ -40,6 +41,44 @@ n-step actor-critic baseline. The cross-entropy optimizer remains a non-RL searc
 baseline. The current planner is depth-limited and the league harness evaluates frozen
 profiles. Full MCTS, reciprocity, centralized critics, PSRO, and population
 self-play training remain later research milestones.
+
+## Transparent epsilon-greedy baseline
+
+All agents use the same `AgentPolicy` lifecycle: select from current legal
+moves, optionally observe a committed `PolicyTransition`, reset episode-local
+state, and serialize or restore policy state. Candidate previews are not
+transitions. The epsilon-greedy policy therefore updates only after an action
+has passed through the existing environment and received the acting team's
+actual reward.
+
+The policy is a contextual-bandit baseline over bounded, readable action
+families such as `stabilize|parameter:retention:node:decrease` and
+`stabilize|structural_transaction:add_edge+add_node`. It stores a visit count
+and incremental mean reward for each family. Training explores with a decaying
+epsilon; evaluation fixes epsilon to zero and disables updates. This is not
+Q-learning: it does not bootstrap a next-state value.
+
+```python
+from flowcld_env import (
+    EpsilonGreedyPolicy,
+    EpsilonGreedySettings,
+    EpsilonGreedyTrainer,
+    EpsilonGreedyTrainingSettings,
+)
+
+policy = EpsilonGreedyPolicy(EpsilonGreedySettings(seed=42))
+result = EpsilonGreedyTrainer(
+    EpsilonGreedyTrainingSettings(episodes=40, seed=42)
+).train(environment_factory, team_id="blue", policy=policy)
+result.policy.save("models/blue-epsilon-greedy.json")
+```
+
+The Team Session backend accepts `agent_strategy: "epsilon_greedy"` with
+`learner_team_id`, `training_episodes`, `training_steps`, `epsilon`,
+`epsilon_min`, `epsilon_decay`, and optional `epsilon_learning_rate`. It does
+not use the actor-critic simulator guard, so its deployed choices expose the
+learned table directly. The browser does not yet expose this experimental
+strategy as a Team Workspace control.
 
 ## Parameter-search baseline
 

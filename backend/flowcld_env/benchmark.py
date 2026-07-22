@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Mapping
+import time
+from typing import Any, Callable, Mapping
 
 import numpy as np
 
 from .agents import AgentPolicy
 from .learning import EnvironmentFactory, legal_agent_moves
+from .structural import StructuralTransaction
+from .types import NoOpAction, ParameterAction
 
 
 AgentFactory = Callable[[int], AgentPolicy]
@@ -81,7 +84,11 @@ class PolicyEvaluationHarness:
                 episode_returns = []
                 for episode in range(self.episodes):
                     environment = self.environment_factory()
-                    environment.reset(seed=seed + episode)
+                    episode_seed = seed + episode
+                    environment.reset(seed=episode_seed)
+                    resetter = getattr(agent, "reset", None)
+                    if callable(resetter):
+                        resetter(seed=episode_seed, training=False)
                     total = 0.0
                     while True:
                         legal = legal_agent_moves(environment, self.team_id)
@@ -107,3 +114,177 @@ class PolicyEvaluationHarness:
             episodes=self.episodes,
             curves=curves,
         )
+
+
+@dataclass(frozen=True)
+class PolicyEpisodeMetrics:
+    cumulative_reward: float
+    final_potential: float
+    target_fit: float
+    target_activity: float
+    canonical_health: float
+    spectral_target_success: float | None
+    rejected_action_rate: float
+    structural_edit_count: int
+    action_cost: float
+    runtime_seconds: float
+    action_frequencies: Mapping[str, int]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "cumulative_reward": self.cumulative_reward,
+            "final_potential": self.final_potential,
+            "target_fit": self.target_fit,
+            "target_activity": self.target_activity,
+            "canonical_health": self.canonical_health,
+            "spectral_target_success": self.spectral_target_success,
+            "rejected_action_rate": self.rejected_action_rate,
+            "structural_edit_count": self.structural_edit_count,
+            "action_cost": self.action_cost,
+            "runtime_seconds": self.runtime_seconds,
+            "action_frequencies": dict(self.action_frequencies),
+        }
+
+
+@dataclass(frozen=True)
+class DetailedPolicySummary:
+    name: str
+    episodes: tuple[PolicyEpisodeMetrics, ...]
+
+    def metric(self, name: str) -> tuple[float, float]:
+        values = [
+            float(getattr(episode, name))
+            for episode in self.episodes
+            if getattr(episode, name) is not None
+        ]
+        if not values:
+            return 0.0, 0.0
+        return float(np.mean(values)), float(np.std(values))
+
+    def to_dict(self) -> dict[str, Any]:
+        metric_names = (
+            "cumulative_reward", "final_potential", "target_fit", "target_activity",
+            "canonical_health", "spectral_target_success",
+            "rejected_action_rate", "structural_edit_count", "action_cost",
+            "runtime_seconds",
+        )
+        frequencies: dict[str, int] = {}
+        for episode in self.episodes:
+            for family, count in episode.action_frequencies.items():
+                frequencies[family] = frequencies.get(family, 0) + int(count)
+        return {
+            "name": self.name,
+            "metrics": {
+                metric: {"mean": self.metric(metric)[0], "std": self.metric(metric)[1]}
+                for metric in metric_names
+            },
+            "action_frequencies": dict(sorted(frequencies.items())),
+            "episodes": [episode.to_dict() for episode in self.episodes],
+        }
+
+
+@dataclass(frozen=True)
+class DetailedPolicyBenchmarkResult:
+    seeds: tuple[int, ...]
+    policies: Mapping[str, DetailedPolicySummary]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "seeds": list(self.seeds),
+            "policies": {
+                name: summary.to_dict() for name, summary in self.policies.items()
+            },
+        }
+
+
+class DetailedPolicyEvaluationHarness:
+    """Collect auditable policy metrics without changing environment behavior."""
+
+    def __init__(
+        self,
+        environment_factory: EnvironmentFactory,
+        *,
+        team_id: str,
+        seeds: tuple[int, ...] = (101, 211, 307),
+    ):
+        if not seeds or any(isinstance(seed, bool) or not isinstance(seed, int) for seed in seeds):
+            raise ValueError("seeds must contain integers")
+        self.environment_factory = environment_factory
+        self.team_id = str(team_id)
+        self.seeds = tuple(seeds)
+
+    def run(self, agents: Mapping[str, AgentFactory]) -> DetailedPolicyBenchmarkResult:
+        summaries = {}
+        for name, factory in agents.items():
+            episodes = []
+            for seed in self.seeds:
+                environment = self.environment_factory()
+                environment.reset(seed=seed)
+                agent = factory(seed)
+                resetter = getattr(agent, "reset", None)
+                if callable(resetter):
+                    resetter(seed=seed, training=False)
+                rejected = 0
+                attempted = 0
+                structural_edits = 0
+                action_cost = 0.0
+                frequencies: dict[str, int] = {}
+                started = time.perf_counter()
+                while True:
+                    if not legal_agent_moves(environment, self.team_id):
+                        break
+                    move = environment.select_move(self.team_id, agent)
+                    family = self._action_family(move.action)
+                    frequencies[family] = frequencies.get(family, 0) + 1
+                    _, _, terminated, truncated, info = environment.step(move)
+                    attempted += 1
+                    accepted = bool(info.get("move", {}).get("accepted", True))
+                    rejected += int(not accepted)
+                    if accepted:
+                        structural_edits += self._structural_units(move.action)
+                    reward_payload = info["transition_rewards"][self.team_id]
+                    components = reward_payload.get("components", {})
+                    action_cost += max(0.0, -float(components.get("action_cost", 0.0)))
+                    if terminated or truncated:
+                        break
+                runtime = time.perf_counter() - started
+                current = environment.current_rewards[self.team_id]
+                components = current.components
+                episodes.append(PolicyEpisodeMetrics(
+                    cumulative_reward=float(environment.cumulative_rewards[self.team_id]),
+                    final_potential=float(current.total),
+                    target_fit=float(components.get("target_fit", 0.0)),
+                    target_activity=float(components.get("target_activity", 0.0)),
+                    canonical_health=float(components.get("canonical_health", 0.0)),
+                    spectral_target_success=(
+                        float(components["spectral_target_met"])
+                        if "spectral_target_met" in components else None
+                    ),
+                    rejected_action_rate=(rejected / attempted if attempted else 0.0),
+                    structural_edit_count=structural_edits,
+                    action_cost=action_cost,
+                    runtime_seconds=runtime,
+                    action_frequencies=frequencies,
+                ))
+            summaries[name] = DetailedPolicySummary(name=name, episodes=tuple(episodes))
+        return DetailedPolicyBenchmarkResult(seeds=self.seeds, policies=summaries)
+
+    @staticmethod
+    def _action_family(action) -> str:
+        if isinstance(action, NoOpAction):
+            return "no_op"
+        if isinstance(action, ParameterAction):
+            return f"parameter:{action.parameter.value}"
+        if isinstance(action, StructuralTransaction):
+            kinds = "+".join(sorted(edit.kind.value for edit in action.edits))
+            return f"structural_transaction:{kinds}"
+        kind = getattr(action, "kind", None)
+        return f"structural:{getattr(kind, 'value', type(action).__name__)}"
+
+    @staticmethod
+    def _structural_units(action) -> int:
+        if isinstance(action, (NoOpAction, ParameterAction)):
+            return 0
+        if isinstance(action, StructuralTransaction):
+            return len(action.edits)
+        return 1

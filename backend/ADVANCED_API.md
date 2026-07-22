@@ -240,9 +240,18 @@ team-session version for older clients, but rejects unsupported explicit
 versions.
 
 `moves` remains an optional ordered manual sequence. `agent_turns` selects
-additional moves automatically. `agent_strategy` may be `greedy` or
-`actor_critic`. The autonomous action space includes bounded parameter changes,
+additional moves automatically. `agent_strategy` may be `greedy`,
+`epsilon_greedy`, or `actor_critic`. The autonomous action space includes bounded parameter changes,
 correlation/polarity flips, and an explicit no-op.
+
+For `epsilon_greedy`, send `learner_team_id`, `training_episodes`,
+`training_steps`, `epsilon`, `epsilon_min`, `epsilon_decay`, and optional
+`epsilon_learning_rate`. The learner updates an interpretable action-family
+value table from committed transition rewards only. Evaluation uses epsilon
+zero, performs no updates, and does not apply the actor-critic preview guard.
+The response includes learned values, visit counts, the final epsilon, and a
+checkpoint digest. This strategy is currently an API experiment and is not a
+Team Workspace selector.
 
 For `actor_critic`, send `learner_team_id`, `training_episodes`, `training_steps`,
 `n_step`, `actor_learning_rate`, `critic_learning_rate`, and

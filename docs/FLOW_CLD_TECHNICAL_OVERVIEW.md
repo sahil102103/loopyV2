@@ -344,6 +344,7 @@ simulation and scoring concepts in separable backend services.
 | Controlled Edits | Validates structural transactions before Canvas mutation |
 | Team Workspace | Coordinates role-based objectives on one shared graph |
 | Greedy policy | Selects the best immediate legal move |
+| Epsilon-greedy policy | Learns incremental rewards for interpretable action families from committed transitions |
 | Actor-critic policy | Learns action preferences and a future-value baseline |
 | Deployment goal guard | Simulator-checks learned choices and completes stalled spectral targets with legal planner steps |
 | Planner | Performs bounded simulator-based lookahead |
@@ -367,6 +368,7 @@ The following foundation is present in the codebase:
 - Single-agent bounded optimization.
 - Multi-team turn coordination and Canvas replay.
 - N-step actor-critic training.
+- Serializable epsilon-greedy action-value training with train/evaluation separation.
 - Frozen hold, random, and greedy opponents.
 - Depth-limited planning.
 - Seed-matched random, greedy, and learned benchmarks.
