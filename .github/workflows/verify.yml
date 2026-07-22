@@ -34,6 +34,7 @@ jobs:
           test_model_balance_api.py
           test_notebook_engine_adapter.py
           test_reward_validation.py
+          test_expert_reward_study.py
           test_actor_critic_learning.py
           test_epsilon_greedy_policy.py
           test_league_evaluation.py

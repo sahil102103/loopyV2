@@ -249,6 +249,23 @@ class ObjectiveEvaluator:
             after=after,
         )
 
+    def action_cost(
+        self,
+        objective: Objective,
+        action: Any,
+        *,
+        before_value: Any = None,
+        after_value: Any = None,
+    ) -> float:
+        """Expose the canonical transition cost for validation studies."""
+
+        return self._action_cost(
+            objective,
+            action,
+            before_value=before_value,
+            after_value=after_value,
+        )
+
     @staticmethod
     def _target_fit(observation: EnvironmentObservation, objective: Objective) -> float:
         scores = []

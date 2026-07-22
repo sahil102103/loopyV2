@@ -7,6 +7,11 @@ from .actions import (
     RoleBasedAuthorizationPolicy,
     RoleDefinition,
 )
+from .activity_diagnostics import (
+    ActivityDiagnosticSet,
+    activity_diagnostics,
+    aggregate_activity_diagnostics,
+)
 from .agents import (
     AgentPolicy,
     GreedyAgent,
@@ -33,6 +38,16 @@ from .candidates import (
 )
 from .environment import FlowCLDEnvironment
 from .engine import EngineAdapter, EngineEvaluation, NotebookEngineAdapter
+from .expert_study import (
+    DEFAULT_STUDY_SEED,
+    EXPERT_STUDY_SCHEMA_VERSION,
+    RANKING_SCHEMA_VERSION,
+    ExpertStudyValidationError,
+    RankingRecord,
+    analyze_rankings,
+    generate_expert_study,
+    validate_ranking_file,
+)
 from .evaluation import ConfigurationEvaluation, ParameterConfigurationEvaluator
 from .features import DecisionFeatureEncoder, EncodedDecision, MessagePassingFeatureEncoder
 from .learning import (
@@ -87,6 +102,8 @@ from .reward_validation import (
     RewardValidationStudy,
     RewardValidationThresholds,
     compare_reward_to_experts,
+    inter_rater_agreement,
+    ranking_statistics,
 )
 from .optimizer import (
     DEFAULT_OPTIMIZED_PARAMETERS,
@@ -172,6 +189,7 @@ __all__ = [
     "AddEdgeAction",
     "AddNodeAction",
     "ActivityPenalty",
+    "ActivityDiagnosticSet",
     "BehaviorMatchReward",
     "BaselineRetentionConstraint",
     "BoundedStructuralCandidateGenerator",
@@ -191,6 +209,10 @@ __all__ = [
     "EncodedDecision",
     "EngineAdapter",
     "EngineEvaluation",
+    "EXPERT_STUDY_SCHEMA_VERSION",
+    "RANKING_SCHEMA_VERSION",
+    "DEFAULT_STUDY_SEED",
+    "ExpertStudyValidationError",
     "EpsilonGreedyEpisode",
     "EpsilonGreedyPolicy",
     "EpsilonGreedySettings",
@@ -245,6 +267,7 @@ __all__ = [
     "ProtectedElementsConstraint",
     "REWARD_STUDY_VERSION",
     "RankedGraphOutcome",
+    "RankingRecord",
     "RankingAgreement",
     "RemoveEdgeAction",
     "RemoveNodeAction",
@@ -293,6 +316,13 @@ __all__ = [
     "TwoNodeLoopAnalyzer",
     "TwoNodeLoopValidationError",
     "compare_reward_to_experts",
+    "generate_expert_study",
+    "validate_ranking_file",
+    "analyze_rankings",
+    "activity_diagnostics",
+    "aggregate_activity_diagnostics",
+    "inter_rater_agreement",
+    "ranking_statistics",
     "action_abstraction_key",
     "validate_target_specification",
     "OptimizerCheckpoint",

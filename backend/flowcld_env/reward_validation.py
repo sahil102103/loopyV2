@@ -285,6 +285,53 @@ def compare_reward_to_experts(
     )
 
 
+def ranking_statistics(
+    expert_ranks: Sequence[float],
+    model_scores: Sequence[float],
+) -> tuple[float | None, float | None]:
+    """Return tie-aware Spearman and pairwise agreement.
+
+    Expert ranks are lower-is-better and model scores are higher-is-better.
+    Equal expert ranks are treated as ties and excluded from pairwise accuracy.
+    """
+
+    if len(expert_ranks) != len(model_scores) or len(expert_ranks) < 2:
+        raise ValueError("Rank and score sequences must have equal length of at least 2")
+    ranks = [float(value) for value in expert_ranks]
+    scores = [float(value) for value in model_scores]
+    if any(not math.isfinite(value) or value <= 0.0 for value in ranks):
+        raise ValueError("Expert ranks must be positive finite numbers")
+    if any(not math.isfinite(value) for value in scores):
+        raise ValueError("Model scores must be finite")
+    utility = [-value for value in ranks]
+    return _spearman(utility, scores), _pairwise_agreement(utility, scores)
+
+
+def inter_rater_agreement(
+    rankings_by_expert: Mapping[str, Mapping[str, float]],
+) -> float | None:
+    """Mean pairwise tie-aware Spearman correlation between complete raters."""
+
+    experts = sorted(rankings_by_expert)
+    if len(experts) < 2:
+        return None
+    correlations = []
+    for left_index, left in enumerate(experts):
+        for right in experts[left_index + 1:]:
+            left_ranks = rankings_by_expert[left]
+            right_ranks = rankings_by_expert[right]
+            if set(left_ranks) != set(right_ranks):
+                raise ValueError("Inter-rater rankings must cover identical outcome ids")
+            ordered = sorted(left_ranks)
+            correlation = _spearman(
+                [-float(left_ranks[key]) for key in ordered],
+                [-float(right_ranks[key]) for key in ordered],
+            )
+            if correlation is not None:
+                correlations.append(correlation)
+    return float(np.mean(correlations)) if correlations else None
+
+
 def _spearman(left: Sequence[float], right: Sequence[float]) -> float | None:
     if len(left) < 2 or len(left) != len(right):
         return None
