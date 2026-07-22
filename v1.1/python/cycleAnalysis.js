@@ -26,16 +26,6 @@ function clearTabLoading() {
     _tabLoadingTimer = null;
 }
 
-// Global overlay — only kept for Stripe checkout redirect
-function showLoadingSpinner() {
-    const s = document.getElementById('loading-spinner');
-    if (s) s.style.display = 'flex';
-}
-function hideLoadingSpinner() {
-    const s = document.getElementById('loading-spinner');
-    if (s) s.style.display = 'none';
-}
-
 // Global arrays (if you wish to keep them as globals)
 let edgePairs = [];
 let edgePolarities = [];
@@ -586,6 +576,5 @@ document.getElementById('randomSeedsTab').onclick = async () => {
         clearTabLoading();
     }
 };
-
 
 

@@ -67,12 +67,12 @@ test_data = {
 def test_advanced_simulation():
     """Test the advanced simulation endpoint"""
     print("\n" + "="*60)
-    print("Testing /advanced-simulation endpoint")
+    print("Testing /simulation/two-phase endpoint")
     print("="*60)
     
     try:
         response = requests.post(
-            f"{BASE_URL}/advanced-simulation",
+            f"{BASE_URL}/simulation/two-phase",
             json=test_data,
             timeout=30
         )
@@ -109,7 +109,7 @@ def test_advanced_simulation():
 def test_stability_map():
     """Test the stability map endpoint"""
     print("\n" + "="*60)
-    print("Testing /advanced-stability-map endpoint")
+    print("Testing /parameter-maps/stability-sweep endpoint")
     print("="*60)
     print("Note: This may take 30-60 seconds...")
     
@@ -122,7 +122,7 @@ def test_stability_map():
     
     try:
         response = requests.post(
-            f"{BASE_URL}/advanced-stability-map",
+            f"{BASE_URL}/parameter-maps/stability-sweep",
             json=stability_data,
             timeout=120
         )
@@ -152,7 +152,7 @@ def test_stability_map():
 def test_original_endpoint():
     """Test an original endpoint for comparison"""
     print("\n" + "="*60)
-    print("Testing original /cycle-analysis endpoint (for comparison)")
+    print("Testing original /graph/feedback-cycles endpoint (for comparison)")
     print("="*60)
     
     original_data = {
@@ -166,7 +166,7 @@ def test_original_endpoint():
     
     try:
         response = requests.post(
-            f"{BASE_URL}/cycle-analysis",
+            f"{BASE_URL}/graph/feedback-cycles",
             json=original_data,
             timeout=10
         )
