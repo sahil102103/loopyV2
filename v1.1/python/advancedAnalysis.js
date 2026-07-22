@@ -109,38 +109,14 @@ function triggerBackgroundAdvancedSim(iterations = 200) {
  * @returns {Object} - Formatted data for advanced backend
  */
 function convertToAdvancedFormat(nodesToInclude, edgesToInclude) {
-    const labels = new Set();
-    nodesToInclude.forEach(node => {
-        const label = String(node.label ?? '').trim();
-        if (!label) throw new Error('Every node needs a name before simulation can run.');
-        if (labels.has(label)) throw new Error(`Node names must be unique before simulation: ${label}`);
-        labels.add(label);
-    });
-
-    // Convert nodes
-    const nodes = nodesToInclude.map(node => ({
-        name: String(node.label).trim(),
-        start_amount: node.init ?? 0.1,
-        retention: node.retention ?? 1.0,  // matches notebook default (simulate_two_phase uses 1.0)
-        floor: _backendBound(node.floor, '-Infinity'),
-        ceiling: _backendBound(node.ceiling, 'Infinity'),
-        ...(node.formula       && { formula:        node.formula }),
-        ...(node.sinkFormula   && { sink_formula:   node.sinkFormula }),
-        ...(node.sourceFormula && { source_formula: node.sourceFormula }),
-        ...(node.pass && { pass: node.pass })
-    }));
-
-    const edges = edgesToInclude.map(edge => ({
-        source: String(edge.from.label).trim(),
-        target: String(edge.to.label).trim(),
-        correlation: edge.strength,
-        decay: edge.damper ?? 0,
-        delay: edge.lag ?? 0,         // matches EDGE_DEFAULTS in notebook (no delay by default)
-        confidence: edge.confidence ?? 0.8,
-        functional_form: edge.functionalForm || 'linear'
-    }));
-
-    return { nodes, edges };
+    if (typeof GraphModelGateway === 'undefined') {
+        throw new Error('The graph validation layer is unavailable. Reload the app and try again.');
+    }
+    const result = GraphModelGateway.fromLiveSelection(nodesToInclude, edgesToInclude);
+    if (!result.ok || !result.value) {
+        throw new Error(`Model validation failed: ${GraphModelGateway.formatIssues(result)}`);
+    }
+    return result.value;
 }
 
 /**

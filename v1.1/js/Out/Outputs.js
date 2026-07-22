@@ -347,6 +347,9 @@ function openPage(pageName) {
         if (parentDropdown) {
             parentDropdown.classList.add('active');
         }
+        // Close focus-opened dropdowns after selection so they do not cover
+        // controls on the destination page.
+        if (typeof trigger.blur === 'function') trigger.blur();
     }
 
     if (pageName === 'Canvas') {
@@ -355,6 +358,14 @@ function openPage(pageName) {
 
     if (pageName === 'Tables') {
         if (window.tablesView) window.tablesView.render();
+    }
+
+    if (pageName === 'StructuralEdits') {
+        if (window.structuralEditor) window.structuralEditor.render();
+    }
+
+    if (pageName === 'TeamSessions') {
+        if (window.teamWorkspace) window.teamWorkspace.render();
     }
 
     if (pageName === 'AdminPanel') {

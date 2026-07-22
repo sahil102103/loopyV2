@@ -2,7 +2,6 @@ import os
 import math
 import random
 import base64
-import re
 from io import BytesIO
 from html import escape
 
@@ -15,12 +14,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
-import stripe
 
-from scipy.signal import find_peaks
 from scipy.stats import norm
 from sklearn.mixture import GaussianMixture
-import matplotlib.colors as mcolors
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -36,9 +32,10 @@ from advanced_analysis import (
     simulate_two_phase,
     classify_behavior as classify_behavior_twophase,
     rolling_z as rolling_z_advanced,
-    initialize_gmms,
-    generate_gmm_samples
 )
+from structural_service import StructuralRequestError, preview_structural_transaction
+from team_service import TeamSessionRequestError, run_team_session
+from simple_balance_service import SimpleBalanceRequestError, run_simple_balance
 
 
 
@@ -47,6 +44,8 @@ _DEFAULT_CORS_ORIGINS = [
     "https://loopy-v2.vercel.app",
     "http://127.0.0.1:5501",
     "http://localhost:5501",
+    "http://127.0.0.1:5599",
+    "http://localhost:5599",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
 ]
@@ -56,17 +55,13 @@ CORS(app, resources={r"/*": {"origins": _cors_origins or _DEFAULT_CORS_ORIGINS}}
 
 
 
-stripe.api_key = os.environ.get('STRIPE_API_KEY')
-
-
 def _server_error(message="Request could not be processed."):
     """Log internal details without returning stack traces to browser clients."""
     app.logger.exception(message)
     return jsonify({"error": message}), 500
 
 # ── Route naming ─────────────────────────────────────────────────────────────
-# Primary paths describe what the handler does. Old paths remain as aliases
-# so existing clients keep working.
+# Primary paths describe what each handler does.
 #
 #   /health                              health / env smoke
 #   /simulation/two-phase                notebook SoT two-phase sim
@@ -74,6 +69,10 @@ def _server_error(message="Request could not be processed."):
 #   /simulation/seed-sensitivity         multi-seed two-phase
 #   /simulation/two-phase/value-histograms  two-phase then value histograms
 #   /optimization/parameter-search       parameter optimization
+#   /agent/structural-edits/preview      guarded Stage 3 transaction preview
+#   /agent/team-sessions/run             Stage 5 teams, learned policy, replay
+#   /agent/model-balance/run              bounded connected-graph stability plan
+#   /agent/simple-balance/run             legacy two-node route alias
 #   /parameter-maps/stability-sweep      advanced stability map
 #   /parameter-maps/3d                   retention×decay×delay
 #   /parameter-maps/decay-vs-delay       decay × delay grid
@@ -85,8 +84,6 @@ def _server_error(message="Request could not be processed."):
 #   /series/correlation-heatmap
 #   /series/boxplots | violinplots
 #   /series/gmm-density | gmm-synthetic  GMM analysis of uploaded series
-#   /legacy/signal-graph/init            old signal-buffer graph
-#   /billing/checkout-session            Stripe
 
 
 
@@ -95,6 +92,43 @@ def _server_error(message="Request could not be processed."):
 @app.route('/')
 def health_index():
     return jsonify({"status": "ok"}), 200
+
+
+@app.route('/agent/structural-edits/preview', methods=['POST'])
+def structural_edits_preview():
+    """Validate a structural transaction without persisting server-side state."""
+
+    try:
+        return jsonify(preview_structural_transaction(request.get_json(silent=True))), 200
+    except (GraphValidationError, StructuralRequestError) as error:
+        return jsonify({"error": str(error)}), 400
+    except Exception:
+        return _server_error("Could not evaluate the structural transaction.")
+
+
+@app.route('/agent/team-sessions/run', methods=['POST'])
+def team_session_run():
+    """Run a stateless team session, optional learning, and Canvas replay."""
+
+    try:
+        return jsonify(run_team_session(request.get_json(silent=True))), 200
+    except (GraphValidationError, TeamSessionRequestError) as error:
+        return jsonify({"error": str(error)}), 400
+    except Exception:
+        return _server_error("Could not run the multi-team session.")
+
+
+@app.route('/agent/model-balance/run', methods=['POST'])
+@app.route('/agent/simple-balance/run', methods=['POST'])
+def simple_balance_run():
+    """Create a bounded spectral-balance plan for the current connected model."""
+
+    try:
+        return jsonify(run_simple_balance(request.get_json(silent=True))), 200
+    except (GraphValidationError, SimpleBalanceRequestError) as error:
+        return jsonify({"error": str(error)}), 400
+    except Exception:
+        return _server_error("Could not balance the model.")
 
 #########################
 #  Utility Functions    #
@@ -105,11 +139,6 @@ def create_graph(edges, edge_polarities):
     for edge, polarity in zip(edges, edge_polarities):
         G.add_edge(*edge, polarity=polarity)
     return G
-
-def calculate_rolling_z_score(series, window=10):
-    rolling_mean = series.rolling(window=window).mean()
-    rolling_std = series.rolling(window=window).std()
-    return (series - rolling_mean) / rolling_std
 
 def classify_behavior(time_series_data):
     """Delegate to the advanced two-phase classifier for consistency."""
@@ -168,29 +197,12 @@ def build_twophase_graph_from_legacy(data):
     return G
 
 
-@app.route('/legacy/signal-graph/init', methods=['POST'])
-@app.route('/initialize-graph', methods=['POST'])
-def legacy_signal_graph_init():
-    """Compatibility endpoint that validates legacy input without retaining user state."""
-    data = request.get_json(silent=True) or {}
-    try:
-        graph = build_twophase_graph_from_legacy(data)
-    except Exception:
-        return _server_error("Could not validate the legacy graph.")
-    return jsonify({
-        "message": "Graph validated successfully",
-        "nodes": graph.number_of_nodes(),
-        "edges": graph.number_of_edges(),
-    }), 200
-
-
 #########################
 #  Route Definitions    #
 #########################
 
 # Route 1: Cycle Analysis
 @app.route('/graph/feedback-cycles', methods=['POST'])
-@app.route('/cycle-analysis', methods=['POST'])
 def graph_feedback_cycles():
     try:
         data = request.json
@@ -227,7 +239,6 @@ def graph_feedback_cycles():
 
 # Route 2: Crisis Analysis
 @app.route('/series/rolling-z-plots', methods=['POST'])
-@app.route('/crisis-analysis', methods=['POST'])
 def series_rolling_z_plots():
     try:
         data = request.json
@@ -254,7 +265,6 @@ def series_rolling_z_plots():
 
 # Route 3: Degree Centrality
 @app.route('/graph/centrality', methods=['POST'])
-@app.route('/degree-centrality', methods=['POST'])
 def graph_centrality():
     try:
         data = request.json
@@ -281,7 +291,6 @@ def graph_centrality():
 
 # Route 4: Visual Analysis
 @app.route('/simulation/two-phase/value-histograms', methods=['POST'])
-@app.route('/visual-analysis', methods=['POST'])
 def simulation_two_phase_value_histograms():
     try:
         data = request.json
@@ -312,7 +321,6 @@ def simulation_two_phase_value_histograms():
 
 
 @app.route('/series/correlation-heatmap', methods=['POST'])
-@app.route('/correlation-analysis', methods=['POST'])
 def series_correlation_heatmap():
     try:
         data = request.json
@@ -352,7 +360,6 @@ def series_correlation_heatmap():
     
 
 @app.route('/parameter-maps/decay-vs-delay', methods=["POST"])
-@app.route('/generate-stability-map', methods=["POST"])
 def parameter_map_decay_vs_delay():
     try:
         data = request.json
@@ -399,7 +406,6 @@ def parameter_map_decay_vs_delay():
     
 
 @app.route('/parameter-maps/decay-vs-retention', methods=["POST"])
-@app.route('/generate-decay-retention-map', methods=["POST"])
 def parameter_map_decay_vs_retention():
     try:
         data = request.json
@@ -443,7 +449,6 @@ def parameter_map_decay_vs_retention():
 
 
 @app.route('/parameter-maps/retention-vs-delay', methods=["POST"])
-@app.route('/generate-retention-delay-map', methods=["POST"])
 def parameter_map_retention_vs_delay():
     try:
         data = request.json
@@ -488,38 +493,7 @@ def parameter_map_retention_vs_delay():
         return _server_error("Could not generate the retention-delay parameter map.")
 
 
-@app.route('/billing/checkout-session', methods=['POST'])
-@app.route('/create-checkout-session', methods=['POST'])
-def billing_checkout_session():
-    try:
-        data = request.json
-        amount = data.get('amount', 2000)  # Default to $20.00 if not provided
-
-        session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[
-                {
-                    'price_data': {
-                        'currency': 'usd',
-                        'product_data': {
-                            'name': 'Custom Payment',
-                        },
-                        'unit_amount': amount,
-                    },
-                    'quantity': 1,
-                },
-            ],
-            mode='payment',
-            success_url='https://loopy-v2.vercel.app/v1.1/success.html',
-            cancel_url='https://loopy-v2.vercel.app/v1.1/cancel.html',
-        )
-        return jsonify({'id': session.id})
-    except Exception:
-        return _server_error("Could not create the checkout session.")
-
-
 @app.route('/series/gmm-density', methods=['POST'])
-@app.route('/simulation', methods=['POST'])
 def series_gmm_density():
     try:
         # Log incoming data
@@ -590,7 +564,6 @@ def series_gmm_density():
 
 
 @app.route('/series/gmm-synthetic', methods=['POST'])
-@app.route('/simulation2', methods=['POST'])
 def series_gmm_synthetic():
     try:
         # Get time series data from the request
@@ -651,7 +624,6 @@ def series_gmm_synthetic():
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.route('/simulation/two-phase', methods=['POST'])
-@app.route('/advanced-simulation', methods=['POST'])
 def simulation_two_phase():
     """
     Run advanced two-phase simulation with full stability analysis.
@@ -693,7 +665,6 @@ def simulation_two_phase():
 
 
 @app.route('/parameter-maps/stability-sweep', methods=['POST'])
-@app.route('/advanced-stability-map', methods=['POST'])
 def parameter_map_stability_sweep():
     """
     Generate advanced stability parameter space map.
@@ -736,7 +707,6 @@ def parameter_map_stability_sweep():
 
 
 @app.route('/parameter-maps/3d', methods=['POST'])
-@app.route('/param-space-3d', methods=['POST'])
 def parameter_map_3d():
     """
     Sweep retention × decay × delay and return a point cloud for 3D visualization.
@@ -768,7 +738,6 @@ def parameter_map_3d():
 
 
 @app.route('/series/boxplots', methods=['POST'])
-@app.route('/boxplots', methods=['POST'])
 def series_boxplots():
     try:
         # Get time series data from the request
@@ -826,7 +795,6 @@ def series_boxplots():
 
 
 @app.route('/series/violinplots', methods=['POST'])
-@app.route('/violinplots', methods=['POST'])
 def series_violinplots():
     try:
         # Get time series data from the request
@@ -890,7 +858,6 @@ def series_violinplots():
     
 
 @app.route('/simulation/seed-sensitivity', methods=['POST'])
-@app.route('/random-seeds', methods=['POST'])
 def simulation_seed_sensitivity():
     try:
         data = request.json
@@ -948,7 +915,6 @@ def simulation_seed_sensitivity():
     except Exception:
         return _server_error("Could not run the seed-sensitivity simulation.")
 @app.route('/simulation/monte-carlo-fan', methods=['POST'])
-@app.route('/fan-chart', methods=['POST'])
 def simulation_monte_carlo_fan():
     """
     Monte Carlo fan chart — runs n_sims perturbed simulations and returns
@@ -980,7 +946,6 @@ def simulation_monte_carlo_fan():
 
 
 @app.route('/optimization/parameter-search', methods=['POST'])
-@app.route('/optimize-parameters', methods=['POST'])
 def optimization_parameter_search():
     """
     Two-stage parameter optimization: grid search + simulated annealing.

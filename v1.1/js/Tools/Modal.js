@@ -621,37 +621,39 @@ function Modal(loopy){
 		help.innerHTML = `
 			<button class="fe-help-close" title="Close">&times;</button>
 			<h4>How formulas work</h4>
-			<p>Each node has three optional formulas. Pick a tab, type an expression, and Save. They run in the <b>Advanced</b> analyses (Advanced Simulation, Fan Chart, Stability Maps).</p>
+			<p>Each node has three optional formulas. Pick a tab, type an expression, and Save. Canvas Play and notebook-backed analyses use the same four-phase simulation contract.</p>
 
 			<h5>The three tabs</h5>
 			<ul>
-				<li><b>Value</b> — replaces the node's normal edge-driven update with your expression. Use for a node whose value you want to <i>define</i> directly.</li>
-				<li><b>Source</b> — an external inflow. Each tick, the result is <b>added</b> to the node's value.</li>
-				<li><b>Sink</b> — an external outflow. Each tick, the result is <b>subtracted</b> from the node's value.</li>
+				<li><b>Value</b> — replaces a retention-zero converter's edge-driven update with your expression.</li>
+				<li><b>Source</b> — returns a post-update multiplier, normally above <code>1</code>.</li>
+				<li><b>Sink</b> — returns a post-update multiplier, normally between <code>0</code> and <code>1</code>.</li>
 			</ul>
 
-			<div class="fe-help-callout"><b>Source &amp; Sink are amounts, not multipliers.</b> The value you enter is added/subtracted each tick — it is <i>not</i> multiplied in. For a proportional drain (e.g. lose 5% of the current value per tick), use the current value: <code>0.05 * x</code>.</div>
+			<div class="fe-help-callout"><b>Source &amp; Sink are multiplicative factors.</b> Bounds are applied first, then the Sink factor, then the Source factor. <code>1</code> is neutral, <code>0.95</code> removes 5%, and <code>1.05</code> adds 5%.</div>
 
 			<h5>Variables you can use</h5>
 			<table>
 				<tr><th>Variable</th><th>Meaning</th></tr>
 				<tr><td><code>x</code> or <code>val</code></td><td>this node's current value (Source/Sink)</td></tr>
+				<tr><td><code>Y0</code></td><td>this node's initial value</td></tr>
 				<tr><td><code>t</code></td><td>current timestep (0, 1, 2, …)</td></tr>
-				<tr><td><code>Math.*</code>, <code>pi</code>, <code>e</code></td><td>math functions &amp; constants (<code>Math.exp</code>, <code>Math.sin</code>, …)</td></tr>
-				<tr><td>other node names</td><td>available in the <b>Value</b> tab only</td></tr>
+				<tr><td><code>math.*</code>, <code>np.*</code>, <code>e</code></td><td>restricted math helpers such as <code>math.exp</code>, <code>math.sin</code>, and <code>np.clip</code></td></tr>
+				<tr><td><code>raw['Name']</code></td><td>a node's value at the start of the tick</td></tr>
+				<tr><td><code>nxt['Name']</code></td><td>a node's currently committed next value</td></tr>
+				<tr><td><code>inputs['Name']</code></td><td>an incoming edge contribution for a converter</td></tr>
 			</table>
 
 			<h5>Examples</h5>
 			<ul>
-				<li>Constant inflow — <b>Source</b>: <code>0.05</code></li>
-				<li>Constant drain — <b>Sink</b>: <code>0.05</code></li>
-				<li>Lose 5% of value per tick — <b>Sink</b>: <code>0.05 * x</code></li>
-				<li>Demand that grows over time — <b>Sink</b>: <code>0.01 * t</code></li>
-				<li>Oscillating supply — <b>Source</b>: <code>0.1 * (1 + Math.sin(t / 5))</code></li>
-				<li>Decaying boost — <b>Source</b>: <code>0.2 * Math.exp(-0.1 * t)</code></li>
+				<li>Constant 5% growth — <b>Source</b>: <code>1.05</code></li>
+				<li>Constant 5% drain — <b>Sink</b>: <code>0.95</code></li>
+				<li>Time-varying drain — <b>Sink</b>: <code>math.exp(-0.01 * t)</code></li>
+				<li>Oscillating source factor — <b>Source</b>: <code>1 + 0.1 * math.sin(t / 5)</code></li>
+				<li>Converter from another node — <b>Value</b>: <code>0.6 * nxt['Income']</code></li>
 			</ul>
 
-			<p style="color:#888;">Tip: the quick <b>Source</b>/<b>Sink</b> checkboxes in the node panel just set a constant <code>0.05</code> here — open this editor to customize it. If a formula errors, that tick contributes 0 (the run won't crash).</p>
+			<p style="color:#888;">Tip: the quick checkboxes set factors of <code>1.05</code> and <code>0.95</code>. Invalid Source/Sink formulas use the neutral factor <code>1</code>; invalid Value formulas retain the converter's previous value.</p>
 		`;
 		root.appendChild(help);
 		helpBtn.onclick = function() { help.classList.toggle('open'); };
@@ -663,9 +665,9 @@ function Modal(loopy){
 		root.appendChild(tabBar);
 
 		var tabDefs = [
-			{ key: 'formula',      label: 'Value',  desc: "Overrides edge-based updates — variables: t, other node names.",         placeholder: 'e.g., Y0 * Math.exp(-0.1 * t)' },
-			{ key: 'sinkFormula',  label: 'Sink',   desc: "Amount subtracted each tick — use x for the current value. (See ? )",  placeholder: 'e.g., 0.05  or  0.05 * x' },
-			{ key: 'sourceFormula',label: 'Source', desc: "Amount added each tick — use x for the current value. (See ? )",       placeholder: 'e.g., 0.05  or  0.01 * t' },
+			{ key: 'formula',      label: 'Value',  desc: "Defines a retention-zero converter — use raw, nxt, inputs, t, and Y0.", placeholder: "e.g., 0.6 * nxt['Income']" },
+			{ key: 'sinkFormula',  label: 'Sink',   desc: "Post-update factor applied first — 1 is neutral; 0.95 removes 5%.",     placeholder: 'e.g., 0.95  or  math.exp(-0.01 * t)' },
+			{ key: 'sourceFormula',label: 'Source', desc: "Post-update factor applied after Sink — 1.05 adds 5%.",                placeholder: 'e.g., 1.05  or  1 + 0.1 * math.sin(t)' },
 		];
 
 		var activeTab = 'formula';
@@ -735,7 +737,7 @@ function Modal(loopy){
 
 		var buttonDefs = [
 			{ s: '7',    c: 'num'   }, { s: '8',    c: 'num'   }, { s: '9',    c: 'num'   }, { s: '/',    c: 'op'    }, { s: '(',    c: 'paren' }, { s: ')',    c: 'paren' },
-			{ s: '4',    c: 'num'   }, { s: '5',    c: 'num'   }, { s: '6',    c: 'num'   }, { s: '*',    c: 'op'    }, { s: '^',    c: 'op'    }, { s: 'sqrt', c: 'fn'    },
+			{ s: '4',    c: 'num'   }, { s: '5',    c: 'num'   }, { s: '6',    c: 'num'   }, { s: '*',    c: 'op'    }, { s: '**',   c: 'op'    }, { s: 'sqrt', c: 'fn'    },
 			{ s: '1',    c: 'num'   }, { s: '2',    c: 'num'   }, { s: '3',    c: 'num'   }, { s: '-',    c: 'op'    }, { s: 'exp',  c: 'fn'    }, { s: 'log',  c: 'fn'    },
 			{ s: '0',    c: 'num'   }, { s: '.',    c: 'num'   }, { s: '⌫',   c: 'del'   }, { s: '+',    c: 'op'    }, { s: 'sin',  c: 'fn'    }, { s: 'cos',  c: 'fn'    },
 		];
@@ -756,11 +758,11 @@ function Modal(loopy){
 					}
 					tabValues[activeTab] = input.value;
 					input.focus();
-				} else if (def.s === 'sqrt') insertToFormula('Math.sqrt(');
-				else if (def.s === 'exp')  insertToFormula('Math.exp(');
-				else if (def.s === 'log')  insertToFormula('Math.log(');
-				else if (def.s === 'sin')  insertToFormula('Math.sin(');
-				else if (def.s === 'cos')  insertToFormula('Math.cos(');
+				} else if (def.s === 'sqrt') insertToFormula('math.sqrt(');
+				else if (def.s === 'exp')  insertToFormula('math.exp(');
+				else if (def.s === 'log')  insertToFormula('math.log(');
+				else if (def.s === 'sin')  insertToFormula('math.sin(');
+				else if (def.s === 'cos')  insertToFormula('math.cos(');
 				else insertToFormula(def.s);
 			};
 			calcGrid.appendChild(btn);
@@ -783,8 +785,8 @@ function Modal(loopy){
 			btn.className = 'vars-btn';
 			btn.textContent = constant;
 			btn.onclick = function() {
-				if (constant === 'pi') insertToFormula('Math.PI');
-				else if (constant === 'e') insertToFormula('Math.E');
+				if (constant === 'pi') insertToFormula('math.pi');
+				else if (constant === 'e') insertToFormula('math.e');
 				else insertToFormula(constant);
 			};
 			constantsRow.appendChild(btn);

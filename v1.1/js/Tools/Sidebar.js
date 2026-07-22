@@ -161,17 +161,17 @@ function Sidebar(loopy){
 			}
 		}))
 
-		// Quick source/sink toggles — set a default constant inflow/outflow without
-		// writing an expression. Refine via "Functional Form / Source / Sink…".
+		// Quick source/sink toggles set notebook-compatible post-update factors.
+		// Refine them via "Functional Form / Source / Sink…".
 		page.addComponent(new ComponentFormulaToggle({
-			label: 'Source (constant inflow): ',
+			label: 'Source factor (+5%): ',
 			prop: 'sourceFormula',
-			defaultFormula: '0.05'
+			defaultFormula: '1.05'
 		}));
 		page.addComponent(new ComponentFormulaToggle({
-			label: 'Sink (constant outflow): ',
+			label: 'Sink factor (-5%): ',
 			prop: 'sinkFormula',
-			defaultFormula: '0.05'
+			defaultFormula: '0.95'
 		}));
 
 		page.addComponent(new ComponentHTML({
@@ -249,6 +249,7 @@ function Sidebar(loopy){
 				{ value: "linear",    text: "Linear (default)" },
 				{ value: "tanh",      text: "Saturating (tanh)" },
 				{ value: "quadratic", text: "Accelerating (x·|x|)" },
+				{ value: "cubic",     text: "Cubic (x³)" },
 				{ value: "relu",      text: "Positive only (ReLU)" },
 				{ value: "step",      text: "Threshold (sign)" }
 			],

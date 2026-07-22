@@ -8,7 +8,7 @@
 	<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
 	<meta content="utf-8" http-equiv="encoding">
 	<meta charset="utf-8">
-	<link rel="icon" type="image/png" href="favicon.png">
+	<link rel="icon" type="image/png" href="pages/credits/favicon.png">
 
 	<!-- Schema.org markup for Google+ -->
 	<meta itemprop="name" content="LOOPY!">
@@ -38,7 +38,7 @@
 	<!-- Styles! -->
 	<link href="css/loopy.css?v=4" rel="stylesheet" />
 	<link href="css/balloon.css" rel="stylesheet" />
-	<link href="styles.css?v=5" rel="stylesheet">
+	<link href="styles.css?v=8" rel="stylesheet">
 	
 	<!-- CLD Engine Styles -->
 	<style>
@@ -179,9 +179,8 @@
 		}
 	</style>
 
-	<!--Content Delivery Networks (Last part of URL is library used)-->
+	<!-- Chart.js; Plotly is loaded with the analysis modules below. -->
 	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-	<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
 </head>
 
@@ -231,6 +230,8 @@
 				<div class="tab-dropdown-menu">
 					<button type="button" class="tablink" id="cldAnalysisTab" data-page="CLDAnalysis" onclick="openPage('CLDAnalysis')">CLD Analysis</button>
 					<button type="button" class="tablink" id="visualAnalysisTab" data-page="VisualAnalysis" onclick="openPage('VisualAnalysis')">Visual Analysis</button>
+					<button type="button" class="tablink" id="structuralEditsTab" data-page="StructuralEdits" onclick="openPage('StructuralEdits')">Controlled Edits</button>
+					<button type="button" class="tablink" id="teamSessionsTab" data-page="TeamSessions" onclick="openPage('TeamSessions')">Team Workspace</button>
 					<div class="tab-dropdown-divider"></div>
 					<button type="button" class="tablink premium locked" id="cycleAnalysisTab" data-page="CycleAnalysis" onclick="openPremiumPage('CycleAnalysis')">Cycle Detection <span class="tab-lock" aria-hidden="true">&#128274;</span></button>
 					<button type="button" class="tablink premium locked" id="correlationTab" data-page="Correlation" onclick="openPremiumPage('Correlation')">Correlation <span class="tab-lock" aria-hidden="true">&#128274;</span></button>
@@ -255,6 +256,18 @@
 
 		<div id="Canvas" class="tabcontent">
 			<div id="canvasses"></div>
+			<div id="teamReplayBar" class="tm-replay-bar" hidden aria-live="polite">
+				<button type="button" id="tmReplayPrevious" class="tm-icon-button" title="Previous move" aria-label="Previous move">&#9664;</button>
+				<button type="button" id="tmReplayPlay" class="tm-icon-button" title="Play replay" aria-label="Play replay">&#9654;</button>
+				<button type="button" id="tmReplayNext" class="tm-icon-button" title="Next move" aria-label="Next move">&#9654;</button>
+				<input type="range" id="tmReplaySlider" min="0" max="0" value="0" step="1" aria-label="Replay move">
+				<div class="tm-replay-copy">
+					<strong id="tmReplayStep">Baseline</strong>
+					<span id="tmReplayDetail"></span>
+				</div>
+				<button type="button" id="tmReplayExit" class="tm-text-button">Exit</button>
+				<button type="button" id="tmReplayKeep" class="button tm-replay-keep">Keep final</button>
+			</div>
 			<div id="toolbar"></div>
 			<button id="toolbar-toggle" class="toolbar-toggle-button">☰</button>
 			<div id="sim-iter-bar">
@@ -699,6 +712,373 @@
 		</div>
 
 
+		<!-- ── Stage 3 Controlled Structural Edits ─────────────────────── -->
+		<div id="StructuralEdits" class="tabcontent">
+			<div class="se-shell">
+				<header class="se-heading">
+					<div>
+						<div class="workspace-title-row">
+							<h2>Controlled Structural Edits</h2>
+							<button type="button" id="seHelpToggle" class="workspace-help-button" aria-label="Open Controlled Edits guide" aria-controls="seHelpPanel" aria-expanded="false" title="Controlled Edits guide">?</button>
+						</div>
+						<div id="seGraphSummary" class="se-graph-summary"></div>
+					</div>
+					<span class="se-stage-badge">Stage 3</span>
+				</header>
+
+				<aside id="seHelpPanel" class="workspace-help-panel" hidden aria-labelledby="seHelpTitle">
+					<div class="workspace-help-heading">
+						<div>
+							<span class="workspace-help-eyebrow">User guide</span>
+							<h3 id="seHelpTitle">Using Controlled Edits</h3>
+						</div>
+						<button type="button" id="seHelpClose" class="workspace-help-close" aria-label="Close Controlled Edits guide" title="Close">&times;</button>
+					</div>
+					<p class="workspace-help-intro">Controlled Edits is a guarded way to change model structure. Edits are collected into a proposed transaction, checked on a private copy of the Canvas graph, and applied to the shared model only after the complete transaction is accepted and you choose <strong>Apply to Canvas</strong>.</p>
+					<div class="workspace-help-grid">
+						<section>
+							<h4>1. Choose an edit</h4>
+							<p>Add or remove a node or edge. Complete the displayed fields, then select <strong>Queue edit</strong>. Nothing on Canvas changes while an edit is only queued.</p>
+						</section>
+						<section>
+							<h4>2. Build one transaction</h4>
+							<p>Queue related edits together, such as adding a node and its connecting edges. Later queued fields can reference nodes and edges proposed earlier in the same transaction.</p>
+						</section>
+						<section>
+							<h4>3. Set preservation rules</h4>
+							<p>Protect important nodes or edges and add causal paths that must remain reachable. These rules supplement the always-active anti-collapse constraints.</p>
+						</section>
+						<section>
+							<h4>4. Check, review, apply</h4>
+							<p><strong>Check transaction</strong> validates the entire proposal. Review its reason, reward, graph-size summary, and preservation score. An accepted check exposes <strong>Apply to Canvas</strong>.</p>
+						</section>
+					</div>
+
+					<h4>Edit reference</h4>
+					<div class="workspace-help-table-wrap">
+						<table class="workspace-help-table">
+							<tbody>
+								<tr><th>Add node</th><td>Sets name, starting value, retention, optional bounds, and optional value/source/sink formulas. A formula converter must use retention 0.</td></tr>
+								<tr><th>Remove node</th><td>Removes the node and its incident edges. The full transaction must still satisfy every safety constraint.</td></tr>
+								<tr><th>Add edge</th><td>Sets source, target, correlation, decay, confidence, delay, and functional form. New self-loops and duplicate edges are rejected.</td></tr>
+								<tr><th>Remove edge</th><td>Removes the selected directed connection, provided protected elements and required causal paths remain intact.</td></tr>
+							</tbody>
+						</table>
+					</div>
+
+					<div class="workspace-help-grid workspace-help-grid--results">
+						<section>
+							<h4>Always-active safeguards</h4>
+							<ul>
+								<li>Retain at least 50% of the original nodes.</li>
+								<li>Retain at least 25% of the original edges.</li>
+								<li>Do not increase graph fragmentation or create isolated nodes.</li>
+								<li>Do not introduce new self-loops.</li>
+							</ul>
+						</section>
+						<section>
+							<h4>Important behavior</h4>
+							<p>A rejected transaction does not change Canvas. If Canvas changes after a successful check, the preview becomes stale and must be checked again. Applying is rollback-safe: if replay fails, the original model is restored.</p>
+							<div class="workspace-help-callout"><strong>Recommended workflow:</strong> protect critical nodes and paths first, queue the smallest coherent set of edits, check it, read any rejection reason, and apply only when the preview matches your intent.</div>
+						</section>
+					</div>
+				</aside>
+
+				<div class="se-workspace">
+					<section class="se-pane" aria-labelledby="seBuilderTitle">
+						<div class="se-pane-heading">
+							<h3 id="seBuilderTitle">New edit</h3>
+							<div id="seActionKind" class="se-kind-control" role="group" aria-label="Edit type">
+								<button type="button" class="se-kind-button active" data-kind="add_node">+ Node</button>
+								<button type="button" class="se-kind-button" data-kind="remove_node">- Node</button>
+								<button type="button" class="se-kind-button" data-kind="add_edge">+ Edge</button>
+								<button type="button" class="se-kind-button" data-kind="remove_edge">- Edge</button>
+							</div>
+						</div>
+						<div id="seActionFields" class="se-action-fields"></div>
+						<button type="button" id="seQueueEdit" class="button se-queue-button">Queue edit</button>
+					</section>
+
+					<section class="se-pane se-queue-pane" aria-labelledby="seQueueTitle">
+						<div class="se-pane-heading">
+							<h3 id="seQueueTitle">Pending transaction <span id="seQueueCount" class="se-count">0</span></h3>
+							<button type="button" id="seClearQueue" class="se-text-button">Clear</button>
+						</div>
+						<div id="seQueue" class="se-queue"></div>
+					</section>
+				</div>
+
+				<details class="se-safety" open>
+					<summary>Safety constraints</summary>
+					<div class="se-rule-strip" aria-label="Always active rules">
+						<span>Keep 50% of nodes</span>
+						<span>Keep 25% of edges</span>
+						<span>Prevent fragmentation</span>
+						<span>No new self-loops</span>
+					</div>
+					<div class="se-safety-grid">
+						<label class="se-field">
+							<span>Protected nodes</span>
+							<select id="seProtectedNodes" multiple size="5"></select>
+						</label>
+						<label class="se-field">
+							<span>Protected edges</span>
+							<select id="seProtectedEdges" multiple size="5"></select>
+						</label>
+						<div class="se-required-paths">
+							<span class="se-field-label">Required causal paths</span>
+							<div class="se-path-builder">
+								<select id="sePathSource" aria-label="Required path source"></select>
+								<span aria-hidden="true">&#8594;</span>
+								<select id="sePathTarget" aria-label="Required path target"></select>
+								<button type="button" id="seAddPath" class="se-icon-button" title="Add required path" aria-label="Add required path">+</button>
+							</div>
+							<div id="sePathList" class="se-path-list"></div>
+						</div>
+					</div>
+				</details>
+
+				<div class="se-transaction-actions">
+					<button type="button" id="seCheckTransaction" class="button">Check transaction</button>
+				</div>
+				<section id="seResult" class="se-result" hidden aria-live="polite"></section>
+			</div>
+		</div>
+
+
+		<!-- ── Stage 4 Multi-team Sessions ──────────────────────────────── -->
+		<div id="TeamSessions" class="tabcontent">
+			<div class="tm-shell">
+				<header class="tm-heading">
+					<div>
+						<div class="workspace-title-row">
+							<h2>Team Workspace</h2>
+							<button type="button" id="tmHelpToggle" class="workspace-help-button" aria-label="Open Team Workspace guide" aria-controls="tmHelpPanel" aria-expanded="false" title="Team Workspace guide">?</button>
+						</div>
+						<div id="tmGraphSummary" class="tm-graph-summary"></div>
+					</div>
+					<span class="se-stage-badge">Stage 5</span>
+				</header>
+
+				<aside id="tmHelpPanel" class="workspace-help-panel" hidden aria-labelledby="tmHelpTitle">
+					<div class="workspace-help-heading">
+						<div>
+							<span class="workspace-help-eyebrow">User guide</span>
+							<h3 id="tmHelpTitle">Using Team Workspace</h3>
+						</div>
+						<button type="button" id="tmHelpClose" class="workspace-help-close" aria-label="Close Team Workspace guide" title="Close">&times;</button>
+					</div>
+						<p class="workspace-help-intro">Team Workspace lets role-based teams test changes against the model currently open on Canvas. It uses the same graph data and simulation logic. A normal session remains a preview until you select <strong>Apply final to Canvas</strong> or keep the final replay frame.</p>
+					<div class="workspace-help-grid">
+						<section>
+							<h4>1. Prepare the model</h4>
+							<p>Build or load a connected model on Canvas first. Clear node names and meaningful starting values make objectives and results easier to interpret.</p>
+						</section>
+							<section>
+								<h4>2. Define each team</h4>
+									<p>Start from a role preset or use Custom. Choose what node the team owns and which node defines its objective. Behavior objectives target a dynamic class; trajectory objectives target a sequence of values. An optional maximum spectral radius adds a whole-model linear-stability goal.</p>
+							</section>
+						<section>
+							<h4>3. Limit its authority</h4>
+							<p>Permissions determine which parameters or structural edits a team may use. Budgets and move costs discourage excessive changes. Objective scope restricts actions to the objective node and adjacent edges.</p>
+						</section>
+						<section>
+							<h4>4. Choose an approach</h4>
+							<p><strong>Greedy baseline</strong> picks the best immediate move. <strong>Learned actor-critic</strong> practices across repeated rounds and estimates longer-term value before the final session.</p>
+						</section>
+						</div>
+						<div class="workspace-help-callout"><strong>Color roles:</strong> Green and Blue are cooperative stabilizers. Red and Black are bounded adversaries. A disruptor still targets a healthy state in the form because the reward engine reverses that score. Presets fill editable settings; they do not bypass permissions, costs, budgets, or anti-collapse checks. Autonomous turns search bounded parameter changes and permitted structural motifs, including mediated paths, balancing links, and safe edge removal. Controlled Edits remains available when you want to queue an exact transaction yourself.</div>
+
+						<h4>Learned-agent settings</h4>
+					<div class="workspace-help-table-wrap">
+						<table class="workspace-help-table">
+							<tbody>
+								<tr><th>Practice rounds</th><td>How many training episodes the selected learner receives. Start with 10–30.</td></tr>
+								<tr><th>Moves per round</th><td>Maximum learner decisions in each practice episode. Start with 5–8.</td></tr>
+								<tr><th>Learning window</th><td>How many future steps contribute to each learning update. Five is a practical default.</td></tr>
+								<tr><th>Frozen opponents</th><td>How non-learning teams behave during practice: hold, act randomly, or use a fixed greedy policy.</td></tr>
+									<tr><th>Planning depth</th><td>How far the learned agent looks ahead during the final session. Use 1 first; 2–3 take progressively longer.</td></tr>
+									<tr><th>Goal safeguard</th><td>Final learned moves are checked with the canonical simulator. If a stabilizer stalls before an explicit spectral target, the bounded planner supplies the next permitted retention or decay step; it cannot bypass team permissions.</td></tr>
+									<tr><th>Comparison seeds</th><td>Runs random, greedy, and learned policies on matching scenarios. Three seeds is useful for a first comparison.</td></tr>
+									<tr><th>Maximum spectral radius</th><td>Optional whole-model limit from the notebook transition matrix. Values below 1 are linearly stable; the reward still keeps activity, transmission, and move-cost safeguards.</td></tr>
+									<tr><th>Structural budget</th><td>Counts individual node and edge edits. Inserting a node between two existing nodes uses four edits: add node, remove old edge, and add two replacement edges.</td></tr>
+									<tr><th>Balance current model</th><td>Builds a bounded retention/decay plan for a connected model. Two-node balancing applies directly; larger-model plans stay in preview until you review the change table and select Apply final to Canvas.</td></tr>
+							</tbody>
+						</table>
+					</div>
+
+					<div class="workspace-help-grid workspace-help-grid--results">
+						<section>
+							<h4>Reading the results</h4>
+							<ul>
+								<li><strong>Return:</strong> the accumulated objective score; higher is better for the defined team objective.</li>
+								<li><strong>Learning curve:</strong> return by practice round. Some noise is normal.</li>
+								<li><strong>Comparison:</strong> seed-matched averages for random, greedy, and learned decisions.</li>
+								<li><strong>Exploitability proxy:</strong> how much a team could gain by switching policy. Lower is better, but it is not proof of equilibrium.</li>
+							</ul>
+						</section>
+							<section>
+								<h4>Replay and keep changes</h4>
+								<p>Use <strong>Apply final to Canvas</strong> to commit the result directly. Use <strong>Replay on Canvas</strong> to inspect each move first. <strong>Exit</strong> restores the graph that was open before replay, while <strong>Keep final</strong> commits the last frame.</p>
+								<div class="workspace-help-callout"><strong>Recommended first run:</strong> 10 practice rounds, 5 moves, depth 1, no comparison seeds. Once that succeeds, use 30 rounds and 3 comparison seeds.</div>
+							</section>
+						</div>
+					</aside>
+
+					<section class="tm-section tm-simple-balance" aria-labelledby="tmSimpleBalanceTitle">
+						<div class="tm-simple-balance-copy">
+							<h3 id="tmSimpleBalanceTitle">Balance the current model</h3>
+							<p>Choose a whole-model spectral limit and which bounded parameters may change. The planner prioritizes influential nodes and edges, preserves structure and polarity, and checks the result with the full notebook simulation.</p>
+							<span id="tmSimpleBalanceStatus" class="tm-simple-balance-status" aria-live="polite"></span>
+						</div>
+							<div class="tm-simple-balance-controls">
+								<div class="tm-balance-primary">
+									<label class="se-field"><span>Maximum spectral radius</span><input id="tmSimpleTargetRadius" type="number" value="0.99" min="0.01" max="0.999" step="any"></label>
+									<button type="button" id="tmRunSimpleBalance" class="button">Find balance</button>
+								</div>
+								<div class="tm-balance-options" aria-label="Adjustable parameters">
+									<label><input id="tmBalanceRetention" type="checkbox" checked> Adjust retention</label>
+									<label><input id="tmBalanceDecay" type="checkbox" checked> Adjust decay</label>
+									<details class="tm-balance-bounds">
+										<summary>Safety bounds</summary>
+										<div>
+											<label class="se-field"><span>Minimum retention</span><input id="tmBalanceMinRetention" type="number" value="0.10" min="0.01" max="1" step="any"></label>
+											<label class="se-field"><span>Maximum decay</span><input id="tmBalanceMaxDecay" type="number" value="0.85" min="0" max="0.99" step="any"></label>
+										</div>
+									</details>
+								</div>
+							</div>
+					</section>
+
+					<section class="tm-section" aria-labelledby="tmTeamsTitle">
+						<div class="tm-section-heading">
+							<h3 id="tmTeamsTitle">Teams <span id="tmTeamCount" class="se-count">0</span></h3>
+						</div>
+						<div class="tm-role-presets" aria-labelledby="tmRolePresetsTitle">
+							<div class="tm-role-presets-heading">
+								<strong id="tmRolePresetsTitle">Role preset</strong>
+								<span>Click the selected color again to return to Custom.</span>
+							</div>
+							<div id="tmRolePresetButtons" class="tm-role-preset-buttons" role="group" aria-label="Team role preset"></div>
+							<p id="tmRolePresetSummary" class="tm-role-preset-summary" aria-live="polite"></p>
+						</div>
+						<div class="tm-builder-grid">
+						<label class="se-field"><span>Name</span><input id="tmTeamName" type="text" maxlength="80" placeholder="Team name"></label>
+						<label class="se-field"><span>Orientation</span><select id="tmTeamOrientation"><option value="stabilize">Stabilize</option><option value="disrupt">Disrupt</option></select></label>
+						<label class="se-field"><span>Owned node</span><select id="tmOwnedNode"></select></label>
+						<label class="se-field"><span>Objective node</span><select id="tmObjectiveNode"></select></label>
+						<label class="se-field"><span>Objective</span><select id="tmObjectiveMode"><option value="behavior">Behavior</option><option value="trajectory">Trajectory</option></select></label>
+						<label class="se-field" id="tmBehaviorField"><span>Desired behavior</span><select id="tmObjectiveBehavior"><option value="Optimal">Optimal</option><option value="Over-damped">Over-damped</option><option value="Unconstrained">Unconstrained</option></select></label>
+						<label class="se-field" id="tmTrajectoryField" hidden><span>Desired trajectory</span><input id="tmObjectiveTrajectory" type="text" placeholder="1, 1.2, 1.4"></label>
+						<label class="se-field"><span>Max spectral radius (optional)</span><input id="tmObjectiveSpectralRadius" type="number" min="0.01" max="0.999" step="any" placeholder="e.g. 0.95"></label>
+						<label class="se-field"><span>Weight</span><input id="tmTeamWeight" type="number" value="1" min="0.01" step="any"></label>
+						<label class="se-field"><span>Score preset</span><select id="tmTeamPreset"><option value="balanced">Balanced</option><option value="stability_first">Stability first</option><option value="responsive">Responsive</option></select></label>
+					</div>
+					<details class="tm-permissions">
+						<summary>Agent settings</summary>
+						<div class="tm-builder-grid">
+							<label class="se-field"><span>Future weight</span><input id="tmGamma" type="number" value="0.99" min="0" max="1" step="0.01"></label>
+							<label class="se-field"><span>Parameter move cost</span><input id="tmParameterCost" type="number" value="0.01" min="0" step="any"></label>
+							<label class="se-field"><span>Structural move cost</span><input id="tmStructuralCost" type="number" value="0.05" min="0" step="any"></label>
+							<label class="se-field"><span>Move budget</span><input id="tmMoveBudget" type="number" value="20" min="1" max="100" step="1"></label>
+							<label class="se-field"><span>Structural budget</span><input id="tmStructuralBudget" type="number" value="5" min="0" max="100" step="1"></label>
+							<label class="se-field"><span>Minimum live nodes</span><input id="tmMinLiveNodes" type="number" value="1" min="1" step="1"></label>
+						</div>
+					</details>
+
+					<details class="tm-permissions">
+						<summary>Permissions</summary>
+						<div class="tm-permission-grid">
+							<fieldset><legend>Node parameters</legend><label><input type="checkbox" data-tm-node-param="start_amount" checked> Start value</label><label><input type="checkbox" data-tm-node-param="retention" checked> Retention</label></fieldset>
+							<fieldset><legend>Edge parameters</legend><label><input type="checkbox" data-tm-edge-param="correlation" checked> Polarity / correlation</label><label><input type="checkbox" data-tm-edge-param="decay" checked> Decay</label><label><input type="checkbox" data-tm-edge-param="delay" checked> Delay</label><label><input type="checkbox" data-tm-edge-param="confidence" checked> Confidence</label></fieldset>
+							<fieldset><legend>Structural edits</legend><label><input type="checkbox" data-tm-structural="add_node"> Add node</label><label><input type="checkbox" data-tm-structural="remove_node"> Remove node</label><label><input type="checkbox" data-tm-structural="add_edge"> Add edge</label><label><input type="checkbox" data-tm-structural="remove_edge"> Remove edge</label></fieldset>
+							<label class="se-field"><span>Target scope</span><select id="tmPermissionScope"><option value="all">All model elements</option><option value="objective">Objective node and adjacent edges</option></select></label>
+						</div>
+					</details>
+					<div class="tm-builder-actions"><button type="button" id="tmAddTeam" class="button">Add team</button></div>
+					<div class="tm-table-wrap"><table class="tm-table"><thead><tr><th>Team</th><th>Orientation</th><th>Objective</th><th>Weight</th><th>Permissions</th><th></th></tr></thead><tbody id="tmTeamsBody"></tbody></table></div>
+				</section>
+
+				<section class="tm-section" aria-labelledby="tmMovesTitle">
+					<div class="tm-section-heading">
+						<h3 id="tmMovesTitle">Move order <span id="tmMoveCount" class="se-count">0</span></h3>
+						<button type="button" id="tmClearMoves" class="tm-text-button">Clear</button>
+					</div>
+					<div class="tm-move-grid">
+						<label class="se-field"><span>Team</span><select id="tmMoveTeam"></select></label>
+						<label class="se-field"><span>Move type</span><select id="tmMoveKind"><option value="parameter">Parameter</option><option value="structural_transaction">Controlled transaction</option></select></label>
+						<div id="tmParameterFields" class="tm-inline-fields">
+							<label class="se-field"><span>Parameter</span><select id="tmMoveParameter"><option value="start_amount">Start value</option><option value="retention">Retention</option><option value="correlation">Polarity / correlation</option><option value="decay">Decay</option><option value="delay">Delay</option><option value="confidence">Confidence</option></select></label>
+							<label class="se-field"><span>Target</span><select id="tmMoveTarget"></select></label>
+							<label class="se-field"><span>Mode</span><select id="tmMoveMode"><option value="set">Set</option><option value="delta">Change by</option></select></label>
+							<label class="se-field"><span>Value</span><input id="tmMoveValue" type="number" value="0" step="any"></label>
+						</div>
+						<div id="tmStructuralFields" class="tm-structural-import" hidden>
+							<span id="tmStructuralCount">No pending controlled edits</span>
+							<button type="button" id="tmOpenControlledEdits" class="tm-text-button">Open Controlled Edits</button>
+						</div>
+					</div>
+					<div class="tm-builder-actions"><button type="button" id="tmQueueMove" class="button">Queue move</button></div>
+					<div id="tmMoveQueue" class="tm-move-queue"></div>
+				</section>
+
+				<section class="tm-section" aria-labelledby="tmLearningTitle">
+					<div class="tm-section-heading"><h3 id="tmLearningTitle">Agent approach</h3></div>
+					<div class="tm-builder-grid tm-learning-grid">
+						<label class="se-field"><span>Approach</span><select id="tmAgentStrategy"><option value="greedy">Greedy baseline</option><option value="actor_critic">Learned actor-critic</option></select></label>
+						<label class="se-field tm-learning-field" hidden><span>Learner team</span><select id="tmLearnerTeam"></select></label>
+						<label class="se-field tm-learning-field" hidden><span>Practice rounds</span><input id="tmTrainingEpisodes" type="number" value="20" min="1" max="200" step="1"></label>
+						<label class="se-field tm-learning-field" hidden><span>Moves per round</span><input id="tmTrainingSteps" type="number" value="8" min="1" max="50" step="1"></label>
+						<label class="se-field tm-learning-field" hidden><span>Learning window</span><input id="tmNStep" type="number" value="5" min="1" max="50" step="1"></label>
+						<label class="se-field tm-learning-field" hidden><span>Frozen opponents</span><select id="tmOpponentMode"><option value="hold">Hold position</option><option value="random">Random policy</option><option value="greedy">Greedy policy</option></select></label>
+						<label class="se-field tm-learning-field" hidden><span>Planning depth</span><input id="tmPlanningDepth" type="number" value="1" min="1" max="3" step="1"></label>
+						<label class="se-field tm-learning-field" hidden><span>Comparison seeds</span><input id="tmEvaluationSeeds" type="number" value="0" min="0" max="5" step="1"></label>
+					</div>
+					<details id="tmLearningAdvanced" class="tm-permissions tm-learning-field" hidden>
+						<summary>Learning settings</summary>
+						<div class="tm-builder-grid">
+							<label class="se-field"><span>Actor rate</span><input id="tmActorLearningRate" type="number" value="0.03" min="0.0001" step="any"></label>
+							<label class="se-field"><span>Critic rate</span><input id="tmCriticLearningRate" type="number" value="0.08" min="0" step="any"></label>
+							<label class="se-field"><span>Exploration</span><input id="tmTrainingTemperature" type="number" value="1" min="0.05" step="any"></label>
+						</div>
+					</details>
+				</section>
+
+				<div class="tm-run-row">
+					<label class="se-field"><span>Simulation steps</span><input id="tmIterations" type="number" value="50" min="1" max="200" step="1"></label>
+					<label class="se-field"><span>Agent turns</span><input id="tmAgentTurns" type="number" value="8" min="0" max="100" step="1"></label>
+					<button type="button" id="tmRunSession" class="button">Run session</button>
+				</div>
+
+					<section id="tmResults" class="tm-results" hidden aria-live="polite">
+						<div class="tm-result-heading">
+							<div><h3>Session result</h3><span id="tmResultSummary"></span></div>
+							<div class="tm-result-actions">
+								<button type="button" id="tmStartReplay" class="button">Replay on Canvas</button>
+								<button type="button" id="tmApplyFinal" class="button">Apply final to Canvas</button>
+							</div>
+						</div>
+					<div id="tmBalancePreview" class="tm-balance-preview" hidden>
+						<h4>Balance preview</h4>
+						<div id="tmBalancePreviewSummary" class="tm-balance-preview-summary"></div>
+						<div id="tmBalanceWarnings" class="tm-balance-warnings" hidden></div>
+						<div class="tm-table-wrap"><table class="tm-table"><thead><tr><th>Parameter</th><th>Target</th><th>Before</th><th>Proposed</th></tr></thead><tbody id="tmBalanceChangesBody"></tbody></table></div>
+					</div>
+					<h4>Team scores</h4>
+					<div class="tm-table-wrap"><table class="tm-table"><thead><tr><th>Team</th><th>Initial</th><th>Final</th><th>Cumulative</th></tr></thead><tbody id="tmScoresBody"></tbody></table></div>
+					<div id="tmLearningResults" hidden>
+						<h4>Learning result</h4>
+						<div id="tmLearningSummary" class="tm-learning-summary"></div>
+						<div id="tmLearningCurve" class="tm-learning-curve"></div>
+						<div class="tm-table-wrap"><table class="tm-table"><thead><tr><th>Approach</th><th>Average return</th></tr></thead><tbody id="tmBenchmarkBody"></tbody></table></div>
+					</div>
+					<h4>Move log</h4>
+					<div class="tm-table-wrap tm-log-wrap"><table class="tm-table"><thead><tr><th>#</th><th>Team</th><th>Action</th><th>Status</th><th>Shared score</th><th>Reason</th></tr></thead><tbody id="tmLogBody"></tbody></table></div>
+				</section>
+			</div>
+		</div>
+
+
 
 
 		<!-- Admin Panel -->
@@ -774,23 +1154,24 @@
 <script type='module' src="firebase.js"></script>
 
 <script src="js/Tools/edgeExplanation.js" defer></script>
-<script src="js/Libraries/helpers.js" defer></script>
+<script src="js/Libraries/helpers.js?v=2" defer></script>
 <script src="js/Libraries/minpubsub.js" defer></script>
+<script src="js/Validation/GraphModelGateway.js?v=1" defer></script>
+<script src="js/Validation/LoopyImportGateway.js?v=2" defer></script>
+<script src="js/Validation/TeamRequestGateway.js?v=1" defer></script>
 <script src="js/Libraries/Mouse.js" defer></script>
 <script src="js/Libraries/Key.js" defer></script>
 <script src="js/Core/Loopy.js?v=5" defer></script>
-<script src="js/Core/Model.js?v=3" defer></script>
-<script src="js/Core/Node.js?v=3" defer></script>
-<script src="js/Core/NodeLabel.js" defer></script>
-<script src="js/Core/GhostNode.js" defer></script>
-<script src="js/Core/Edge.js?v=2" defer></script>
+	<script src="js/Core/Model.js?v=7" defer></script>
+	<script src="js/Core/Node.js?v=5" defer></script>
+	<script src="js/Core/Edge.js?v=3" defer></script>
 <script src="js/Core/Label.js" defer></script>
 <script src="js/Tools/PageUI.js" defer></script>
-<script src="js/Tools/Sidebar.js?v=3" defer></script>
+<script src="js/Tools/Sidebar.js?v=4" defer></script>
 <script src="js/Tools/GraphLayout.js?v=1" defer></script>
 <script src="js/Tools/Toolbar.js?v=2" defer></script>
 <script src="js/Tools/PlayControls.js" defer></script>
-<script src="js/Tools/Modal.js?v=5" defer></script>
+<script src="js/Tools/Modal.js?v=6" defer></script>
 <script src="js/Tools/Ink.js" defer></script>
 <script src="js/Tools/Dragger.js" defer></script>
 <script src="js/Tools/Eraser.js" defer></script>
@@ -798,22 +1179,25 @@
 <script src="js/Tools/MultipleSelect.js" defer></script>
 <script src="js/Tools/SavedModels.js?v=3" defer></script>
 <script src="js/Tools/AdminPanel.js" defer></script>
-<script src="js/Tools/TablesView.js?v=2" defer></script>
-<script src="js/Out/Outputs.js" defer></script>
+<script src="js/Tools/TablesView.js?v=4" defer></script>
+<script src="js/Out/Outputs.js?v=4" defer></script>
 <script src="js/Libraries/math.js" defer></script>
-<script src="js/Libraries/FormulaEvaluator.js?v=1" defer></script>
+<script src="js/Libraries/FormulaEvaluator.js?v=2" defer></script>
 
 
 <script src="python/cycleAnalysis.js?v=2" defer></script>
 <script src="python/generateDiagram.js" defer></script>
-<script src="python/advancedAnalysis.js?v=4" defer></script>
+<script src="python/advancedAnalysis.js?v=6" defer></script>
+<script src="js/Tools/StructuralEditor.js?v=5" defer></script>
+<script src="js/Tools/GraphStateAdapter.js?v=3" defer></script>
+<script src="js/Tools/TeamRolePresets.js?v=2" defer></script>
+<script src="js/Tools/TeamWorkspace.js?v=11" defer></script>
 <script src="python/cldAnalysis.js" defer></script>
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <script src="js/paramSpace3D.js?v=2" defer></script>
 
-<!-- CLD Engine Files -->
-<script src="js/Libraries/cldEngine.js" defer></script>
-<script src="js/Libraries/cldEngineIntegration.js" defer></script>
+<!-- CLD Engine -->
+	<script src="js/Libraries/cldEngine.js?v=4" defer></script>
 
 <script>
 // Toast notification system with per-session deduplication
@@ -863,14 +1247,6 @@
 		} else {
 			openPage('Canvas');
 			window.loopy = new Loopy();
-			
-			// Integrate CLD Engine with Loopy
-			try {
-				const cldIntegration = integrateCLDEngine(window.loopy);
-				console.log('CLD Engine successfully integrated with existing analysis tabs');
-			} catch (error) {
-				console.error('Failed to integrate CLD Engine:', error);
-			}
 
 			// Offer to restore auto-saved work (only if no URL data was loaded)
 			var urlData = new URLSearchParams(window.location.search).get("data");

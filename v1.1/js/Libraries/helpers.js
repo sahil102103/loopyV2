@@ -11,7 +11,9 @@ window.HIGHLIGHT_COLOR = "rgba(193, 220, 255, 0.6)";
 
 window.MULTIPLE_HIGHLIGHT_COLOR = "rgba(193, 220, 255, 0.3)";
 
-var isMacLike = navigator.userAgentData.platform.match(/(Mac|iPhone|iPod|iPad)/i)?true:false;
+var _platformName = (navigator.userAgentData && navigator.userAgentData.platform) ||
+	navigator.platform || navigator.userAgent || "";
+var isMacLike = /(Mac|iPhone|iPod|iPad)/i.test(_platformName);
 
 var _PADDING = 25;
 var _PADDING_BOTTOM = 110;

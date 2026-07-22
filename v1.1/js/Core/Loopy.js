@@ -203,11 +203,19 @@ function Loopy(config){
 		input.type = 'file';
 		input.onchange = e => {
 			var file = e.target.files[0];
+			if(!file) return;
 			var reader = new FileReader();
 			reader.readAsText(file,'UTF-8');
 			reader.onload = readerEvent => {
 				var content = readerEvent.target.result;
-				self.model.deserialize(content);
+				try {
+					self.model.deserialize(content);
+				} catch(error) {
+					console.error("Import failed:", error);
+					if(typeof window.showToast === "function") {
+						window.showToast(error.message || "The model file could not be loaded", "error", false);
+					}
+				}
 			}
 		};
 		input.click();
