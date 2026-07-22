@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowcld.app/schemas/flowcld-reward-study-v1.schema.json",
+  "title": "FlowCLD expert reward-ranking study v1",
+  "type": "object",
+  "required": ["study_version", "research_status", "objective", "success_thresholds", "outcomes"],
+  "properties": {
+    "study_version": { "const": "flowcld.reward-study.v1" },
+    "research_status": { "enum": ["draft", "ready", "completed"] },
+    "objective": {
+      "type": "object",
+      "required": ["name", "orientation", "target_nodes", "target"],
+      "properties": {
+        "name": { "type": "string" },
+        "orientation": { "enum": ["stabilize", "disrupt"] },
+        "owned_nodes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "target_nodes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "target": {
+          "type": "object",
+          "properties": {
+            "trajectories": { "type": "object" },
+            "behaviors": { "type": "object" },
+            "spectral_radius": { "type": ["number", "null"] }
+          }
+        },
+        "domain_rationale": { "type": "string" }
+      }
+    },
+    "success_thresholds": {
+      "type": "object",
+      "required": ["minimum_spearman", "minimum_pairwise_agreement", "minimum_outcomes"],
+      "properties": {
+        "minimum_spearman": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+        "minimum_pairwise_agreement": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+        "minimum_outcomes": { "type": ["integer", "null"], "minimum": 2 },
+        "rationale": { "type": "string" }
+      }
+    },
+    "outcomes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["outcome_id", "expert_rank", "graph"],
+        "properties": {
+          "outcome_id": { "type": "string", "minLength": 1 },
+          "expert_rank": { "type": "number", "exclusiveMinimum": 0 },
+          "expert_notes": { "type": "string" },
+          "graph": { "$ref": "flowcld-model-v1.schema.json" }
+        }
+      }
+    }
+  }
+}

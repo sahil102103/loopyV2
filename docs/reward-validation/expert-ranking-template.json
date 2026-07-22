@@ -1,0 +1,29 @@
+{
+  "study_version": "flowcld.reward-study.v1",
+  "research_status": "draft",
+  "objective": {
+    "name": "",
+    "orientation": "stabilize",
+    "owned_nodes": [],
+    "target_nodes": [],
+    "target": {
+      "trajectories": {},
+      "behaviors": {},
+      "spectral_radius": null
+    },
+    "domain_rationale": ""
+  },
+  "success_thresholds": {
+    "minimum_spearman": null,
+    "minimum_pairwise_agreement": null,
+    "minimum_outcomes": null,
+    "rationale": ""
+  },
+  "review_protocol": {
+    "reviewers": [],
+    "reward_scores_hidden": true,
+    "policy_labels_hidden": true,
+    "ranking_instructions": "Rank 1 is best for the stated team objective; equal ranks indicate ties."
+  },
+  "outcomes": []
+}
