@@ -17,7 +17,26 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -r requirements.txt
-      - run: python -m unittest test_formula_evaluator.py test_graph_validation.py test_app_security.py
+      - run: >-
+          python -m unittest
+          test_formula_evaluator.py
+          test_dmd_analysis.py
+          test_graph_validation.py
+          test_simulation_contract.py
+          test_app_security.py
+          test_flowcld_environment.py
+          test_single_agent_optimizer.py
+          test_structural_environment.py
+          test_structural_api.py
+          test_multi_team_environment.py
+          test_team_session_api.py
+          test_simple_balance_api.py
+          test_model_balance_api.py
+          test_notebook_engine_adapter.py
+          test_reward_validation.py
+          test_actor_critic_learning.py
+          test_league_evaluation.py
+      - run: python test_fcld_import.py
 
   frontend-syntax:
     runs-on: ubuntu-latest
@@ -26,7 +45,27 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - run: npm ci
+      - run: npm run build:frontend-types
+      - run: >-
+          git diff --exit-code --
+          v1.1/js/Validation/GraphModelGateway.js
+          v1.1/js/Validation/LoopyImportGateway.js
+          v1.1/js/Validation/TeamRequestGateway.js
+      - run: node --check v1.1/js/Validation/GraphModelGateway.js
+      - run: node --check v1.1/js/Validation/LoopyImportGateway.js
+      - run: node --check v1.1/js/Validation/TeamRequestGateway.js
       - run: node --check v1.1/js/Libraries/FormulaEvaluator.js
       - run: node --check v1.1/js/Core/Node.js
       - run: node --check v1.1/js/Core/Model.js
       - run: node --check v1.1/js/Libraries/cldEngine.js
+      - run: node --check v1.1/js/Tools/GraphStateAdapter.js
+      - run: node --check v1.1/js/Tools/TeamRolePresets.js
+      - run: node --check v1.1/js/Tools/TeamWorkspace.js
+      - run: node --test v1.1/js/Libraries/cldEngine.test.js
+      - run: node --test v1.1/js/Libraries/FormulaEvaluator.test.js
+      - run: node --test v1.1/js/Validation/GraphModelGateway.test.js
+      - run: node --test v1.1/js/Validation/LoopyImportGateway.test.js
+      - run: node --test v1.1/js/Validation/TeamRequestGateway.test.js
+      - run: node --test v1.1/js/Tools/GraphStateAdapter.test.js
+      - run: node --test v1.1/js/Tools/TeamRolePresets.test.js
