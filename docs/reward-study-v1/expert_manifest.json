@@ -1,0 +1,3484 @@
+{
+  "horizon": 40,
+  "output_label": "expert_review_material",
+  "scenarios": [
+    {
+      "candidates": [
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-96B50862564E",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.9536429930562236,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.023115198793090087,
+            "effective_transmission": 0.945,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 0.007184982611968958,
+            "fraction_above_threshold": 0.24390243902439024,
+            "integrated_activity_ratio": 0.6496687381839233,
+            "late_window_minimum_ratio": 5.022678378874909e-07,
+            "spectral_radius": 0.7272991131577159,
+            "tail_mean_magnitude_ratio": 0.01275524247896601,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Moderately lower retention and increase edge decay.",
+          "plot": "plots/SCN-54DBB25264A0_OUT-96B50862564E.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.03832082025070081
+              },
+              {
+                "step": 10,
+                "value": -0.03296416030771934
+              },
+              {
+                "step": 15,
+                "value": 0.008957521244888843
+              },
+              {
+                "step": 20,
+                "value": -0.0015001800991384176
+              },
+              {
+                "step": 25,
+                "value": 0.00010892060923770005
+              },
+              {
+                "step": 30,
+                "value": 2.7284878645937205e-05
+              },
+              {
+                "step": 35,
+                "value": -1.3238472763408685e-05
+              },
+              {
+                "step": 40,
+                "value": 3.1047511122033053e-06
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 0,
+          "candidate_id": "OUT-A64728D66F4E",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 1.0,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.02395483175569996,
+            "effective_transmission": 1.107,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 1.0,
+            "fraction_above_threshold": 0.34146341463414637,
+            "integrated_activity_ratio": 1.0,
+            "late_window_minimum_ratio": 0.0001096979733731138,
+            "spectral_radius": 0.8259519598620734,
+            "tail_mean_magnitude_ratio": 1.0,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "none",
+          "intervention_summary": "No graph parameters or structure changed.",
+          "plot": "plots/SCN-54DBB25264A0_OUT-A64728D66F4E.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.03773725888933857
+              },
+              {
+                "step": 10,
+                "value": -0.09812769894827049
+              },
+              {
+                "step": 15,
+                "value": 0.057479013535246246
+              },
+              {
+                "step": 20,
+                "value": -0.02243585055192579
+              },
+              {
+                "step": 25,
+                "value": 0.005923919236395856
+              },
+              {
+                "step": 30,
+                "value": -0.0004915429949729681
+              },
+              {
+                "step": 35,
+                "value": -0.0005594441718732177
+              },
+              {
+                "step": 40,
+                "value": 0.000432116857157919
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 9,
+          "candidate_id": "OUT-B6B7EB542152",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.0,
+            "binary_target_activity": 1.0,
+            "canonical_health": 2.143039889571957e-05,
+            "effective_transmission": 2.295,
+            "explosion_detected": true,
+            "final_magnitude_ratio": 0.0,
+            "fraction_above_threshold": 0.0,
+            "integrated_activity_ratio": 0.0,
+            "late_window_minimum_ratio": 0.0,
+            "spectral_radius": 1.305375041894091,
+            "tail_mean_magnitude_ratio": 0.0,
+            "target_fit": 1.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "9 bounded parameter edits",
+          "intervention_summary": "Raise retention and strengthen transmission toward its bounds.",
+          "plot": "plots/SCN-54DBB25264A0_OUT-B6B7EB542152.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": -2.999203128625778
+              },
+              {
+                "step": 10,
+                "value": 14.182629960336588
+              },
+              {
+                "step": 15,
+                "value": -57.94686510941902
+              },
+              {
+                "step": 20,
+                "value": 100.0
+              },
+              {
+                "step": 25,
+                "value": -100.0
+              },
+              {
+                "step": 30,
+                "value": 96.8748191741891
+              },
+              {
+                "step": 35,
+                "value": -75.22276279421166
+              },
+              {
+                "step": 40,
+                "value": 43.75088859475241
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-C89F98BBA2E4",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.895189766174167,
+            "binary_target_activity": 0.0,
+            "canonical_health": 0.008010859557933623,
+            "effective_transmission": 0.29699999999999993,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 2.314188815180516e-09,
+            "fraction_above_threshold": 0.07317073170731707,
+            "integrated_activity_ratio": 0.18215049434940928,
+            "late_window_minimum_ratio": 2.4119381004692626e-28,
+            "spectral_radius": 0.21021474734185513,
+            "tail_mean_magnitude_ratio": 1.0527589461859534e-09,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Strongly damp all nodes and edges.",
+          "plot": "plots/SCN-54DBB25264A0_OUT-C89F98BBA2E4.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": -2.673244104986399e-05
+              },
+              {
+                "step": 10,
+                "value": -6.42848508918163e-08
+              },
+              {
+                "step": 15,
+                "value": 5.253082956796258e-11
+              },
+              {
+                "step": 20,
+                "value": -2.8412066699975295e-14
+              },
+              {
+                "step": 25,
+                "value": 1.2374060858681743e-17
+              },
+              {
+                "step": 30,
+                "value": -4.456658560379329e-21
+              },
+              {
+                "step": 35,
+                "value": 1.244308901474632e-24
+              },
+              {
+                "step": 40,
+                "value": -1.7859919246354797e-28
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-CA14AE91EB78",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.8878879974752734,
+            "binary_target_activity": 0.0,
+            "canonical_health": 0.010899182561307902,
+            "effective_transmission": 0.0,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 2.314188815180516e-09,
+            "fraction_above_threshold": 0.024390243902439025,
+            "integrated_activity_ratio": 0.12165273656270117,
+            "late_window_minimum_ratio": 0.0,
+            "spectral_radius": 0.0,
+            "tail_mean_magnitude_ratio": 1.0527589456367346e-09,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Set retention to zero and fully decay all edge transmission.",
+          "plot": "plots/SCN-54DBB25264A0_OUT-CA14AE91EB78.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.0
+              },
+              {
+                "step": 10,
+                "value": 0.0
+              },
+              {
+                "step": 15,
+                "value": 0.0
+              },
+              {
+                "step": 20,
+                "value": 0.0
+              },
+              {
+                "step": 25,
+                "value": 0.0
+              },
+              {
+                "step": 30,
+                "value": 0.0
+              },
+              {
+                "step": 35,
+                "value": 0.0
+              },
+              {
+                "step": 40,
+                "value": 0.0
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-ED75771E4311",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.9780082910663966,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.02367677866073338,
+            "effective_transmission": 1.053,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 0.1816124334095521,
+            "fraction_above_threshold": 0.2682926829268293,
+            "integrated_activity_ratio": 0.8357415083044891,
+            "late_window_minimum_ratio": 1.1875223224037791e-05,
+            "spectral_radius": 0.7901305208634836,
+            "tail_mean_magnitude_ratio": 0.21164715974186837,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Apply small damping adjustments.",
+          "plot": "plots/SCN-54DBB25264A0_OUT-ED75771E4311.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.035415417185939935
+              },
+              {
+                "step": 10,
+                "value": -0.06545942793431139
+              },
+              {
+                "step": 15,
+                "value": 0.029984706611746792
+              },
+              {
+                "step": 20,
+                "value": -0.009065371611099172
+              },
+              {
+                "step": 25,
+                "value": 0.0017739564818066756
+              },
+              {
+                "step": 30,
+                "value": -4.385778927237018e-05
+              },
+              {
+                "step": 35,
+                "value": -0.00014590068826140828
+              },
+              {
+                "step": 40,
+                "value": 7.847779312734994e-05
+              }
+            ]
+          }
+        }
+      ],
+      "desirable_result": "Prefer bounded dynamics that preserve meaningful target activity.",
+      "focused_pairs": [
+        {
+          "candidate_a": "OUT-96B50862564E",
+          "candidate_b": "OUT-C89F98BBA2E4",
+          "question": "Which result better balances stability with meaningful target activity?"
+        }
+      ],
+      "orientation": "stabilize",
+      "protected_constraints": [
+        "Keep all original nodes.",
+        "Do not fragment the graph.",
+        "No new self-loops.",
+        "Use finite bounded parameters."
+      ],
+      "requested_behavior": "Optimal behavior at b without collapse or runaway growth.",
+      "scenario_id": "SCN-54DBB25264A0",
+      "target_nodes": [
+        "b"
+      ],
+      "team_role": "A cooperative team responsible for stable, sustained activity at node b.",
+      "title": "Stabilizer: preserve useful behavior",
+      "trajectory_axis": {
+        "linear_threshold": 0.01,
+        "scale": "symmetric_log",
+        "time": [
+          0,
+          40
+        ],
+        "value": [
+          -110.0,
+          110.0
+        ]
+      }
+    },
+    {
+      "candidates": [
+        {
+          "action_count": 1,
+          "candidate_id": "OUT-6324DBD0C860",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 1.0,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.02393152418173509,
+            "effective_transmission": 1.107,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 1.0,
+            "fraction_above_threshold": 0.34146341463414637,
+            "integrated_activity_ratio": 1.0,
+            "late_window_minimum_ratio": 0.0001096979733731138,
+            "spectral_radius": 0.8259519598620734,
+            "tail_mean_magnitude_ratio": 1.0,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "1 bounded parameter edits",
+          "intervention_summary": "Strongly reduce an unrelated node's retention.",
+          "plot": "plots/SCN-37DE2EC302E1_OUT-6324DBD0C860.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.03773725888933857
+              },
+              {
+                "step": 10,
+                "value": -0.09812769894827049
+              },
+              {
+                "step": 15,
+                "value": 0.057479013535246246
+              },
+              {
+                "step": 20,
+                "value": -0.02243585055192579
+              },
+              {
+                "step": 25,
+                "value": 0.005923919236395856
+              },
+              {
+                "step": 30,
+                "value": -0.0004915429949729681
+              },
+              {
+                "step": 35,
+                "value": -0.0005594441718732177
+              },
+              {
+                "step": 40,
+                "value": 0.000432116857157919
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-708E769F2ABC",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.8878879974752734,
+            "binary_target_activity": 0.0,
+            "canonical_health": 0.010899182561307902,
+            "effective_transmission": 0.0,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 2.314188815180516e-09,
+            "fraction_above_threshold": 0.024390243902439025,
+            "integrated_activity_ratio": 0.12165273656270117,
+            "late_window_minimum_ratio": 0.0,
+            "spectral_radius": 0.0,
+            "tail_mean_magnitude_ratio": 1.0527589456367346e-09,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Set retention to zero and fully decay all edge transmission.",
+          "plot": "plots/SCN-37DE2EC302E1_OUT-708E769F2ABC.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.0
+              },
+              {
+                "step": 10,
+                "value": 0.0
+              },
+              {
+                "step": 15,
+                "value": 0.0
+              },
+              {
+                "step": 20,
+                "value": 0.0
+              },
+              {
+                "step": 25,
+                "value": 0.0
+              },
+              {
+                "step": 30,
+                "value": 0.0
+              },
+              {
+                "step": 35,
+                "value": 0.0
+              },
+              {
+                "step": 40,
+                "value": 0.0
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-735C7269C91D",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.9536429930562236,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.023115198793090087,
+            "effective_transmission": 0.945,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 0.007184982611968958,
+            "fraction_above_threshold": 0.24390243902439024,
+            "integrated_activity_ratio": 0.6496687381839233,
+            "late_window_minimum_ratio": 5.022678378874909e-07,
+            "spectral_radius": 0.7272991131577159,
+            "tail_mean_magnitude_ratio": 0.01275524247896601,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Moderately lower retention and increase edge decay.",
+          "plot": "plots/SCN-37DE2EC302E1_OUT-735C7269C91D.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.03832082025070081
+              },
+              {
+                "step": 10,
+                "value": -0.03296416030771934
+              },
+              {
+                "step": 15,
+                "value": 0.008957521244888843
+              },
+              {
+                "step": 20,
+                "value": -0.0015001800991384176
+              },
+              {
+                "step": 25,
+                "value": 0.00010892060923770005
+              },
+              {
+                "step": 30,
+                "value": 2.7284878645937205e-05
+              },
+              {
+                "step": 35,
+                "value": -1.3238472763408685e-05
+              },
+              {
+                "step": 40,
+                "value": 3.1047511122033053e-06
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 9,
+          "candidate_id": "OUT-A6201BEBD5FE",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.0,
+            "binary_target_activity": 1.0,
+            "canonical_health": 2.143039889571957e-05,
+            "effective_transmission": 2.295,
+            "explosion_detected": true,
+            "final_magnitude_ratio": 0.0,
+            "fraction_above_threshold": 0.0,
+            "integrated_activity_ratio": 0.0,
+            "late_window_minimum_ratio": 0.0,
+            "spectral_radius": 1.305375041894091,
+            "tail_mean_magnitude_ratio": 0.0,
+            "target_fit": 1.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "9 bounded parameter edits",
+          "intervention_summary": "Raise retention and strengthen transmission toward its bounds.",
+          "plot": "plots/SCN-37DE2EC302E1_OUT-A6201BEBD5FE.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": -2.999203128625778
+              },
+              {
+                "step": 10,
+                "value": 14.182629960336588
+              },
+              {
+                "step": 15,
+                "value": -57.94686510941902
+              },
+              {
+                "step": 20,
+                "value": 100.0
+              },
+              {
+                "step": 25,
+                "value": -100.0
+              },
+              {
+                "step": 30,
+                "value": 96.8748191741891
+              },
+              {
+                "step": 35,
+                "value": -75.22276279421166
+              },
+              {
+                "step": 40,
+                "value": 43.75088859475241
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 0,
+          "candidate_id": "OUT-B24B83AB031B",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 1.0,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.02395483175569996,
+            "effective_transmission": 1.107,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 1.0,
+            "fraction_above_threshold": 0.34146341463414637,
+            "integrated_activity_ratio": 1.0,
+            "late_window_minimum_ratio": 0.0001096979733731138,
+            "spectral_radius": 0.8259519598620734,
+            "tail_mean_magnitude_ratio": 1.0,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "none",
+          "intervention_summary": "No graph parameters or structure changed.",
+          "plot": "plots/SCN-37DE2EC302E1_OUT-B24B83AB031B.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.03773725888933857
+              },
+              {
+                "step": 10,
+                "value": -0.09812769894827049
+              },
+              {
+                "step": 15,
+                "value": 0.057479013535246246
+              },
+              {
+                "step": 20,
+                "value": -0.02243585055192579
+              },
+              {
+                "step": 25,
+                "value": 0.005923919236395856
+              },
+              {
+                "step": 30,
+                "value": -0.0004915429949729681
+              },
+              {
+                "step": 35,
+                "value": -0.0005594441718732177
+              },
+              {
+                "step": 40,
+                "value": 0.000432116857157919
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 1,
+          "candidate_id": "OUT-CB9749D28DC6",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.9095534927995834,
+            "binary_target_activity": 0.0,
+            "canonical_health": 0.01565992682952348,
+            "effective_transmission": 1.107,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 2.318820023608839e-09,
+            "fraction_above_threshold": 0.0975609756097561,
+            "integrated_activity_ratio": 0.2997322489210179,
+            "late_window_minimum_ratio": 2.7026026841005574e-15,
+            "spectral_radius": 0.72,
+            "tail_mean_magnitude_ratio": 5.6749718055515595e-09,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "1 bounded parameter edits",
+          "intervention_summary": "Strongly reduce target-node retention.",
+          "plot": "plots/SCN-37DE2EC302E1_OUT-CB9749D28DC6.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": -0.00024348513171684543
+              },
+              {
+                "step": 10,
+                "value": -0.00015146890680231274
+              },
+              {
+                "step": 15,
+                "value": 4.879598770061536e-06
+              },
+              {
+                "step": 20,
+                "value": -1.0647572662383003e-07
+              },
+              {
+                "step": 25,
+                "value": 1.8220929908855195e-09
+              },
+              {
+                "step": 30,
+                "value": -2.3867175766615093e-11
+              },
+              {
+                "step": 35,
+                "value": 1.7655908953297655e-13
+              },
+              {
+                "step": 40,
+                "value": 2.001223235522781e-15
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-CF00C5274C39",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.9780082910663966,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.02367677866073338,
+            "effective_transmission": 1.053,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 0.1816124334095521,
+            "fraction_above_threshold": 0.2682926829268293,
+            "integrated_activity_ratio": 0.8357415083044891,
+            "late_window_minimum_ratio": 1.1875223224037791e-05,
+            "spectral_radius": 0.7901305208634836,
+            "tail_mean_magnitude_ratio": 0.21164715974186837,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Apply small damping adjustments.",
+          "plot": "plots/SCN-37DE2EC302E1_OUT-CF00C5274C39.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.035415417185939935
+              },
+              {
+                "step": 10,
+                "value": -0.06545942793431139
+              },
+              {
+                "step": 15,
+                "value": 0.029984706611746792
+              },
+              {
+                "step": 20,
+                "value": -0.009065371611099172
+              },
+              {
+                "step": 25,
+                "value": 0.0017739564818066756
+              },
+              {
+                "step": 30,
+                "value": -4.385778927237018e-05
+              },
+              {
+                "step": 35,
+                "value": -0.00014590068826140828
+              },
+              {
+                "step": 40,
+                "value": 7.847779312734994e-05
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-E7D0596E5578",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.895189766174167,
+            "binary_target_activity": 0.0,
+            "canonical_health": 0.008010859557933623,
+            "effective_transmission": 0.29699999999999993,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 2.314188815180516e-09,
+            "fraction_above_threshold": 0.07317073170731707,
+            "integrated_activity_ratio": 0.18215049434940928,
+            "late_window_minimum_ratio": 2.4119381004692626e-28,
+            "spectral_radius": 0.21021474734185513,
+            "tail_mean_magnitude_ratio": 1.0527589461859534e-09,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Strongly damp all nodes and edges.",
+          "plot": "plots/SCN-37DE2EC302E1_OUT-E7D0596E5578.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": -2.673244104986399e-05
+              },
+              {
+                "step": 10,
+                "value": -6.42848508918163e-08
+              },
+              {
+                "step": 15,
+                "value": 5.253082956796258e-11
+              },
+              {
+                "step": 20,
+                "value": -2.8412066699975295e-14
+              },
+              {
+                "step": 25,
+                "value": 1.2374060858681743e-17
+              },
+              {
+                "step": 30,
+                "value": -4.456658560379329e-21
+              },
+              {
+                "step": 35,
+                "value": 1.244308901474632e-24
+              },
+              {
+                "step": 40,
+                "value": -1.7859919246354797e-28
+              }
+            ]
+          }
+        }
+      ],
+      "desirable_result": "Prefer objective-relevant disruption over arbitrary model destruction.",
+      "focused_pairs": [
+        {
+          "candidate_a": "OUT-CB9749D28DC6",
+          "candidate_b": "OUT-6324DBD0C860",
+          "question": "Which result better represents objective-relevant bounded disruption?"
+        }
+      ],
+      "orientation": "disrupt",
+      "protected_constraints": [
+        "Keep all original nodes.",
+        "Do not fragment the graph.",
+        "No new self-loops.",
+        "Use finite bounded parameters."
+      ],
+      "requested_behavior": "Meaningful degradation of b while respecting protected graph constraints.",
+      "scenario_id": "SCN-37DE2EC302E1",
+      "target_nodes": [
+        "b"
+      ],
+      "team_role": "A bounded adversarial team seeking to degrade node b, not damage unrelated structure.",
+      "title": "Disruptor: objective-relevant pressure",
+      "trajectory_axis": {
+        "linear_threshold": 0.01,
+        "scale": "symmetric_log",
+        "time": [
+          0,
+          40
+        ],
+        "value": [
+          -110.0,
+          110.0
+        ]
+      }
+    },
+    {
+      "candidates": [
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-0B0B0DDEEA35",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.9626623468953612,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.0037582126549731026,
+            "effective_transmission": 1.7409999999999999,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 1.0,
+            "fraction_above_threshold": 0.8780487804878049,
+            "integrated_activity_ratio": 0.9535297662062165,
+            "late_window_minimum_ratio": 1.0,
+            "spectral_radius": 1.6075339724721545,
+            "tail_mean_magnitude_ratio": 1.0,
+            "target_fit": 1.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Moderately lower retention and increase edge decay.",
+          "plot": "plots/SCN-FA1BE0EC2084_OUT-0B0B0DDEEA35.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 7.132050902434983
+              },
+              {
+                "step": 10,
+                "value": 76.56237782982983
+              },
+              {
+                "step": 15,
+                "value": 100.0
+              },
+              {
+                "step": 20,
+                "value": 100.0
+              },
+              {
+                "step": 25,
+                "value": 100.0
+              },
+              {
+                "step": 30,
+                "value": 100.0
+              },
+              {
+                "step": 35,
+                "value": 100.0
+              },
+              {
+                "step": 40,
+                "value": 100.0
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-0F340CBD4F8F",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.4409883846373055,
+            "binary_target_activity": 0.0,
+            "canonical_health": 0.010899182561307902,
+            "effective_transmission": 0.0,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 9.999999999999996e-11,
+            "fraction_above_threshold": 0.0,
+            "integrated_activity_ratio": 0.00014892828449707523,
+            "late_window_minimum_ratio": 0.0,
+            "spectral_radius": 0.0,
+            "tail_mean_magnitude_ratio": 9.999999999999996e-11,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Set retention to zero and fully decay all edge transmission.",
+          "plot": "plots/SCN-FA1BE0EC2084_OUT-0F340CBD4F8F.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.0
+              },
+              {
+                "step": 10,
+                "value": 0.0
+              },
+              {
+                "step": 15,
+                "value": 0.0
+              },
+              {
+                "step": 20,
+                "value": 0.0
+              },
+              {
+                "step": 25,
+                "value": 0.0
+              },
+              {
+                "step": 30,
+                "value": 0.0
+              },
+              {
+                "step": 35,
+                "value": 0.0
+              },
+              {
+                "step": 40,
+                "value": 0.0
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 7,
+          "candidate_id": "OUT-251930B1D3F4",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.9739360847587796,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.002552793050038237,
+            "effective_transmission": 2.5949999999999998,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 1.0,
+            "fraction_above_threshold": 0.926829268292683,
+            "integrated_activity_ratio": 0.9687559569915012,
+            "late_window_minimum_ratio": 1.0,
+            "spectral_radius": 2.0,
+            "tail_mean_magnitude_ratio": 1.0,
+            "target_fit": 1.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "7 bounded parameter edits",
+          "intervention_summary": "Raise retention and strengthen transmission toward its bounds.",
+          "plot": "plots/SCN-FA1BE0EC2084_OUT-251930B1D3F4.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 20.8
+              },
+              {
+                "step": 10,
+                "value": 100.0
+              },
+              {
+                "step": 15,
+                "value": 100.0
+              },
+              {
+                "step": 20,
+                "value": 100.0
+              },
+              {
+                "step": 25,
+                "value": 100.0
+              },
+              {
+                "step": 30,
+                "value": 100.0
+              },
+              {
+                "step": 35,
+                "value": 100.0
+              },
+              {
+                "step": 40,
+                "value": 100.0
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-49D7E984C0A7",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.9892838528814135,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.0033040298700817666,
+            "effective_transmission": 1.9049999999999998,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 1.0,
+            "fraction_above_threshold": 0.9024390243902439,
+            "integrated_activity_ratio": 0.9868426889410162,
+            "late_window_minimum_ratio": 1.0,
+            "spectral_radius": 1.7254916063332595,
+            "tail_mean_magnitude_ratio": 1.0,
+            "target_fit": 1.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Apply small damping adjustments.",
+          "plot": "plots/SCN-FA1BE0EC2084_OUT-49D7E984C0A7.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 10.161972550925672
+              },
+              {
+                "step": 10,
+                "value": 100.0
+              },
+              {
+                "step": 15,
+                "value": 100.0
+              },
+              {
+                "step": 20,
+                "value": 100.0
+              },
+              {
+                "step": 25,
+                "value": 100.0
+              },
+              {
+                "step": 30,
+                "value": 100.0
+              },
+              {
+                "step": 35,
+                "value": 100.0
+              },
+              {
+                "step": 40,
+                "value": 100.0
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 0,
+          "candidate_id": "OUT-553BF07CCC46",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 1.0,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.0031008872457008044,
+            "effective_transmission": 1.9869999999999999,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 1.0,
+            "fraction_above_threshold": 0.9024390243902439,
+            "integrated_activity_ratio": 1.0,
+            "late_window_minimum_ratio": 1.0,
+            "spectral_radius": 1.7894704232638121,
+            "tail_mean_magnitude_ratio": 1.0,
+            "target_fit": 1.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "none",
+          "intervention_summary": "No graph parameters or structure changed.",
+          "plot": "plots/SCN-FA1BE0EC2084_OUT-553BF07CCC46.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 12.190917807039998
+              },
+              {
+                "step": 10,
+                "value": 100.0
+              },
+              {
+                "step": 15,
+                "value": 100.0
+              },
+              {
+                "step": 20,
+                "value": 100.0
+              },
+              {
+                "step": 25,
+                "value": 100.0
+              },
+              {
+                "step": 30,
+                "value": 100.0
+              },
+              {
+                "step": 35,
+                "value": 100.0
+              },
+              {
+                "step": 40,
+                "value": 100.0
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-94DF4E253034",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.44102991711893763,
+            "binary_target_activity": 0.0,
+            "canonical_health": 0.005483137645151028,
+            "effective_transmission": 0.45099999999999996,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 9.999999999999996e-11,
+            "fraction_above_threshold": 0.0,
+            "integrated_activity_ratio": 0.00026393714926009084,
+            "late_window_minimum_ratio": 2.5324490074928855e-20,
+            "spectral_radius": 0.3668834931180386,
+            "tail_mean_magnitude_ratio": 9.999999999999996e-11,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Strongly damp all nodes and edges.",
+          "plot": "plots/SCN-FA1BE0EC2084_OUT-94DF4E253034.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.004416260443041822
+              },
+              {
+                "step": 10,
+                "value": 2.9355909414524913e-05
+              },
+              {
+                "step": 15,
+                "value": 1.9513555171033453e-07
+              },
+              {
+                "step": 20,
+                "value": 1.2971113585210957e-09
+              },
+              {
+                "step": 25,
+                "value": 8.62220062750019e-12
+              },
+              {
+                "step": 30,
+                "value": 5.731377122903793e-14
+              },
+              {
+                "step": 35,
+                "value": 3.8097795614005207e-16
+              },
+              {
+                "step": 40,
+                "value": 2.5324490074928856e-18
+              }
+            ]
+          }
+        }
+      ],
+      "desirable_result": "Prefer true stabilization; do not treat numerical extinction as success.",
+      "focused_pairs": [
+        {
+          "candidate_a": "OUT-0B0B0DDEEA35",
+          "candidate_b": "OUT-0F340CBD4F8F",
+          "question": "Does the stability improvement justify the difference in target activity?"
+        }
+      ],
+      "orientation": "stabilize",
+      "protected_constraints": [
+        "Keep all original nodes.",
+        "Do not fragment the graph.",
+        "No new self-loops.",
+        "Use finite bounded parameters."
+      ],
+      "requested_behavior": "Spectral radius at or below 0.82 while preserving a meaningful signal at b.",
+      "scenario_id": "SCN-FA1BE0EC2084",
+      "target_nodes": [
+        "b"
+      ],
+      "team_role": "A stabilizing team balancing a spectral limit against continued useful activity.",
+      "title": "Stability versus activity",
+      "trajectory_axis": {
+        "linear_threshold": 0.01,
+        "scale": "symmetric_log",
+        "time": [
+          0,
+          40
+        ],
+        "value": [
+          -5.0,
+          105.0
+        ]
+      }
+    },
+    {
+      "candidates": [
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-617BF788035B",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.9776738447664891,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.004129233560210324,
+            "effective_transmission": 1.905,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 1.0,
+            "fraction_above_threshold": 0.8780487804878049,
+            "integrated_activity_ratio": 0.9707198052162361,
+            "late_window_minimum_ratio": 1.0,
+            "spectral_radius": 1.5045870119269027,
+            "tail_mean_magnitude_ratio": 1.0,
+            "target_fit": 1.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Apply small damping adjustments.",
+          "plot": "plots/SCN-F61FDF646970_OUT-617BF788035B.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 5.198966230464604
+              },
+              {
+                "step": 10,
+                "value": 40.086958106953105
+              },
+              {
+                "step": 15,
+                "value": 100.0
+              },
+              {
+                "step": 20,
+                "value": 100.0
+              },
+              {
+                "step": 25,
+                "value": 100.0
+              },
+              {
+                "step": 30,
+                "value": 100.0
+              },
+              {
+                "step": 35,
+                "value": 100.0
+              },
+              {
+                "step": 40,
+                "value": 100.0
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 7,
+          "candidate_id": "OUT-733E2ACDFEA8",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.9285534229629948,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.002552793050038237,
+            "effective_transmission": 2.5949999999999998,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 1.0,
+            "fraction_above_threshold": 0.926829268292683,
+            "integrated_activity_ratio": 0.9123031543492687,
+            "late_window_minimum_ratio": 1.0,
+            "spectral_radius": 2.0,
+            "tail_mean_magnitude_ratio": 1.0,
+            "target_fit": 1.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "7 bounded parameter edits",
+          "intervention_summary": "Raise retention and strengthen transmission toward its bounds.",
+          "plot": "plots/SCN-F61FDF646970_OUT-733E2ACDFEA8.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 20.8
+              },
+              {
+                "step": 10,
+                "value": 100.0
+              },
+              {
+                "step": 15,
+                "value": 100.0
+              },
+              {
+                "step": 20,
+                "value": 100.0
+              },
+              {
+                "step": 25,
+                "value": 100.0
+              },
+              {
+                "step": 30,
+                "value": 100.0
+              },
+              {
+                "step": 35,
+                "value": 100.0
+              },
+              {
+                "step": 40,
+                "value": 100.0
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-8DE21847B291",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.9209582965175618,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.004985294527984733,
+            "effective_transmission": 1.7409999999999999,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 1.0,
+            "fraction_above_threshold": 0.8292682926829268,
+            "integrated_activity_ratio": 0.8932224691541559,
+            "late_window_minimum_ratio": 1.0,
+            "spectral_radius": 1.3867047609329943,
+            "tail_mean_magnitude_ratio": 1.0,
+            "target_fit": 1.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Moderately lower retention and increase edge decay.",
+          "plot": "plots/SCN-F61FDF646970_OUT-8DE21847B291.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 3.4574057722609672
+              },
+              {
+                "step": 10,
+                "value": 17.7284220824238
+              },
+              {
+                "step": 15,
+                "value": 90.90549081424288
+              },
+              {
+                "step": 20,
+                "value": 100.0
+              },
+              {
+                "step": 25,
+                "value": 100.0
+              },
+              {
+                "step": 30,
+                "value": 100.0
+              },
+              {
+                "step": 35,
+                "value": 100.0
+              },
+              {
+                "step": 40,
+                "value": 100.0
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 0,
+          "candidate_id": "OUT-B531F939F245",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 1.0,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.003937080748730263,
+            "effective_transmission": 1.987,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 1.0,
+            "fraction_above_threshold": 0.8780487804878049,
+            "integrated_activity_ratio": 1.0,
+            "late_window_minimum_ratio": 1.0,
+            "spectral_radius": 1.5685281374238569,
+            "tail_mean_magnitude_ratio": 1.0,
+            "target_fit": 1.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "none",
+          "intervention_summary": "No graph parameters or structure changed.",
+          "plot": "plots/SCN-F61FDF646970_OUT-B531F939F245.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 6.4016510976
+              },
+              {
+                "step": 10,
+                "value": 60.77894466035309
+              },
+              {
+                "step": 15,
+                "value": 100.0
+              },
+              {
+                "step": 20,
+                "value": 100.0
+              },
+              {
+                "step": 25,
+                "value": 100.0
+              },
+              {
+                "step": 30,
+                "value": 100.0
+              },
+              {
+                "step": 35,
+                "value": 100.0
+              },
+              {
+                "step": 40,
+                "value": 100.0
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 3,
+          "candidate_id": "OUT-BCBB584856F2",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.94474226842855,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.0008050731488920901,
+            "effective_transmission": 3.5869999999999997,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 1.0,
+            "fraction_above_threshold": 0.9024390243902439,
+            "integrated_activity_ratio": 0.9313475658199841,
+            "late_window_minimum_ratio": 1.0,
+            "spectral_radius": 1.8244390859064383,
+            "tail_mean_magnitude_ratio": 1.0,
+            "target_fit": 1.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "a",
+                "d"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ],
+              [
+                "d",
+                "b"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c",
+              "d"
+            ]
+          },
+          "intervention_magnitude": "three atomic structural edits",
+          "intervention_summary": "Add one connected mediator and two reinforcing edges.",
+          "plot": "plots/SCN-F61FDF646970_OUT-BCBB584856F2.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 14.573972275200003
+              },
+              {
+                "step": 10,
+                "value": 100.0
+              },
+              {
+                "step": 15,
+                "value": 100.0
+              },
+              {
+                "step": 20,
+                "value": 100.0
+              },
+              {
+                "step": 25,
+                "value": 100.0
+              },
+              {
+                "step": 30,
+                "value": 100.0
+              },
+              {
+                "step": 35,
+                "value": 100.0
+              },
+              {
+                "step": 40,
+                "value": 100.0
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-C78017BEA783",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.46254150826050267,
+            "binary_target_activity": 0.0,
+            "canonical_health": 0.010899182561307902,
+            "effective_transmission": 0.0,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 9.999999999999996e-11,
+            "fraction_above_threshold": 0.0,
+            "integrated_activity_ratio": 0.0001581438824180936,
+            "late_window_minimum_ratio": 0.0,
+            "spectral_radius": 0.0,
+            "tail_mean_magnitude_ratio": 9.999999999999996e-11,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Set retention to zero and fully decay all edge transmission.",
+          "plot": "plots/SCN-F61FDF646970_OUT-C78017BEA783.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.0
+              },
+              {
+                "step": 10,
+                "value": 0.0
+              },
+              {
+                "step": 15,
+                "value": 0.0
+              },
+              {
+                "step": 20,
+                "value": 0.0
+              },
+              {
+                "step": 25,
+                "value": 0.0
+              },
+              {
+                "step": 30,
+                "value": 0.0
+              },
+              {
+                "step": 35,
+                "value": 0.0
+              },
+              {
+                "step": 40,
+                "value": 0.0
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 1,
+          "candidate_id": "OUT-E73D526ED443",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.46372409634253686,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.023337961060856196,
+            "effective_transmission": 1.187,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 7.957111180302721e-07,
+            "fraction_above_threshold": 0.0,
+            "integrated_activity_ratio": 0.0034694126846403803,
+            "late_window_minimum_ratio": 7.957101180310685e-07,
+            "spectral_radius": 0.72,
+            "tail_mean_magnitude_ratio": 5.432370001349151e-06,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "one structural edit",
+          "intervention_summary": "Remove one reinforcing feedback edge.",
+          "plot": "plots/SCN-F61FDF646970_OUT-E73D526ED443.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 1.0642046976
+              },
+              {
+                "step": 10,
+                "value": 0.39311015547557104
+              },
+              {
+                "step": 15,
+                "value": 0.11228432812183932
+              },
+              {
+                "step": 20,
+                "value": 0.02873450960480333
+              },
+              {
+                "step": 25,
+                "value": 0.006915961886198958
+              },
+              {
+                "step": 30,
+                "value": 0.0016005702202875035
+              },
+              {
+                "step": 35,
+                "value": 0.0003604671793027498
+              },
+              {
+                "step": 40,
+                "value": 7.957101180310685e-05
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-FD3EA3441A14",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.4625856814052159,
+            "binary_target_activity": 0.0,
+            "canonical_health": 0.005624109433793857,
+            "effective_transmission": 0.45099999999999996,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 9.999999999999996e-11,
+            "fraction_above_threshold": 0.0,
+            "integrated_activity_ratio": 0.00028198164994459114,
+            "late_window_minimum_ratio": 2.512687227271593e-20,
+            "spectral_radius": 0.36667619023324854,
+            "tail_mean_magnitude_ratio": 9.999999999999996e-11,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "a"
+              ],
+              [
+                "b",
+                "c"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Strongly damp all nodes and edges.",
+          "plot": "plots/SCN-F61FDF646970_OUT-FD3EA3441A14.png",
+          "sampled_trajectories": {
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.004469341797273599
+              },
+              {
+                "step": 10,
+                "value": 2.962491552954329e-05
+              },
+              {
+                "step": 15,
+                "value": 1.963679799834986e-07
+              },
+              {
+                "step": 20,
+                "value": 1.301620034134631e-09
+              },
+              {
+                "step": 25,
+                "value": 8.62775445061363e-12
+              },
+              {
+                "step": 30,
+                "value": 5.718884536805148e-14
+              },
+              {
+                "step": 35,
+                "value": 3.790747700635234e-16
+              },
+              {
+                "step": 40,
+                "value": 2.512687227271593e-18
+              }
+            ]
+          }
+        }
+      ],
+      "desirable_result": "Prefer a causally useful bounded edit over complexity without benefit.",
+      "focused_pairs": [
+        {
+          "candidate_a": "OUT-E73D526ED443",
+          "candidate_b": "OUT-BCBB584856F2",
+          "question": "Which graph outcome is causally useful rather than merely more complex?"
+        }
+      ],
+      "orientation": "stabilize",
+      "protected_constraints": [
+        "Keep all original nodes.",
+        "Do not fragment the graph.",
+        "No new self-loops.",
+        "Use finite bounded parameters."
+      ],
+      "requested_behavior": "Improve the target dynamics without fragmentation or node deletion.",
+      "scenario_id": "SCN-F61FDF646970",
+      "target_nodes": [
+        "b"
+      ],
+      "team_role": "A stabilizing team permitted to make small, reversible structural changes.",
+      "title": "Bounded structural intervention",
+      "trajectory_axis": {
+        "linear_threshold": 0.01,
+        "scale": "symmetric_log",
+        "time": [
+          0,
+          40
+        ],
+        "value": [
+          -5.0,
+          105.0
+        ]
+      }
+    },
+    {
+      "candidates": [
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-0AC8C0FB68E9",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.991272948596572,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.024389357366321866,
+            "effective_transmission": 0.2754,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 0.1050109052996732,
+            "fraction_above_threshold": 0.17886178861788618,
+            "integrated_activity_ratio": 0.8922429880066631,
+            "late_window_minimum_ratio": 2.3136906390719037e-08,
+            "spectral_radius": 0.6418000000000001,
+            "tail_mean_magnitude_ratio": 0.16639794216595458,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "c"
+              ],
+              [
+                "c",
+                "a"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Apply small damping adjustments.",
+          "plot": "plots/SCN-FA9AB3A3E79A_OUT-0AC8C0FB68E9.png",
+          "sampled_trajectories": {
+            "a": [
+              {
+                "step": 0,
+                "value": 0.8
+              },
+              {
+                "step": 5,
+                "value": 0.0618075827313719
+              },
+              {
+                "step": 10,
+                "value": 0.0061878147083417375
+              },
+              {
+                "step": 15,
+                "value": 0.0006774811415651202
+              },
+              {
+                "step": 20,
+                "value": 7.460323368953378e-05
+              },
+              {
+                "step": 25,
+                "value": 8.16013160951025e-06
+              },
+              {
+                "step": 30,
+                "value": 8.893703813344704e-07
+              },
+              {
+                "step": 35,
+                "value": 9.684119773623839e-08
+              },
+              {
+                "step": 40,
+                "value": 1.054411479842012e-08
+              }
+            ],
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.06429985738975913
+              },
+              {
+                "step": 10,
+                "value": 0.0066696669680569465
+              },
+              {
+                "step": 15,
+                "value": 0.0006981603339811052
+              },
+              {
+                "step": 20,
+                "value": 7.504151955358574e-05
+              },
+              {
+                "step": 25,
+                "value": 8.156880246044626e-06
+              },
+              {
+                "step": 30,
+                "value": 8.886855589193674e-07
+              },
+              {
+                "step": 35,
+                "value": 9.681145952678677e-08
+              },
+              {
+                "step": 40,
+                "value": 1.0543474785661684e-08
+              }
+            ],
+            "c": [
+              {
+                "step": 0,
+                "value": 0.3
+              },
+              {
+                "step": 5,
+                "value": 0.04812079864220202
+              },
+              {
+                "step": 10,
+                "value": 0.006114692812709435
+              },
+              {
+                "step": 15,
+                "value": 0.0006902888661712406
+              },
+              {
+                "step": 20,
+                "value": 7.531987478510854e-05
+              },
+              {
+                "step": 25,
+                "value": 8.179982472824203e-06
+              },
+              {
+                "step": 30,
+                "value": 8.894866702641908e-07
+              },
+              {
+                "step": 35,
+                "value": 9.68231245224122e-08
+              },
+              {
+                "step": 40,
+                "value": 1.0543087830842578e-08
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-550D17C95E0E",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.9460334410273766,
+            "binary_target_activity": 0.0,
+            "canonical_health": 0.010899182561307902,
+            "effective_transmission": 0.0,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 9.958776280835791e-06,
+            "fraction_above_threshold": 0.02439024390243903,
+            "integrated_activity_ratio": 0.31063659847123076,
+            "late_window_minimum_ratio": 0.0,
+            "spectral_radius": 0.0,
+            "tail_mean_magnitude_ratio": 7.430052985686457e-07,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "c"
+              ],
+              [
+                "c",
+                "a"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Set retention to zero and fully decay all edge transmission.",
+          "plot": "plots/SCN-FA9AB3A3E79A_OUT-550D17C95E0E.png",
+          "sampled_trajectories": {
+            "a": [
+              {
+                "step": 0,
+                "value": 0.8
+              },
+              {
+                "step": 5,
+                "value": 0.0
+              },
+              {
+                "step": 10,
+                "value": 0.0
+              },
+              {
+                "step": 15,
+                "value": 0.0
+              },
+              {
+                "step": 20,
+                "value": 0.0
+              },
+              {
+                "step": 25,
+                "value": 0.0
+              },
+              {
+                "step": 30,
+                "value": 0.0
+              },
+              {
+                "step": 35,
+                "value": 0.0
+              },
+              {
+                "step": 40,
+                "value": 0.0
+              }
+            ],
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.0
+              },
+              {
+                "step": 10,
+                "value": 0.0
+              },
+              {
+                "step": 15,
+                "value": 0.0
+              },
+              {
+                "step": 20,
+                "value": 0.0
+              },
+              {
+                "step": 25,
+                "value": 0.0
+              },
+              {
+                "step": 30,
+                "value": 0.0
+              },
+              {
+                "step": 35,
+                "value": 0.0
+              },
+              {
+                "step": 40,
+                "value": 0.0
+              }
+            ],
+            "c": [
+              {
+                "step": 0,
+                "value": 0.3
+              },
+              {
+                "step": 5,
+                "value": 0.0
+              },
+              {
+                "step": 10,
+                "value": 0.0
+              },
+              {
+                "step": 15,
+                "value": 0.0
+              },
+              {
+                "step": 20,
+                "value": 0.0
+              },
+              {
+                "step": 25,
+                "value": 0.0
+              },
+              {
+                "step": 30,
+                "value": 0.0
+              },
+              {
+                "step": 35,
+                "value": 0.0
+              },
+              {
+                "step": 40,
+                "value": 0.0
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-55D98B0D7386",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.9799803250058113,
+            "binary_target_activity": 0.0,
+            "canonical_health": 0.014083931819848565,
+            "effective_transmission": 0.23219999999999996,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 0.0015384955275932297,
+            "fraction_above_threshold": 0.14634146341463417,
+            "integrated_activity_ratio": 0.7510905863362822,
+            "late_window_minimum_ratio": 3.368105007617274e-10,
+            "spectral_radius": 0.5774,
+            "tail_mean_magnitude_ratio": 0.005942812735932567,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "c"
+              ],
+              [
+                "c",
+                "a"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Moderately lower retention and increase edge decay.",
+          "plot": "plots/SCN-FA9AB3A3E79A_OUT-55D98B0D7386.png",
+          "sampled_trajectories": {
+            "a": [
+              {
+                "step": 0,
+                "value": 0.8
+              },
+              {
+                "step": 5,
+                "value": 0.03695615046428129
+              },
+              {
+                "step": 10,
+                "value": 0.0021576670741377765
+              },
+              {
+                "step": 15,
+                "value": 0.00013836688888961448
+              },
+              {
+                "step": 20,
+                "value": 8.980229358506627e-06
+              },
+              {
+                "step": 25,
+                "value": 5.796925092402411e-07
+              },
+              {
+                "step": 30,
+                "value": 3.7265916345068124e-08
+              },
+              {
+                "step": 35,
+                "value": 2.3920797967982608e-09
+              },
+              {
+                "step": 40,
+                "value": 1.5350231892178864e-10
+              }
+            ],
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.037873752788104044
+              },
+              {
+                "step": 10,
+                "value": 0.002333314529228299
+              },
+              {
+                "step": 15,
+                "value": 0.0001437275438109343
+              },
+              {
+                "step": 20,
+                "value": 9.072314809988764e-06
+              },
+              {
+                "step": 25,
+                "value": 5.801392167918175e-07
+              },
+              {
+                "step": 30,
+                "value": 3.723607360314871e-08
+              },
+              {
+                "step": 35,
+                "value": 2.390877108760903e-09
+              },
+              {
+                "step": 40,
+                "value": 1.5347702601037465e-10
+              }
+            ],
+            "c": [
+              {
+                "step": 0,
+                "value": 0.3
+              },
+              {
+                "step": 5,
+                "value": 0.02785435738431896
+              },
+              {
+                "step": 10,
+                "value": 0.0020990542607005596
+              },
+              {
+                "step": 15,
+                "value": 0.00014083866746885567
+              },
+              {
+                "step": 20,
+                "value": 9.090313762557412e-06
+              },
+              {
+                "step": 25,
+                "value": 5.821334603537299e-07
+              },
+              {
+                "step": 30,
+                "value": 3.729326456359782e-08
+              },
+              {
+                "step": 35,
+                "value": 2.3918012520895024e-09
+              },
+              {
+                "step": 40,
+                "value": 1.5347986548365914e-10
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 0,
+          "candidate_id": "OUT-7DFE348C7AD2",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 1.0,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.024390146238131048,
+            "effective_transmission": 0.29700000000000004,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 1.0,
+            "fraction_above_threshold": 0.21138211382113822,
+            "integrated_activity_ratio": 1.0,
+            "late_window_minimum_ratio": 2.2034777831068364e-07,
+            "spectral_radius": 0.6789999999999999,
+            "tail_mean_magnitude_ratio": 1.0,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "c"
+              ],
+              [
+                "c",
+                "a"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "none",
+          "intervention_summary": "No graph parameters or structure changed.",
+          "plot": "plots/SCN-FA9AB3A3E79A_OUT-7DFE348C7AD2.png",
+          "sampled_trajectories": {
+            "a": [
+              {
+                "step": 0,
+                "value": 0.8
+              },
+              {
+                "step": 5,
+                "value": 0.0815745970319195
+              },
+              {
+                "step": 10,
+                "value": 0.010860894154456216
+              },
+              {
+                "step": 15,
+                "value": 0.0015786652268631836
+              },
+              {
+                "step": 20,
+                "value": 0.00023037228389789457
+              },
+              {
+                "step": 25,
+                "value": 3.3384315961475046e-05
+              },
+              {
+                "step": 30,
+                "value": 4.821633581295441e-06
+              },
+              {
+                "step": 35,
+                "value": 6.958319267300167e-07
+              },
+              {
+                "step": 40,
+                "value": 1.0041701182228753e-07
+              }
+            ],
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.08522579485846968
+              },
+              {
+                "step": 10,
+                "value": 0.011691136259058144
+              },
+              {
+                "step": 15,
+                "value": 0.0016231160260746379
+              },
+              {
+                "step": 20,
+                "value": 0.00023147733207603752
+              },
+              {
+                "step": 25,
+                "value": 3.336396635308812e-05
+              },
+              {
+                "step": 30,
+                "value": 4.8181449960560785e-06
+              },
+              {
+                "step": 35,
+                "value": 6.956552066613715e-07
+              },
+              {
+                "step": 40,
+                "value": 1.0041299582238987e-07
+              }
+            ],
+            "c": [
+              {
+                "step": 0,
+                "value": 0.3
+              },
+              {
+                "step": 5,
+                "value": 0.06412349242864918
+              },
+              {
+                "step": 10,
+                "value": 0.010776619804606017
+              },
+              {
+                "step": 15,
+                "value": 0.0016084571017365055
+              },
+              {
+                "step": 20,
+                "value": 0.00023239971237720263
+              },
+              {
+                "step": 25,
+                "value": 3.345093742839153e-05
+              },
+              {
+                "step": 30,
+                "value": 4.821717065635962e-06
+              },
+              {
+                "step": 35,
+                "value": 6.957033334470605e-07
+              },
+              {
+                "step": 40,
+                "value": 1.0040882355282355e-07
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 9,
+          "candidate_id": "OUT-7EE9D42DD762",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.0,
+            "binary_target_activity": 1.0,
+            "canonical_health": 0.0056650889812664374,
+            "effective_transmission": 0.9179999999999999,
+            "explosion_detected": true,
+            "final_magnitude_ratio": 0.0,
+            "fraction_above_threshold": 0.0,
+            "integrated_activity_ratio": 0.0,
+            "late_window_minimum_ratio": 0.0,
+            "spectral_radius": 1.3060000000000023,
+            "tail_mean_magnitude_ratio": 0.0,
+            "target_fit": 1.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "c"
+              ],
+              [
+                "c",
+                "a"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "9 bounded parameter edits",
+          "intervention_summary": "Raise retention and strengthen transmission toward its bounds.",
+          "plot": "plots/SCN-FA9AB3A3E79A_OUT-7EE9D42DD762.png",
+          "sampled_trajectories": {
+            "a": [
+              {
+                "step": 0,
+                "value": 0.8
+              },
+              {
+                "step": 5,
+                "value": 1.970893936919888
+              },
+              {
+                "step": 10,
+                "value": 7.6147608997204035
+              },
+              {
+                "step": 15,
+                "value": 29.26312740384242
+              },
+              {
+                "step": 20,
+                "value": 100.0
+              },
+              {
+                "step": 25,
+                "value": 100.0
+              },
+              {
+                "step": 30,
+                "value": 100.0
+              },
+              {
+                "step": 35,
+                "value": 100.0
+              },
+              {
+                "step": 40,
+                "value": 100.0
+              }
+            ],
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 2.1840467568895328
+              },
+              {
+                "step": 10,
+                "value": 7.718525260423352
+              },
+              {
+                "step": 15,
+                "value": 29.204758152696606
+              },
+              {
+                "step": 20,
+                "value": 100.0
+              },
+              {
+                "step": 25,
+                "value": 100.0
+              },
+              {
+                "step": 30,
+                "value": 100.0
+              },
+              {
+                "step": 35,
+                "value": 100.0
+              },
+              {
+                "step": 40,
+                "value": 100.0
+              }
+            ],
+            "c": [
+              {
+                "step": 0,
+                "value": 0.3
+              },
+              {
+                "step": 5,
+                "value": 1.9241114323214208
+              },
+              {
+                "step": 10,
+                "value": 7.763510559991185
+              },
+              {
+                "step": 15,
+                "value": 29.28625894867857
+              },
+              {
+                "step": 20,
+                "value": 100.0
+              },
+              {
+                "step": 25,
+                "value": 100.0
+              },
+              {
+                "step": 30,
+                "value": 100.0
+              },
+              {
+                "step": 35,
+                "value": 100.0
+              },
+              {
+                "step": 40,
+                "value": 100.0
+              }
+            ]
+          }
+        },
+        {
+          "action_count": 6,
+          "candidate_id": "OUT-BD974D164A43",
+          "constraints_violated": [],
+          "diagnostics": {
+            "baseline_activity_similarity": 0.952852856479073,
+            "binary_target_activity": 0.0,
+            "canonical_health": 0.009777165116666197,
+            "effective_transmission": 0.11879999999999999,
+            "explosion_detected": false,
+            "final_magnitude_ratio": 9.958776280835813e-06,
+            "fraction_above_threshold": 0.06504065040650407,
+            "integrated_activity_ratio": 0.4006840338759963,
+            "late_window_minimum_ratio": 5.415230046653302e-27,
+            "spectral_radius": 0.2196,
+            "tail_mean_magnitude_ratio": 7.43005299387583e-07,
+            "target_fit": 0.0
+          },
+          "graph_structure": {
+            "edges": [
+              [
+                "a",
+                "b"
+              ],
+              [
+                "b",
+                "c"
+              ],
+              [
+                "c",
+                "a"
+              ]
+            ],
+            "nodes": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "intervention_magnitude": "6 bounded parameter edits",
+          "intervention_summary": "Strongly damp all nodes and edges.",
+          "plot": "plots/SCN-FA9AB3A3E79A_OUT-BD974D164A43.png",
+          "sampled_trajectories": {
+            "a": [
+              {
+                "step": 0,
+                "value": 0.8
+              },
+              {
+                "step": 5,
+                "value": 0.00027605748030386685
+              },
+              {
+                "step": 10,
+                "value": 1.358135767724655e-07
+              },
+              {
+                "step": 15,
+                "value": 7.060271043617379e-11
+              },
+              {
+                "step": 20,
+                "value": 3.627333660886092e-14
+              },
+              {
+                "step": 25,
+                "value": 1.8532569613680743e-17
+              },
+              {
+                "step": 30,
+                "value": 9.462398303857015e-21
+              },
+              {
+                "step": 35,
+                "value": 4.8320454924042786e-24
+              },
+              {
+                "step": 40,
+                "value": 2.4676897048626263e-27
+              }
+            ],
+            "b": [
+              {
+                "step": 0,
+                "value": 0.5
+              },
+              {
+                "step": 5,
+                "value": 0.0003000567563719649
+              },
+              {
+                "step": 10,
+                "value": 1.4278910212647218e-07
+              },
+              {
+                "step": 15,
+                "value": 7.108131778825491e-11
+              },
+              {
+                "step": 20,
+                "value": 3.623194810197048e-14
+              },
+              {
+                "step": 25,
+                "value": 1.8521079768907734e-17
+              },
+              {
+                "step": 30,
+                "value": 9.461635834946413e-21
+              },
+              {
+                "step": 35,
+                "value": 4.832116681673776e-24
+              },
+              {
+                "step": 40,
+                "value": 2.4677086215176678e-27
+              }
+            ],
+            "c": [
+              {
+                "step": 0,
+                "value": 0.3
+              },
+              {
+                "step": 5,
+                "value": 0.00024099790068760776
+              },
+              {
+                "step": 10,
+                "value": 1.3869247424271746e-07
+              },
+              {
+                "step": 15,
+                "value": 7.142655583493481e-11
+              },
+              {
+                "step": 20,
+                "value": 3.6329243311366995e-14
+              },
+              {
+                "step": 25,
+                "value": 1.8527609249386308e-17
+              },
+              {
+                "step": 30,
+                "value": 9.461041510023468e-21
+              },
+              {
+                "step": 35,
+                "value": 4.831956471319359e-24
+              },
+              {
+                "step": 40,
+                "value": 2.4676982297538862e-27
+              }
+            ]
+          }
+        }
+      ],
+      "desirable_result": "Distinguish desirable damping from a stable but functionally dead graph.",
+      "focused_pairs": [
+        {
+          "candidate_a": "OUT-55D98B0D7386",
+          "candidate_b": "OUT-BD974D164A43",
+          "question": "At what point does damping become functional extinction?"
+        }
+      ],
+      "orientation": "stabilize",
+      "protected_constraints": [
+        "Keep all original nodes.",
+        "Do not fragment the graph.",
+        "No new self-loops.",
+        "Use finite bounded parameters."
+      ],
+      "requested_behavior": "Stable, bounded dynamics with enough persistent activity to remain meaningful.",
+      "scenario_id": "SCN-FA9AB3A3E79A",
+      "target_nodes": [
+        "a",
+        "b",
+        "c"
+      ],
+      "team_role": "A stabilizing team reviewing a homogeneous graph whose signals gradually decay.",
+      "title": "Stable graph approaching zero",
+      "trajectory_axis": {
+        "linear_threshold": 0.01,
+        "scale": "symmetric_log",
+        "time": [
+          0,
+          40
+        ],
+        "value": [
+          -5.0,
+          105.0
+        ]
+      }
+    }
+  ],
+  "schema_version": "flowcld.expert-reward-study.v1",
+  "seed": 20260722,
+  "study_id": "STUDY-4F0E8A816F1B"
+}

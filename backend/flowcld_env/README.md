@@ -11,6 +11,8 @@ Gymnasium API shape so an adapter can be added without changing this package.
 - `engine.py`: injected notebook source-of-truth adapter
 - `objectives.py`: stabilize/disrupt potentials, PBRS transitions, move costs
 - `reward_validation.py`: blinded expert-rank comparison and reward ablations
+- `activity_diagnostics.py`: bounded continuous activity-preservation diagnostics
+- `expert_study.py`: deterministic blinded packet generation, ranking import, and reports
 - `agents.py`: framework-independent policy lifecycle plus stateless baselines
 - `epsilon_greedy.py`: serializable epsilon-greedy action-value baseline
 - `features.py`: fixed-width signed graph and legal-action encoding
@@ -41,6 +43,26 @@ n-step actor-critic baseline. The cross-entropy optimizer remains a non-RL searc
 baseline. The current planner is depth-limited and the league harness evaluates frozen
 profiles. Full MCTS, reciprocity, centralized critics, PSRO, and population
 self-play training remain later research milestones.
+
+## Blinded expert reward study
+
+The expert study is a separate evaluation workflow; it neither trains nor
+selects a policy. It freezes five deterministic scenario families, writes an
+expert-facing packet with opaque candidate IDs, and keeps candidate provenance
+and canonical scores in a private answer key. Outcome rankings and transition
+cost rankings are collected separately.
+
+From `backend/`:
+
+```bash
+python run_reward_expert_study.py generate --output ../docs/reward-study-v1
+python run_reward_expert_study.py validate --study ../docs/reward-study-v1 --rankings completed.csv
+python run_reward_expert_study.py analyze --study ../docs/reward-study-v1 --rankings completed.csv --output analysis
+```
+
+The added continuous activity metrics are diagnostic candidates only. They do
+not alter `ObjectiveEvaluator` or the canonical reward. See
+`docs/EXPERT_REWARD_VALIDATION_GUIDE.md` for the review procedure.
 
 ## Transparent epsilon-greedy baseline
 

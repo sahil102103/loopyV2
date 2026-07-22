@@ -43,9 +43,25 @@ disruptor, not what is best for the overall system.
 8. Revise weights or objective definitions, then validate on a held-out outcome
    set. Do not tune and report performance on the same rankings.
 
-Use `docs/reward-validation/expert-ranking-template.json` to collect the study
-contract. The template deliberately leaves acceptance thresholds empty so they
-cannot be inferred after seeing model scores.
+The original programmatic template remains at
+`docs/reward-validation/expert-ranking-template.json`. For an actual review,
+use the reproducible packet in `docs/reward-study-v1/` and the workflow in
+`docs/EXPERT_REWARD_VALIDATION_GUIDE.md`. That packet separates outcome
+desirability from transition-cost desirability and keeps provenance and model
+scores in a private answer key.
+
+From `backend/`, regenerate and verify the packet with:
+
+```bash
+python run_reward_expert_study.py generate --output ../docs/reward-study-v1
+python run_reward_expert_study.py validate --study ../docs/reward-study-v1 --rankings completed.csv
+python run_reward_expert_study.py analyze --study ../docs/reward-study-v1 --rankings completed.csv --output analysis
+```
+
+The generated study uses schema `flowcld.expert-reward-study.v1`; completed CSV
+rankings use `flowcld.expert-ranking.v1`. The validator rejects unknown IDs,
+missing candidates, duplicate rows, malformed confidence values, and
+non-dense ties.
 
 ## Programmatic use
 
@@ -83,3 +99,8 @@ damage, or what agreement threshold is scientifically sufficient. Action costs,
 structural penalties, and minimum-activity constraints also require separately
 ranked transition examples. Those decisions must be recorded before large-scale
 four-team training is treated as research-reportable.
+
+The current packet includes parameter and bounded structural contrasts, but it
+does not contain enough expert-approved node-removal, edge-removal, or invalid
+action examples to calibrate every individual penalty. Those terms remain
+explicit follow-up work rather than validated conclusions.

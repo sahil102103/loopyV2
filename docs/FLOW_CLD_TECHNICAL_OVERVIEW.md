@@ -410,15 +410,18 @@ professor's final four-team geoeconomics research milestone is validated.
 
 ### Priority C: validate the reward scientifically
 
-1. `RewardValidationStudy` now compares the current named weight profiles with
-   blinded expert ranks using Spearman and pairwise agreement.
-2. Leave-one-component-out ablations are implemented for health, fit, activity,
-   and spectral fit.
-3. Domain experts still need to define each target subgraph, rank candidate
-   outcomes, and set acceptance thresholds before scores are calculated.
-4. Disruptor studies must establish that preferred outcomes represent meaningful
+1. `RewardValidationStudy` compares the current named weight profiles with
+   blinded expert ranks using tie-aware Spearman and pairwise agreement.
+2. `run_reward_expert_study.py` freezes five deterministic scenario families,
+   creates opaque candidate identifiers, separates outcome and transition-cost
+   judgments, and emits machine-readable plus human-readable reports.
+3. Leave-one-component-out ablations and continuous activity diagnostics are
+   implemented for analysis. The new activity metrics do not change the reward.
+4. Domain experts still need to confirm target scope, complete the rankings,
+   and approve thresholds before the reward can be called validated.
+5. Disruptor studies must establish that preferred outcomes represent meaningful
    adversarial behavior rather than arbitrary damage.
-5. Action costs, structural penalties, and minimum-activity rules still require
+6. Action costs, structural penalties, and minimum-activity rules still require
    separately ranked transition examples and calibration.
 
 ### Priority D: complete the research-grade RL work
