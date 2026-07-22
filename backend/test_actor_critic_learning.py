@@ -232,6 +232,42 @@ class ActorCriticLearningTests(unittest.TestCase):
         self.assertEqual(original.action.to_dict(), restored.action.to_dict())
         self.assertEqual(original.probabilities.tolist(), restored.probabilities.tolist())
 
+    def test_planning_agent_exposes_serializable_policy_lifecycle(self):
+        environment = _OneStepEnvironment()
+        environment.reset(seed=1)
+        team = environment.teams[0]
+        encoder = MessagePassingFeatureEncoder()
+        encoded = encoder.encode(
+            environment.graph_snapshot,
+            team.as_objective(),
+            environment.legal_parameter_moves("blue"),
+        )
+        model = LinearActorCritic(
+            state_size=len(encoded.state),
+            action_size=encoded.actions.shape[1],
+            seed=5,
+        )
+        transition_model = _TwoStepTransitionModel(
+            ParameterAction(
+                ParameterName.START_AMOUNT, "A", 1.0, MutationMode.SET
+            ),
+            ParameterAction(
+                ParameterName.START_AMOUNT, "A", -1.0, MutationMode.SET
+            ),
+        )
+        original = DepthLimitedPlanningAgent(
+            model, transition_model, depth=2, branch_width=2
+        )
+        checkpoint = original.state_dict()
+        restored = DepthLimitedPlanningAgent(
+            model, transition_model, depth=1, branch_width=1
+        )
+        restored.load_state_dict(checkpoint)
+
+        self.assertEqual(restored.depth, 2)
+        self.assertEqual(restored.branch_width, 2)
+        self.assertEqual(restored.model.to_dict(), original.model.to_dict())
+
     def test_policy_state_encodes_optional_spectral_objective(self):
         environment = _OneStepEnvironment()
         environment.reset(seed=1)

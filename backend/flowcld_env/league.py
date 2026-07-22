@@ -158,6 +158,10 @@ class LeagueEvaluationHarness:
                 team_id: profile.agent_factories[team_id](seed + index)
                 for index, team_id in enumerate(team_ids)
             }
+            for index, team_id in enumerate(team_ids):
+                resetter = getattr(agents[team_id], "reset", None)
+                if callable(resetter):
+                    resetter(seed=seed + index, training=False)
             totals = {team_id: 0.0 for team_id in team_ids}
             rounds_done = 0
             finished = False

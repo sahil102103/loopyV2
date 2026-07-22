@@ -328,6 +328,39 @@ class TeamSessionApiTests(unittest.TestCase):
         self.assertEqual(len(result["frames"]), 2)
         self.assertEqual(len(result["move_log"]), 1)
 
+    def test_epsilon_greedy_strategy_trains_without_preview_guard(self):
+        payload = _payload()
+        payload.update({
+            "moves": [],
+            "agent_turns": 1,
+            "agent_strategy": "epsilon_greedy",
+            "learner_team_id": "household",
+            "training_episodes": 12,
+            "training_steps": 2,
+            "epsilon": 0.8,
+            "epsilon_min": 0.05,
+            "epsilon_decay": 0.9,
+            "evaluation_seeds": 2,
+        })
+
+        response = self.client.post("/agent/team-sessions/run", json=payload)
+        self.assertEqual(response.status_code, 200, response.get_json())
+        result = response.get_json()
+
+        self.assertEqual(result["agent_strategy"], "epsilon_greedy")
+        self.assertEqual(result["learning"]["team_id"], "household")
+        self.assertEqual(
+            result["learning"]["algorithm"], "epsilon_greedy_action_values"
+        )
+        self.assertEqual(result["learning"]["deployment_guard"], "none_action_values_only")
+        self.assertEqual(result["learning"]["evaluation_epsilon"], 0.0)
+        self.assertTrue(result["learning"]["learned_values"])
+        self.assertEqual(
+            set(result["learning"]["benchmark"]["curves"]),
+            {"random", "greedy", "epsilon_greedy_trained"},
+        )
+        self.assertEqual(len(result["move_log"]), 1)
+
     def test_actor_critic_deployment_can_select_a_structural_motif(self):
         payload = _autonomous_structural_payload()
         payload.update({

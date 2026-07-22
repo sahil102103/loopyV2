@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-from typing import Callable, Protocol, Sequence
+from typing import Any, Callable, Mapping, Protocol, Sequence
 
 import networkx as nx
 import numpy as np
@@ -15,7 +15,7 @@ from .types import NoOpAction, Objective, ObjectiveOrientation, ParameterAction,
 
 
 class AgentPolicy(Protocol):
-    """A policy consumes graph state plus Objective and returns one legal move."""
+    """Framework-independent policy boundary used by FlowCLD runners."""
 
     def select_move(
         self,
@@ -26,9 +26,57 @@ class AgentPolicy(Protocol):
     ) -> TeamAction:
         """Select one move without mutating the graph."""
 
+    def update(self, transition: "PolicyTransition") -> None:
+        """Observe one committed environment transition."""
+
+    def reset(self, *, seed: int | None = None, training: bool = False) -> None:
+        """Reset episode-local state without discarding learned parameters."""
+
+    def state_dict(self) -> Mapping[str, Any]:
+        """Return JSON-compatible policy state."""
+
+    def load_state_dict(self, payload: Mapping[str, Any]) -> None:
+        """Restore policy state produced by ``state_dict``."""
+
 
 @dataclass(frozen=True)
-class GreedyAgent:
+class PolicyTransition:
+    """One real transition supplied to an online-learning policy.
+
+    Candidate previews never create this value. ``graph`` and ``next_graph``
+    are environment snapshots from immediately before and after the committed
+    action, and ``reward`` is the acting team's transition reward.
+    """
+
+    graph: nx.DiGraph
+    objective: Objective
+    action: TeamAction
+    reward: float
+    next_graph: nx.DiGraph
+    done: bool
+    accepted: bool
+    context: Mapping[str, Any]
+
+
+class StatelessPolicy:
+    """Default lifecycle for policies that do not learn online."""
+
+    def update(self, transition: PolicyTransition) -> None:
+        del transition
+
+    def reset(self, *, seed: int | None = None, training: bool = False) -> None:
+        del seed, training
+
+    def state_dict(self) -> Mapping[str, Any]:
+        return {"version": 1, "policy": type(self).__name__, "trainable": False}
+
+    def load_state_dict(self, payload: Mapping[str, Any]) -> None:
+        if int(payload.get("version", 0)) != 1:
+            raise ValueError("Unsupported policy state version")
+
+
+@dataclass(frozen=True)
+class GreedyAgent(StatelessPolicy):
     """One-ply deterministic baseline required before learned policies."""
 
     tolerance: float = 1e-12
@@ -52,13 +100,33 @@ class GreedyAgent:
         return ranked[0][2]
 
 
-class RandomAgent:
+class RandomAgent(StatelessPolicy):
     """Seeded uniform baseline for Stage 5 evaluation."""
 
     def __init__(self, seed: int = 0):
         if isinstance(seed, bool) or not isinstance(seed, int):
             raise ValueError("seed must be an integer")
         self._rng = np.random.default_rng(seed)
+
+    def reset(self, *, seed: int | None = None, training: bool = False) -> None:
+        del training
+        if seed is not None:
+            if isinstance(seed, bool) or not isinstance(seed, int):
+                raise ValueError("seed must be an integer")
+            self._rng = np.random.default_rng(seed)
+
+    def state_dict(self) -> Mapping[str, Any]:
+        return {
+            "version": 1,
+            "policy": type(self).__name__,
+            "trainable": False,
+            "rng_state": self._rng.bit_generator.state,
+        }
+
+    def load_state_dict(self, payload: Mapping[str, Any]) -> None:
+        super().load_state_dict(payload)
+        if "rng_state" in payload:
+            self._rng.bit_generator.state = dict(payload["rng_state"])
 
     def select_move(
         self,
@@ -73,7 +141,7 @@ class RandomAgent:
         return legal_moves[int(self._rng.integers(0, len(legal_moves)))]
 
 
-class NoOpAgent:
+class NoOpAgent(StatelessPolicy):
     """Frozen policy used when an opponent intentionally holds position."""
 
     def select_move(
@@ -92,7 +160,7 @@ class NoOpAgent:
         return legal_moves[0]
 
 
-class SpectralTargetGuardAgent:
+class SpectralTargetGuardAgent(StatelessPolicy):
     """Complete stalled stabilizer moves toward an explicit spectral target.
 
     The wrapped policy remains responsible for proposing structural or
@@ -105,6 +173,30 @@ class SpectralTargetGuardAgent:
     def __init__(self, policy: AgentPolicy, *, tolerance: float = 1e-12):
         self.policy = policy
         self.tolerance = float(tolerance)
+
+    def update(self, transition: PolicyTransition) -> None:
+        updater = getattr(self.policy, "update", None)
+        if callable(updater):
+            updater(transition)
+
+    def reset(self, *, seed: int | None = None, training: bool = False) -> None:
+        resetter = getattr(self.policy, "reset", None)
+        if callable(resetter):
+            resetter(seed=seed, training=training)
+
+    def state_dict(self) -> Mapping[str, Any]:
+        provider = getattr(self.policy, "state_dict", None)
+        return {
+            "version": 1,
+            "policy": type(self).__name__,
+            "wrapped": provider() if callable(provider) else {},
+        }
+
+    def load_state_dict(self, payload: Mapping[str, Any]) -> None:
+        super().load_state_dict(payload)
+        loader = getattr(self.policy, "load_state_dict", None)
+        if callable(loader):
+            loader(payload.get("wrapped", {}))
 
     def select_move(
         self,

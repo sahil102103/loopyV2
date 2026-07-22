@@ -10,6 +10,7 @@ from typing import Callable, Protocol, Sequence
 
 import networkx as nx
 
+from .agents import StatelessPolicy
 from .features import DecisionFeatureEncoder, MessagePassingFeatureEncoder
 from .learning import LearningEnvironment, LinearActorCritic, legal_agent_moves
 from .structural import (
@@ -76,7 +77,7 @@ class EnvironmentTransitionModel:
         )
 
 
-class DepthLimitedPlanningAgent:
+class DepthLimitedPlanningAgent(StatelessPolicy):
     """Learned policy prior plus critic-backed lookahead through the simulator."""
 
     def __init__(
@@ -101,6 +102,24 @@ class DepthLimitedPlanningAgent:
         self.depth = int(depth)
         self.branch_width = int(branch_width)
         self.prior_weight = float(prior_weight)
+
+    def state_dict(self):
+        return {
+            "version": 1,
+            "policy": type(self).__name__,
+            "model": self.model.to_dict(),
+            "depth": self.depth,
+            "branch_width": self.branch_width,
+            "prior_weight": self.prior_weight,
+        }
+
+    def load_state_dict(self, payload) -> None:
+        if int(payload.get("version", 0)) != 1:
+            raise ValueError("Unsupported planning-agent state version")
+        self.model = LinearActorCritic.from_dict(payload["model"])
+        self.depth = int(payload.get("depth", self.depth))
+        self.branch_width = int(payload.get("branch_width", self.branch_width))
+        self.prior_weight = float(payload.get("prior_weight", self.prior_weight))
 
     def select_move(
         self,

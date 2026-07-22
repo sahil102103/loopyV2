@@ -35,6 +35,10 @@ try:
         ActorCriticTrainingSettings,
         DepthLimitedPlanningAgent,
         EnvironmentTransitionModel,
+        EpsilonGreedyPolicy,
+        EpsilonGreedySettings,
+        EpsilonGreedyTrainer,
+        EpsilonGreedyTrainingSettings,
         GreedyAgent,
         LeagueEvaluationHarness,
         NoOpAgent,
@@ -79,6 +83,10 @@ except ModuleNotFoundError:
         ActorCriticTrainingSettings,
         DepthLimitedPlanningAgent,
         EnvironmentTransitionModel,
+        EpsilonGreedyPolicy,
+        EpsilonGreedySettings,
+        EpsilonGreedyTrainer,
+        EpsilonGreedyTrainingSettings,
         GreedyAgent,
         LeagueEvaluationHarness,
         NoOpAgent,
@@ -128,6 +136,8 @@ class LearningRunSettings:
     strategy: str
     learner_team_id: str | None = None
     training: ActorCriticTrainingSettings | None = None
+    epsilon_policy: EpsilonGreedySettings | None = None
+    epsilon_training: EpsilonGreedyTrainingSettings | None = None
     training_steps: int = 0
     evaluation_seeds: int = 0
     planning_depth: int = 1
@@ -289,8 +299,10 @@ def _parse_learning_settings(
     seed: int,
 ) -> LearningRunSettings:
     strategy = str(payload.get("agent_strategy", "greedy")).strip().lower()
-    if strategy not in {"greedy", "actor_critic"}:
-        raise TeamSessionRequestError("agent_strategy must be greedy or actor_critic")
+    if strategy not in {"greedy", "actor_critic", "epsilon_greedy"}:
+        raise TeamSessionRequestError(
+            "agent_strategy must be greedy, epsilon_greedy, or actor_critic"
+        )
     if strategy == "greedy":
         return LearningRunSettings(strategy=strategy)
 
@@ -328,6 +340,40 @@ def _parse_learning_settings(
     opponent_mode = str(payload.get("opponent_mode", "hold")).strip().lower()
     if opponent_mode not in {"hold", "random", "greedy"}:
         raise TeamSessionRequestError("opponent_mode must be hold, random, or greedy")
+    if strategy == "epsilon_greedy":
+        learning_rate_raw = payload.get("epsilon_learning_rate")
+        learning_rate = (
+            None
+            if learning_rate_raw in (None, "")
+            else finite_number(learning_rate_raw, "epsilon_learning_rate")
+        )
+        try:
+            epsilon_policy = EpsilonGreedySettings(
+                epsilon=finite_number(payload.get("epsilon"), "epsilon", 0.25),
+                epsilon_min=finite_number(
+                    payload.get("epsilon_min"), "epsilon_min", 0.02
+                ),
+                epsilon_decay=finite_number(
+                    payload.get("epsilon_decay"), "epsilon_decay", 0.98
+                ),
+                learning_rate=learning_rate,
+                seed=seed,
+            )
+            epsilon_training = EpsilonGreedyTrainingSettings(
+                episodes=episodes,
+                seed=seed,
+            )
+        except ValueError as error:
+            raise TeamSessionRequestError(str(error)) from error
+        return LearningRunSettings(
+            strategy=strategy,
+            learner_team_id=learner_team_id,
+            epsilon_policy=epsilon_policy,
+            epsilon_training=epsilon_training,
+            training_steps=training_steps,
+            evaluation_seeds=evaluation_seeds,
+            opponent_mode=opponent_mode,
+        )
     try:
         settings = ActorCriticTrainingSettings(
             episodes=episodes,
@@ -494,6 +540,80 @@ def run_team_session(payload: dict[str, Any]) -> dict[str, Any]:
 
     learned_agent = None
     learning_summary = None
+    if (
+        learning_run.strategy == "epsilon_greedy"
+        and learning_run.epsilon_policy is not None
+        and learning_run.epsilon_training is not None
+        and learning_run.learner_team_id
+    ):
+        try:
+            learner_team_id = learning_run.learner_team_id
+            opponent_ids = [
+                team.team_id for team in teams if team.team_id != learner_team_id
+            ]
+            if learning_run.opponent_mode == "random":
+                opponent_factories = {
+                    team_id: (lambda opponent_seed: RandomAgent(opponent_seed))
+                    for team_id in opponent_ids
+                }
+            elif learning_run.opponent_mode == "greedy":
+                opponent_factories = {
+                    team_id: (lambda opponent_seed: GreedyAgent())
+                    for team_id in opponent_ids
+                }
+            else:
+                opponent_factories = {}
+
+            training_environment_steps = learning_run.training_steps * max(
+                1, 1 + len(opponent_factories)
+            )
+            policy = EpsilonGreedyPolicy(learning_run.epsilon_policy)
+            training_result = EpsilonGreedyTrainer(
+                learning_run.epsilon_training
+            ).train(
+                lambda: _make_environment(training_environment_steps),
+                team_id=learner_team_id,
+                policy=policy,
+                opponent_factories=opponent_factories,
+            )
+            checkpoint = training_result.policy.state_dict()
+
+            def _epsilon_policy(policy_seed: int):
+                restored = EpsilonGreedyPolicy()
+                restored.load_state_dict(checkpoint)
+                restored.reset(seed=policy_seed, training=False)
+                return restored
+
+            learned_agent = _epsilon_policy(int(seed))
+            learning_summary = training_result.to_dict(include_checkpoint=False)
+            learning_summary.update({
+                "checkpoint_id": _stable_digest(checkpoint)[:16],
+                "training_steps": learning_run.training_steps,
+                "opponent_mode": f"frozen_{learning_run.opponent_mode}",
+                "action_space": "bounded_parameters_and_structural_motifs",
+                "deployment_guard": "none_action_values_only",
+                "evaluation_epsilon": 0.0,
+            })
+            if learning_run.evaluation_seeds:
+                benchmark_seeds = tuple(
+                    int(seed) + 1000 + index
+                    for index in range(learning_run.evaluation_seeds)
+                )
+                benchmark = PolicyEvaluationHarness(
+                    lambda: _make_environment(learning_run.training_steps),
+                    team_id=learner_team_id,
+                    seeds=benchmark_seeds,
+                    episodes=1,
+                ).run({
+                    "random": lambda benchmark_seed: RandomAgent(benchmark_seed),
+                    "greedy": lambda benchmark_seed: GreedyAgent(),
+                    "epsilon_greedy_trained": _epsilon_policy,
+                })
+                learning_summary["benchmark"] = benchmark.to_dict()
+        except (TypeError, ValueError, RuntimeError) as error:
+            raise TeamSessionRequestError(
+                f"Could not train epsilon-greedy agent: {error}"
+            ) from error
     if (
         learning_run.strategy == "actor_critic"
         and learning_run.training is not None

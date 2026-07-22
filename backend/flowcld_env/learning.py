@@ -12,7 +12,7 @@ import networkx as nx
 import numpy as np
 
 from .features import DecisionFeatureEncoder, EncodedDecision, MessagePassingFeatureEncoder
-from .agents import AgentPolicy
+from .agents import AgentPolicy, StatelessPolicy
 from .teams import TeamAction, TeamDefinition, TeamMove
 from .types import NoOpAction, Objective, ParameterAction, ParameterName
 
@@ -232,7 +232,7 @@ class LinearActorCritic:
         return vector
 
 
-class ActorCriticAgent:
+class ActorCriticAgent(StatelessPolicy):
     """Drop-in learned policy for the existing ``AgentPolicy`` contract."""
 
     def __init__(
@@ -257,6 +257,33 @@ class ActorCriticAgent:
         self.simulator_guard = bool(simulator_guard)
         self.guard_top_k = int(guard_top_k)
         self.max_guard_candidates = int(max_guard_candidates)
+
+    def reset(self, *, seed: int | None = None, training: bool = False) -> None:
+        del training
+        if seed is not None:
+            if isinstance(seed, bool) or not isinstance(seed, int):
+                raise ValueError("seed must be an integer")
+            self._rng = np.random.default_rng(seed)
+
+    def state_dict(self) -> Mapping[str, Any]:
+        return {
+            "version": 1,
+            "policy": type(self).__name__,
+            "trainable_online": False,
+            "model": self.model.to_dict(),
+            "deterministic": self.deterministic,
+            "temperature": self.temperature,
+            "rng_state": self._rng.bit_generator.state,
+        }
+
+    def load_state_dict(self, payload: Mapping[str, Any]) -> None:
+        if int(payload.get("version", 0)) != 1:
+            raise ValueError("Unsupported actor-critic agent state version")
+        self.model = LinearActorCritic.from_dict(payload["model"])
+        self.deterministic = bool(payload.get("deterministic", self.deterministic))
+        self.temperature = float(payload.get("temperature", self.temperature))
+        if "rng_state" in payload:
+            self._rng.bit_generator.state = dict(payload["rng_state"])
 
     def decide(
         self,

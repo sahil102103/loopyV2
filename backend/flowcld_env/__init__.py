@@ -7,8 +7,24 @@ from .actions import (
     RoleBasedAuthorizationPolicy,
     RoleDefinition,
 )
-from .agents import AgentPolicy, GreedyAgent, NoOpAgent, RandomAgent, SpectralTargetGuardAgent
-from .benchmark import EvaluationCurve, PolicyBenchmarkResult, PolicyEvaluationHarness
+from .agents import (
+    AgentPolicy,
+    GreedyAgent,
+    NoOpAgent,
+    PolicyTransition,
+    RandomAgent,
+    SpectralTargetGuardAgent,
+    StatelessPolicy,
+)
+from .benchmark import (
+    DetailedPolicyBenchmarkResult,
+    DetailedPolicyEvaluationHarness,
+    DetailedPolicySummary,
+    EvaluationCurve,
+    PolicyBenchmarkResult,
+    PolicyEpisodeMetrics,
+    PolicyEvaluationHarness,
+)
 from .candidates import (
     BoundedStructuralCandidateGenerator,
     BoundedStructuralCandidateSettings,
@@ -30,6 +46,15 @@ from .learning import (
     LinearActorCritic,
     PolicyDecision,
     TrainingEpisode,
+)
+from .epsilon_greedy import (
+    EpsilonGreedyEpisode,
+    EpsilonGreedyPolicy,
+    EpsilonGreedySettings,
+    EpsilonGreedyTrainer,
+    EpsilonGreedyTrainingResult,
+    EpsilonGreedyTrainingSettings,
+    action_abstraction_key,
 )
 from .league import (
     ExploitabilityEstimate,
@@ -158,11 +183,20 @@ __all__ = [
     "DEFAULT_OPTIMIZED_PARAMETERS",
     "DEFAULT_SPECTRAL_OBJECTIVE_WEIGHTS",
     "DepthLimitedPlanningAgent",
+    "DetailedPolicyBenchmarkResult",
+    "DetailedPolicyEvaluationHarness",
+    "DetailedPolicySummary",
     "EnvironmentObservation",
     "EnvironmentTransitionModel",
     "EncodedDecision",
     "EngineAdapter",
     "EngineEvaluation",
+    "EpsilonGreedyEpisode",
+    "EpsilonGreedyPolicy",
+    "EpsilonGreedySettings",
+    "EpsilonGreedyTrainer",
+    "EpsilonGreedyTrainingResult",
+    "EpsilonGreedyTrainingSettings",
     "FlowCLDEnvironment",
     "DecisionFeatureEncoder",
     "EvaluationCurve",
@@ -204,7 +238,9 @@ __all__ = [
     "PlannedTransition",
     "PolicyBenchmarkResult",
     "PolicyDecision",
+    "PolicyEpisodeMetrics",
     "PolicyEvaluationHarness",
+    "PolicyTransition",
     "PolicyProfile",
     "ProtectedElementsConstraint",
     "REWARD_STUDY_VERSION",
@@ -227,6 +263,7 @@ __all__ = [
     "SingleAgentTargetOptimizer",
     "SingleAgentTrainingSettings",
     "StabilityPenalty",
+    "StatelessPolicy",
     "SpectralRadiusValidationError",
     "SpectralTargetGuardAgent",
     "SpectralTargetEvaluation",
@@ -256,6 +293,7 @@ __all__ = [
     "TwoNodeLoopAnalyzer",
     "TwoNodeLoopValidationError",
     "compare_reward_to_experts",
+    "action_abstraction_key",
     "validate_target_specification",
     "OptimizerCheckpoint",
 ]
