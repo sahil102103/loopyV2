@@ -1,0 +1,17 @@
+{
+  "schema_version": "flowcld.model.v1",
+  "simulation_contract": "flowcld.simulation.v1",
+  "fixture": "delay_prehistory",
+  "steps": 4,
+  "nodes": [
+    { "name": "Driver", "start_amount": 2, "retention": 1 },
+    { "name": "Result", "start_amount": 0, "retention": 0.5 }
+  ],
+  "edges": [
+    { "source": "Driver", "target": "Result", "correlation": 1, "decay": 0, "confidence": 1, "delay": 2, "functional_form": "linear" }
+  ],
+  "expected_history": {
+    "Driver": [2, 2, 2, 2, 2],
+    "Result": [0, 0, 0, 2, 3]
+  }
+}

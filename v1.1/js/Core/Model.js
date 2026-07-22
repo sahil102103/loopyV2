@@ -12,7 +12,7 @@ function _parseInfinity(val) {
 	if (s === "Infinity") return Infinity;
 	if (s === "-Infinity") return -Infinity;
 	var n = Number(val);
-	return isNaN(n) ? undefined : n;
+	return isNaN(n) ? (s.trim() ? s : undefined) : n;
 }
 
 function Model(loopy){
@@ -78,9 +78,8 @@ function Model(loopy){
 	self.undoStack = [];
 	self.redoStack = [];
 
-	// Save the current state of the model
-	self.saveState = function () {
-		const serializedState = {
+	function captureState() {
+		return {
 			nodes: self.nodes.map(node => ({
 				id: node.id,
 				x: node.x,
@@ -121,8 +120,11 @@ function Model(loopy){
 			})),
 			nodeUID: Node._UID,
 		};
+	}
 
-		self.undoStack.push(serializedState);
+	// Save the current state of the model
+	self.saveState = function () {
+		self.undoStack.push(captureState());
 		self.redoStack = [];
 	};
 	
@@ -329,12 +331,6 @@ function Model(loopy){
 		self.edgeByID[edge.id] = edge;
 		self.edges.push(edge);
 	
-		// var ghostNode = new GhostNode(self, {}, edge);
-		// console.log(ghostNode.edge)
-		// console.log(ghostNode.x)
-		// edge.ghostNode = ghostNode;
-		// self.addNode(ghostNode);
-	
 		self.update();
 		if (!self.restoringState) {
 			self.saveState()
@@ -427,6 +423,8 @@ function Model(loopy){
 	};
 
 	var _simFrameCount = 0;
+	var _playSimulationState = null;
+	var _playSimulationDisabled = false;
 	// Re-send interval matches signal travel time: 300 / 2^speed frames
 	// This prevents signals stacking up on edges while waiting to be re-sent
 	function _getSimInterval() {
@@ -435,35 +433,86 @@ function Model(loopy){
 		return Math.max(2, Math.round(300 / Math.pow(2, speed)));
 	}
 
-	// Called by PlayControls when play starts — resets counter so first tick fires immediately
+	function _playInitialValues(){
+		var values = {};
+		self.nodes.forEach(function(node){
+			values[node.label] = node.value;
+		});
+		return values;
+	}
+
+	function _reportPlayError(error){
+		console.error("Canvas simulation error:", error);
+		if(typeof showToast === "function"){
+			showToast("Canvas simulation could not start: " + error.message, "error");
+		}
+	}
+
+	// Canvas Play uses the same stateful two-phase engine as notebook analyses.
+	// Edge signals remain visual and never mutate graph values.
 	self.startSim = function() {
 		_simFrameCount = 0;
+		_playSimulationState = null;
+		_playSimulationDisabled = false;
+		try {
+			self.initCLDEngine();
+			if(!self.cldEngine) throw new Error("The CLD simulation engine is unavailable");
+			self.cldEngine.initializeGraph(self.toCLDGraph());
+			_playSimulationState = self.cldEngine.createSimulationState(_playInitialValues());
+			self.cldHistory = _playSimulationState.history;
+			return true;
+		}catch(error){
+			_playSimulationDisabled = true;
+			_reportPlayError(error);
+			return false;
+		}
 	};
+
+	function _advancePlaySimulation(){
+		if(_playSimulationDisabled) return false;
+		if(!_playSimulationState && !self.startSim()) return false;
+
+		try {
+			// Preserve direct +/- clicks by replacing only the current sample.
+			// Earlier samples stay intact so delayed edges keep their history.
+			self.nodes.forEach(function(node){
+				var series = _playSimulationState.history[node.label];
+				if(series && series.length > _playSimulationState.step){
+					series[_playSimulationState.step] = node.value;
+				}
+			});
+			var result = self.cldEngine.stepTwoPhase(_playSimulationState);
+			self.nodes.forEach(function(node){
+				var value = result.values[node.label];
+				if(typeof value === "number" && isFinite(value)) node.value = value;
+			});
+			self.cldHistory = result.history;
+			return true;
+		}catch(error){
+			_playSimulationDisabled = true;
+			_reportPlayError(error);
+			return false;
+		}
+	}
+
+	subscribe("model/reset", function(){
+		_simFrameCount = 0;
+		_playSimulationState = null;
+		_playSimulationDisabled = false;
+		self.cldHistory = {};
+	});
 
 	self.update = function(){
 
 		var _isPlaying = (self.loopy && self.loopy.mode === Loopy.MODE_PLAY);
 
-		// Update edges first
+		// Update edge animation first. It no longer changes node values.
 		for(var i=0;i<self.edges.length;i++) self.edges[i].update(self.speed);
-
-		// Phase 1: Compute next value for all nodes
-		for(var i=0;i<self.nodes.length;i++) if (typeof self.nodes[i].computeNextValue === 'function') self.nodes[i].computeNextValue(self.speed);
-
-		// Phase 2: Assign nextValue to value for all nodes
-		for(var i=0;i<self.nodes.length;i++) {
-			if (typeof self.nodes[i].nextValue !== 'undefined') {
-				self.nodes[i].value = self.nodes[i].nextValue;
-			}
-			delete self.nodes[i].nextValue;
-		}
-
-		// Phase 3: Run node visual update (spring animation, controls, bounds)
-		for(var i=0;i<self.nodes.length;i++) self.nodes[i].update(self.speed);
 
 		if (_isPlaying) {
 			// Check first (so frame 0 fires immediately on startSim), then increment
 			if (_simFrameCount % _getSimInterval() === 0) {
+				_advancePlaySimulation();
 				self.nodes.forEach(function(node) {
 					node.sendSignal({ delta: node.value });
 				});
@@ -485,6 +534,9 @@ function Model(loopy){
 			}
 			_simFrameCount++;
 		}
+
+		// Run node visual update (spring animation, controls, bounds).
+		for(var i=0;i<self.nodes.length;i++) self.nodes[i].update(self.speed);
 
 		// Dirty!
 		_canvasDirty = true;
@@ -708,151 +760,45 @@ function Model(loopy){
 	};
 
 	self.deserialize = function(dataString){
+		if(typeof LoopyImportGateway === "undefined"){
+			throw new Error("The .loopy import validation layer is unavailable");
+		}
+		var parsed = LoopyImportGateway.parse(dataString, {
+			nodeRetention: Node.DEFAULT_RETENTION,
+			nodeRadius: Node.DEFAULT_RADIUS,
+			edgeConfidence: Edge.defaultConfidence,
+			edgeFunctionalForm: Edge.defaultFunctionalForm,
+		});
+		if(!parsed.ok || !parsed.value){
+			throw new Error("Invalid .loopy file: " + LoopyImportGateway.formatIssues(parsed));
+		}
 
-		self.clear();
-
-		// Most sources pass real JSON; our own export encodes quotes as %22, so
-		// fall back to decoding first if a raw parse fails (e.g. importing an
-		// exported .loopy file directly).
-		var data;
+		var candidate = parsed.value;
+		var previousState = captureState();
+		var wasRestoring = self.restoringState;
+		self.restoringState = true;
 		try {
-			data = JSON.parse(dataString);
-		} catch(e) {
-			data = JSON.parse(decodeURIComponent(dataString));
-		}
-
-		// Get from array!
-		var nodes = data[0];
-		var edges = data[1];
-		var labels = data[2];
-		var UID = data[3];
-
-		// Decode an optional formula field (null when absent/empty); never throw.
-		// fcld stores formulas once-encoded (nxt%5B'x'%5D); native serialize()
-		// double-encodes so they survive an outer load decode. Peel while %HH remains.
-		var _decodeFormula = function(v){
-			if(v === undefined || v === null || v === "") return null;
-			var s = String(v);
-			for(var k=0; k<2; k++){
-				if(!/%[0-9A-Fa-f]{2}/.test(s)) break;
-				try { s = decodeURIComponent(s); } catch(e){ break; }
+			self.clear();
+			candidate.nodeConfigs.forEach(function(node){ self.addNode(node); });
+			candidate.edgeConfigs.forEach(function(edge){ self.addEdge(edge); });
+			candidate.labelConfigs.forEach(function(label){ self.addLabel(label); });
+			Node._UID = candidate.uid;
+			self.update();
+		} catch(error) {
+			try {
+				self.restoreState(previousState);
+			} catch(rollbackError) {
+				console.error("Failed to restore the model after an import error:", rollbackError);
 			}
-			return s.trim() === "" ? null : s;
-		};
-		var _num = function(v){
-			return (v === undefined || v === null || v === "") ? undefined : Number(v);
-		};
-
-		// Detect the fcld ("hacked" FlowCLD) variant by its NODE layout.
-		// fcld nodes put a numeric RETENTION at index 10 and the value-formula at
-		// index 11; native nodes put the value-formula (a string/expression, often
-		// empty) at index 10 and retention (a number) at index 13. Edge shapes are
-		// identical between the two (both 10-wide with a form string at index 8),
-		// so the node layout is the only reliable discriminator. Require a majority
-		// of nodes to have a numeric index-10 so a lone numeric native formula
-		// can't trip it. See parse branches below for the full index maps.
-		var _isNumericStr = function(v){
-			if(typeof v === "number") return isFinite(v);
-			if(typeof v === "string" && v.trim() !== "") return isFinite(Number(v));
-			return false;
-		};
-		var _fcldNodeCount = Array.isArray(nodes) ? nodes.filter(function(n){
-			return Array.isArray(n) && n.length >= 15 && _isNumericStr(n[10]);
-		}).length : 0;
-		var isFcld = Array.isArray(nodes) && nodes.length > 0 && _fcldNodeCount > nodes.length / 2;
-
-		// Nodes
-		for(var i=0;i<nodes.length;i++){
-			var node = nodes[i];
-
-			if(isFcld){
-				// fcld node: [id,x,y,init,label,hue,flow,pass,floor,ceiling,
-				//             retention, valueFormula, sinkFormula?, flag, radius]
-				self.addNode({
-					id: node[0],
-					x: node[1],
-					y: node[2],
-					init: node[3],
-					label: decodeURIComponent(node[4]),
-					hue: node[5],
-					flow: node[6],
-					pass: node[7] === 1,
-					floor: _parseInfinity(decodeURIComponent(node[8])),
-					ceiling: _parseInfinity(decodeURIComponent(node[9])),
-					retention: _num(node[10]),
-					formula: _decodeFormula(node[11]),
-					sinkFormula: (typeof node[12] === "string" && node[12].trim() !== "") ? _decodeFormula(node[12]) : null,
-					sourceFormula: null,
-					radius: _num(node[14]),
-				});
-			} else {
-				self.addNode({
-					id: node[0],
-					x: node[1],
-					y: node[2],
-					init: node[3],
-					label: decodeURIComponent(node[4]),
-					hue: node[5],
-					flow: node[6],
-					pass: node[7] === 1,
-					floor: _parseInfinity(decodeURIComponent(node[8])),
-					ceiling: _parseInfinity(decodeURIComponent(node[9])),
-					formula: _decodeFormula(node[10]),
-					sinkFormula: _decodeFormula(node[11]),
-					sourceFormula: _decodeFormula(node[12]),
-					// retention: keep 0; only fall back to the default when absent (old saves)
-					retention: _num(node[13]),
-					// radius: node circle size (drives label text size); default when absent
-					radius: _num(node[14]),
-				});
-			}
+			self.restoringState = wasRestoring;
+			throw error;
 		}
-
-		// Edges
-		for(var i=0;i<edges.length;i++){
-			var edge = edges[i];
-			var edgeConfig;
-			if(isFcld){
-				// fcld edge: [from,to,arc,strength,confidence,delay,lx,ly,form,_]
-				// (no per-edge decay → damper 0 so signal actually propagates)
-				edgeConfig = {
-					from: edge[0],
-					to: edge[1],
-					arc: edge[2],
-					strength: edge[3],
-					confidence: _num(edge[4]),
-					damper: 0
-				};
-				if(edge[5]) edgeConfig.lag = Number(edge[5]);
-				if(typeof edge[8] === "string") edgeConfig.functionalForm = edge[8];
-			} else {
-				// legacy / native layout: [from,to,arc,strength,damper,lag,lx,ly,form]
-				edgeConfig = {
-					from: edge[0],
-					to: edge[1],
-					arc: edge[2],
-					strength: edge[3],
-					damper: edge[4]
-				};
-				if(edge[4]) edgeConfig.lag = edge[5];
-				if(edge[5]) edgeConfig.rotation = edge[6];
-				if(edge[8]) edgeConfig.functionalForm = edge[8];
-			}
-			self.addEdge(edgeConfig);
+		self.restoringState = wasRestoring;
+		if(!wasRestoring){
+			self.saveState();
+			publish("model/changed");
 		}
-
-		// Labels
-		for(var i=0;i<labels.length;i++){
-			var label = labels[i];
-			self.addLabel({
-				x: label[0],
-				y: label[1],
-				text: decodeURIComponent(label[2])
-			});
-		}
-
-		// META.
-		Node._UID = UID;
+		return candidate;
 
 	};
 
@@ -898,38 +844,42 @@ function Model(loopy){
 
 	// Convert current model to CLD Engine format
 	self.toCLDGraph = function() {
-		var duplicateLabels = self.getDuplicateNodeLabels();
-		if (duplicateLabels.length) {
-			throw new Error("Node names must be unique before running analysis: " + duplicateLabels.join(", "));
+		if (typeof GraphModelGateway === "undefined") {
+			throw new Error("The graph validation layer is unavailable");
 		}
+		var validation = GraphModelGateway.validateLiveModel(self);
+		if (!validation.ok || !validation.value) {
+			throw new Error("Model validation failed: " + GraphModelGateway.formatIssues(validation));
+		}
+		var canonical = validation.value;
 		const graph = {
 			nodes: {},
 			edges: []
 		};
 
 		// Convert nodes
-		for (const node of self.nodes) {
-			graph.nodes[node.label] = {
-				startAmount: node.init ?? node.value ?? 0.5,
-				retention: node.retention ?? 1.0,
-				floor: node.floor ?? -Infinity,
-				ceiling: node.ceiling ?? Infinity,
+		for (const node of canonical.nodes) {
+			graph.nodes[node.name] = {
+				startAmount: node.start_amount,
+				retention: node.retention,
+				floor: node.floor,
+				ceiling: node.ceiling,
 				formula: node.formula || null,
-				sinkFormula: node.sinkFormula || null,
-				sourceFormula: node.sourceFormula || null
+				sinkFormula: node.sink_formula || null,
+				sourceFormula: node.source_formula || null
 			};
 		}
 
 		// Convert edges
-		for (const edge of self.edges) {
+		for (const edge of canonical.edges) {
 			graph.edges.push({
-				from: edge.from.label,
-				to: edge.to.label,
-				correlation: edge.strength ?? 1.0,
-				decay: edge.damper ?? 0.0,
-				confidence: edge.confidence ?? 1.0,
-				delay: edge.lag ?? 0,
-				functionalForm: edge.functionalForm || "linear"
+				from: edge.source,
+				to: edge.target,
+				correlation: edge.correlation,
+				decay: edge.decay,
+				confidence: edge.confidence,
+				delay: edge.delay,
+				functionalForm: edge.functional_form
 			});
 		}
 
@@ -1055,7 +1005,7 @@ function Model(loopy){
 
 		const analysis = {
 			centrality: self.cldEngine.calculateCentrality('degree'),
-			adjacencyMatrix: self.cldEngine.generateAdjacencyMatrix(),
+			adjacencyMatrix: self.cldEngine.generateTopologyAdjacencyMatrix(),
 			cycles: self.cldEngine.detectFeedbackCycles()
 		};
 

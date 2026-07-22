@@ -4,9 +4,9 @@ TABLES VIEW
 
 An alternate, spreadsheet-style editing surface for the model. It reads from and
 writes to the SAME model that the Canvas uses (window.loopy.model) — there is no
-separate table state. Every edit mutates the live Node/Edge objects and then
-publishes "model/changed", exactly like the Sidebar does, so the Canvas, autosave
-and undo all stay in sync.
+separate table state. Candidate edits pass through GraphModelGateway before the
+live Node/Edge objects are mutated, then publish "model/changed", exactly like
+the Sidebar does, so the Canvas, autosave and undo all stay in sync.
 
 Rendering strategy (avoids stealing focus while typing):
   • render() rebuilds the row bodies from the model. It is called when the Tables
@@ -33,6 +33,40 @@ Rendering strategy (avoids stealing focus while typing):
 
 	function _toast(msg, type) {
 		if (typeof window.showToast === "function") window.showToast(msg, type || "error", true);
+	}
+
+	function _validationMessage(result, fallback) {
+		if (typeof GraphModelGateway !== "undefined" && result && result.issues) {
+			var detail = GraphModelGateway.formatIssues(result);
+			if (detail) return detail;
+		}
+		return fallback || "The edit is not valid";
+	}
+
+	function _updateNode(node, patch) {
+		if (typeof GraphModelGateway === "undefined") {
+			_toast("The graph validation layer is unavailable. Reload the app and try again.");
+			return false;
+		}
+		var result = GraphModelGateway.updateLiveNode(model(), node, patch);
+		if (!result.ok) {
+			_toast(_validationMessage(result, "Node edit is not valid"));
+			return false;
+		}
+		return true;
+	}
+
+	function _updateEdge(edge, patch) {
+		if (typeof GraphModelGateway === "undefined") {
+			_toast("The graph validation layer is unavailable. Reload the app and try again.");
+			return false;
+		}
+		var result = GraphModelGateway.updateLiveEdge(model(), edge, patch);
+		if (!result.ok) {
+			_toast(_validationMessage(result, "Edge edit is not valid"));
+			return false;
+		}
+		return true;
 	}
 
 	// Mutation happened via the table: mark the model changed (canvas redraw +
@@ -135,7 +169,11 @@ Rendering strategy (avoids stealing focus while typing):
 				_toast(opts.errMsg || "Enter a valid number");
 				return;
 			}
-			setVal(res.value);
+			if (setVal(res.value) === false) {
+				inp.value = display(getVal());
+				_flashInvalid(inp);
+				return;
+			}
 			inp.value = display(getVal());
 			_commit();
 		});
@@ -152,7 +190,12 @@ Rendering strategy (avoids stealing focus while typing):
 		inp.value = (v === undefined || v === null) ? "" : String(v);
 		inp.addEventListener("change", function () {
 			var t = inp.value;
-			setVal(t.trim() === "" ? null : t);
+			if (setVal(t.trim() === "" ? null : t) === false) {
+				var current = getVal();
+				inp.value = (current === undefined || current === null) ? "" : String(current);
+				_flashInvalid(inp);
+				return;
+			}
 			_commit();
 		});
 		return inp;
@@ -173,12 +216,20 @@ Rendering strategy (avoids stealing focus while typing):
 				var existing = getVal();
 				var seed = (existing !== undefined && existing !== null && String(existing) !== "")
 					? existing : (defaultVal || "");
-				setVal(seed === "" ? null : seed);
+				if (setVal(seed === "" ? null : seed) === false) {
+					cb.checked = false;
+					textInput.disabled = true;
+					return;
+				}
 				textInput.disabled = false;
 				textInput.value = (seed === "" ? "" : String(seed));
 				textInput.focus();
 			} else {
-				setVal(null);
+				if (setVal(null) === false) {
+					cb.checked = true;
+					textInput.disabled = false;
+					return;
+				}
 				textInput.value = "";
 				textInput.disabled = true;
 			}
@@ -200,19 +251,11 @@ Rendering strategy (avoids stealing focus while typing):
 		nameInp.value = (node.label === undefined || node.label === null) ? "" : String(node.label);
 		nameInp.addEventListener("change", function () {
 			var v = nameInp.value;
-			if (v.trim() === "") {
+			if (!_updateNode(node, { name: v.trim() })) {
 				nameInp.value = (node.label === undefined || node.label === null) ? "" : String(node.label);
 				_flashInvalid(nameInp);
-				_toast("Node name can't be empty");
 				return;
 			}
-			if (!model().isNodeLabelAvailable(v, node)) {
-				nameInp.value = (node.label === undefined || node.label === null) ? "" : String(node.label);
-				_flashInvalid(nameInp);
-				_toast("Node names must be unique");
-				return;
-			}
-			node.label = v.trim();
 			nameInp.value = node.label;
 			_refreshEndpointLabels(node.id, _nodeLabel(node));
 			_commit();
@@ -222,55 +265,55 @@ Rendering strategy (avoids stealing focus while typing):
 		// Start value
 		_cell(tr, _numInput(
 			function () { return node.init; },
-			function (x) { node.init = x; if (typeof node.value === "undefined") node.value = x; },
+			function (x) { return _updateNode(node, { start_amount: x }); },
 			{ errMsg: "Start value must be a number" }
 		));
 
 		// Retention
 		_cell(tr, _numInput(
 			function () { return node.retention; },
-			function (x) { node.retention = x; },
+			function (x) { return _updateNode(node, { retention: x }); },
 			{ errMsg: "Retention must be a number" }
 		));
 
 		// Floor / Ceiling (±∞ shown as blank)
 		_cell(tr, _numInput(
 			function () { return node.floor; },
-			function (x) { node.floor = x; },
+			function (x) { return _updateNode(node, { floor: x }); },
 			{ display: _boundStr, parse: _parseFloor, placeholder: "−∞" }
 		));
 		_cell(tr, _numInput(
 			function () { return node.ceiling; },
-			function (x) { node.ceiling = x; },
+			function (x) { return _updateNode(node, { ceiling: x }); },
 			{ display: _boundStr, parse: _parseCeil, placeholder: "+∞" }
 		));
 
 		// Formula enabled + formula text
 		var formulaInp = _formulaInput(
 			function () { return node.formula; },
-			function (v) { node.formula = v; }
+			function (v) { return _updateNode(node, { formula: v }); }
 		);
 		formulaInp.placeholder = "e.g. 0.6 * nxt['X']";
 		_toggleCell(tr, function () { return node.formula; },
-			function (v) { node.formula = v; }, formulaInp, "");
+			function (v) { return _updateNode(node, { formula: v }); }, formulaInp, "");
 		_cell(tr, formulaInp);
 
 		// Sink enabled + sink formula
 		var sinkInp = _formulaInput(
 			function () { return node.sinkFormula; },
-			function (v) { node.sinkFormula = v; }
+			function (v) { return _updateNode(node, { sink_formula: v }); }
 		);
 		_toggleCell(tr, function () { return node.sinkFormula; },
-			function (v) { node.sinkFormula = v; }, sinkInp, "0.05");
+			function (v) { return _updateNode(node, { sink_formula: v }); }, sinkInp, "0.95");
 		_cell(tr, sinkInp);
 
 		// Source enabled + source formula
 		var srcInp = _formulaInput(
 			function () { return node.sourceFormula; },
-			function (v) { node.sourceFormula = v; }
+			function (v) { return _updateNode(node, { source_formula: v }); }
 		);
 		_toggleCell(tr, function () { return node.sourceFormula; },
-			function (v) { node.sourceFormula = v; }, srcInp, "0.05");
+			function (v) { return _updateNode(node, { source_formula: v }); }, srcInp, "1.05");
 		_cell(tr, srcInp);
 
 		// Delete
@@ -388,35 +431,43 @@ Rendering strategy (avoids stealing focus while typing):
 		// Source / Target — bind by stable node id (stringified), not list index.
 		_cell(tr, _nodeSelect(edge.from && edge.from.id, function (id) {
 			var n = _nodeById(id);
-			if (n) { edge.from = n; _commit(); }
+			if (n && _updateEdge(edge, { source: _nodeLabel(n) })) {
+				_commit();
+			} else {
+				render();
+			}
 		}));
 		_cell(tr, _nodeSelect(edge.to && edge.to.id, function (id) {
 			var n = _nodeById(id);
-			if (n) { edge.to = n; _commit(); }
+			if (n && _updateEdge(edge, { target: _nodeLabel(n) })) {
+				_commit();
+			} else {
+				render();
+			}
 		}));
 
 		// Correlation (strength)
 		_cell(tr, _numInput(
 			function () { return edge.strength; },
-			function (x) { edge.strength = x; },
+			function (x) { return _updateEdge(edge, { correlation: x }); },
 			{ errMsg: "Correlation must be a number" }
 		));
 		// Decay (damper)
 		_cell(tr, _numInput(
 			function () { return edge.damper; },
-			function (x) { edge.damper = x; },
+			function (x) { return _updateEdge(edge, { decay: x }); },
 			{ parse: _parseUnitInterval, errMsg: "Decay must be between 0 and 1" }
 		));
 		// Confidence
 		_cell(tr, _numInput(
 			function () { return edge.confidence; },
-			function (x) { edge.confidence = x; },
+			function (x) { return _updateEdge(edge, { confidence: x }); },
 			{ parse: _parseUnitInterval, errMsg: "Confidence must be between 0 and 1" }
 		));
 		// Delay (lag, integer ≥ 0)
 		_cell(tr, _numInput(
 			function () { return edge.lag; },
-			function (x) { edge.lag = x; },
+			function (x) { return _updateEdge(edge, { delay: x }); },
 			{ parse: _parseInt0, errMsg: "Delay must be a whole number ≥ 0" }
 		));
 

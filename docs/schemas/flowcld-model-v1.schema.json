@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowcld.app/schemas/flowcld-model-v1.schema.json",
+  "title": "FlowCLD named model configuration v1",
+  "type": "object",
+  "required": ["schema_version", "nodes", "edges"],
+  "properties": {
+    "schema_version": { "const": "flowcld.model.v1" },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "start_amount", "retention"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "start_amount": { "type": "number" },
+          "retention": { "type": "number", "minimum": 0 },
+          "floor": { "oneOf": [{ "type": "number" }, { "type": "string" }] },
+          "ceiling": { "oneOf": [{ "type": "number" }, { "type": "string" }] },
+          "formula": { "type": ["string", "null"] },
+          "sink_formula": { "type": ["string", "null"] },
+          "source_formula": { "type": ["string", "null"] }
+        },
+        "additionalProperties": true
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "target", "correlation", "decay", "confidence", "delay"],
+        "properties": {
+          "source": { "type": "string", "minLength": 1 },
+          "target": { "type": "string", "minLength": 1 },
+          "correlation": { "type": "number" },
+          "decay": { "type": "number", "minimum": 0, "maximum": 1 },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "delay": { "type": "integer", "minimum": 0 },
+          "functional_form": {
+            "enum": ["linear", "tanh", "quadratic", "cubic", "relu", "step"]
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

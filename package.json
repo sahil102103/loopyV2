@@ -1,0 +1,12 @@
+{
+  "name": "flowcld-frontend-tools",
+  "private": true,
+  "scripts": {
+    "build:frontend-types": "tsc -p tsconfig.frontend.json",
+    "check:frontend-types": "tsc -p tsconfig.frontend.json --noEmit",
+    "test:frontend": "npm run build:frontend-types && node --test v1.1/js/Libraries/cldEngine.test.js v1.1/js/Libraries/FormulaEvaluator.test.js v1.1/js/Validation/GraphModelGateway.test.js v1.1/js/Validation/LoopyImportGateway.test.js v1.1/js/Validation/TeamRequestGateway.test.js v1.1/js/Tools/GraphStateAdapter.test.js v1.1/js/Tools/TeamRolePresets.test.js"
+  },
+  "devDependencies": {
+    "typescript": "5.7.3"
+  }
+}

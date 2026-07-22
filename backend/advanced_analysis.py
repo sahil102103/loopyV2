@@ -3,9 +3,10 @@ Advanced CLD Analysis Engine
 Extracted from Jupyter notebook - comprehensive two-phase simulation with stability analysis
 """
 
+import copy
 import math
 import random
-import re
+import time
 import numpy as np
 import pandas as pd
 import networkx as nx
@@ -18,231 +19,58 @@ from scipy.stats import norm, rankdata, gaussian_kde
 from sklearn.mixture import GaussianMixture
 from io import BytesIO
 import base64
-from urllib.parse import unquote as _url_unquote
-
 try:
-    from formula_evaluator import FormulaEvaluationError, evaluate_formula
+    from dmd_analysis import dmd_from_history
+    from simulation_engine import (
+        MODEL_SCHEMA_VERSION,
+        SUPPORTED_EDGE_FORMS,
+        MultiplicativeGaussianNoise,
+        apply_edge_form as _apply_form,
+        decode_expression as _decode_expr,
+        edge_contribution as _edge_contribution,
+        edge_factor as _edge_factor,
+        evaluate_bound as _eval_bound,
+        legacy_loop_transition_matrix,
+        runtime_linear_transition_matrix,
+        simulate_two_phase,
+        uniform_sweep_transition_matrix,
+    )
 except ModuleNotFoundError:  # Supports package-style imports in repository-level tests.
-    from backend.formula_evaluator import FormulaEvaluationError, evaluate_formula
+    from backend.dmd_analysis import dmd_from_history
+    from backend.simulation_engine import (
+        MODEL_SCHEMA_VERSION,
+        SUPPORTED_EDGE_FORMS,
+        MultiplicativeGaussianNoise,
+        apply_edge_form as _apply_form,
+        decode_expression as _decode_expr,
+        edge_contribution as _edge_contribution,
+        edge_factor as _edge_factor,
+        evaluate_bound as _eval_bound,
+        legacy_loop_transition_matrix,
+        runtime_linear_transition_matrix,
+        simulate_two_phase,
+        uniform_sweep_transition_matrix,
+    )
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CORE SIMULATION ENGINE (Two-Phase Propagation)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_PCT_HEX = re.compile(r"%[0-9A-Fa-f]{2}")
-
-
-def _decode_expr(s):
-    """
-    Decode Loopy/fcld URL-encoded expression strings (formulas, sink/source, bounds).
-
-    .loopy exports store expressions with percent-encoding, e.g.
-        nxt%5B'Inflation'%5D   →   nxt['Inflation']
-    Evaluating the encoded form makes Python parse `%5B` as modulo (`% 5`) then
-    identifier `B` → SyntaxError: invalid decimal literal.
-
-    Idempotent for already-decoded strings. Peels up to two layers because native
-    FlowCLD serialize() double-encodes formula fields.
-    """
-    if s is None or not isinstance(s, str):
-        return s
-    out = s
-    for _ in range(2):
-        if not _PCT_HEX.search(out):
-            break
-        out = _url_unquote(out)
-    return out
-
-
-def _parse_num_or_expr(txt, fallback):
-    """Parse a numeric value or expression string."""
-    s = str(txt).strip()
-    if s == "":
-        return fallback
-    try:
-        return float(s)
-    except ValueError:
-        return s
-
-
-def _eval_bound(bound, ctx, default):
-    """Evaluate dynamic floor/ceiling bounds."""
-    if isinstance(bound, (int, float)) and not math.isnan(bound):
-        return float(bound)
-    if isinstance(bound, str) and bound.strip():
-        try:
-            return evaluate_formula(_decode_expr(bound), ctx)
-        except FormulaEvaluationError:
-            pass
-    return default
-
-
-def _edge_factor(e):
-    """Calculate effective per-edge transfer factor."""
-    corr = e.get("correlation", e.get("weight", 1.0) * e.get("polarity", 1.0))
-    decay = e.get("decay", 0.0)
-    return corr * (1.0 - decay)
-
-
-def _apply_form(form, x):
-    """
-    Transform a source value through an edge's functional form before it is scaled
-    by the edge factor. Every form maps 0 -> 0 so a quiescent system stays quiescent
-    and the default ('linear') exactly reproduces the original additive behaviour.
-    """
-    if not form or form == "linear":
-        return x
-    if form == "tanh":            # saturating (soft clamp to ±1)
-        return math.tanh(x)
-    if form == "quadratic":       # sign-preserving square — accelerating influence
-        return x * abs(x)
-    if form == "cubic":
-        return x ** 3
-    if form == "relu":            # only positive influence passes
-        return x if x > 0 else 0.0
-    if form == "step":            # direction only (threshold at 0)
-        return 1.0 if x > 0 else (-1.0 if x < 0 else 0.0)
-    return x
-
-
-def _edge_contribution(e, src_v):
-    """Per-edge contribution: functional-form transform of the source, then scaled."""
-    return _edge_factor(e) * _apply_form(e.get("functional_form", "linear"), src_v)
-
-
-def simulate_two_phase(G: nx.DiGraph, init_vals: dict, steps: int):
-    """
-    Core two-phase propagation engine with delay awareness.
-    
-    Parameters:
-    -----------
-    G : nx.DiGraph
-        Graph with node attributes: start_amount, retention, floor, ceiling
-        Edge attributes: correlation, decay, delay, confidence
-    init_vals : dict
-        Initial values for each node
-    steps : int
-        Number of simulation steps
-        
-    Returns:
-    --------
-    hist : dict
-        Time series history for each node
-    """
-    hist = {n: [init_vals.get(n, 0.0)] for n in G}
-    converters = [n for n in G if G.nodes[n].get("retention", 1.0) == 0.0]
-    # Decode once: .loopy / fcld formulas arrive URL-encoded (nxt%5B'x'%5D)
-    formulas = {n: _decode_expr(G.nodes[n].get("formula")) for n in converters}
-    
-    # Gather sink & source settings
-    sink_nodes = {n: _decode_expr(G.nodes[n]["sink_formula"])
-                  for n in G if G.nodes[n].get("sink_formula") is not None}
-    source_nodes = {n: _decode_expr(G.nodes[n]["source_formula"])
-                    for n in G if G.nodes[n].get("source_formula") is not None}
-    
-    for t in range(steps):
-        nxt = {n: 0.0 for n in G}
-        
-        # Phase A: retention + delayed inflows
-        for n in G:
-            ret = G.nodes[n].get("retention", 1.0)
-            nxt[n] += ret * hist[n][t]
-        
-        for u, v, e in G.edges(data=True):
-            delay_e = e.get("delay", 0)
-            src_t = t - delay_e
-            src_v = hist[u][src_t] if src_t >= 0 else 0.0
-            nxt[v] += _edge_contribution(e, src_v)
-        
-        # Context for bound evaluation
-        ctx_common = {
-            "t": t,
-            "history": hist,
-            "raw": {k: hist[k][t] for k in G},
-            "nxt": nxt,
-            "math": math, "np": np,
-        }
-        
-        # Phase B: commit stocks
-        for n in G:
-            ret = G.nodes[n].get("retention", 1.0)
-            if ret > 0:  # stock-type node
-                floor_b = _eval_bound(G.nodes[n].get("floor", -math.inf), ctx_common, -math.inf)
-                ceil_b = _eval_bound(G.nodes[n].get("ceiling", math.inf), ctx_common, math.inf)
-                val = float(np.clip(nxt[n], floor_b, ceil_b))
-                hist[n].append(val)
-            else:  # converter placeholder
-                hist[n].append(None)
-        
-        # Phase C: evaluate converters
-        for n in converters:
-            inputs = {}
-            for pred in G.predecessors(n):
-                e = G[pred][n]
-                delay_e = e.get("delay", 0)
-                src_t = t + 1 - delay_e
-                src_v = hist[pred][src_t] if src_t >= 0 else 0.0
-                if src_v is None:
-                    src_v = 0.0
-                inputs[pred] = _edge_contribution(e, src_v)
-            
-            if formulas[n]:
-                ctx = {
-                    "t": t,
-                    "inputs": inputs,
-                    "history": hist,
-                    "raw": {k: hist[k][t] for k in G},
-                    "nxt": {k: hist[k][-1] for k in G},
-                    "math": math, "np": np,
-                }
-                try:
-                    val = evaluate_formula(formulas[n], ctx)
-                except FormulaEvaluationError as err:
-                    print(f"⚠️ formula error @ '{n}': {err}")
-                    val = hist[n][-2] if len(hist[n]) >= 2 else 0.0
-            else:
-                val = float(sum(inputs.values()))
-            
-            # Apply bounds to converters
-            ctx_conv = {
-                "t": t,
-                "history": hist,
-                "raw": {k: hist[k][t] for k in G},
-                "nxt": {k: hist[k][-1] for k in G},
-                "math": math, "np": np,
-            }
-            floor_b = _eval_bound(G.nodes[n].get("floor", -math.inf), ctx_conv, -math.inf)
-            ceil_b = _eval_bound(G.nodes[n].get("ceiling", math.inf), ctx_conv, math.inf)
-            hist[n][-1] = float(np.clip(val, floor_b, ceil_b))
-        
-        # Phase D: apply sink & source multipliers *after* updates
-        # (multiplicative, matching the notebook source of truth)
-        for n, expr in sink_nodes.items():
-            try:
-                ctx_sink = {"t": t, "x": hist[n][-1], "val": hist[n][-1],
-                           "math": math, "np": np, "e": math.e}
-                factor = evaluate_formula(expr, ctx_sink)
-            except FormulaEvaluationError as err:
-                print(f"⚠️ sink error @ '{n}': {err} (using 1.0)")
-                factor = 1.0
-            hist[n][-1] *= factor
-
-        for n, expr in source_nodes.items():
-            try:
-                ctx_src = {"t": t, "x": hist[n][-1], "val": hist[n][-1],
-                          "math": math, "np": np, "e": math.e}
-                factor = evaluate_formula(expr, ctx_src)
-            except FormulaEvaluationError as err:
-                print(f"⚠️ source error @ '{n}': {err} (using 1.0)")
-                factor = 1.0
-            hist[n][-1] *= factor
-
-    return hist
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # STABILITY ANALYSIS
 # ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _dmd_from_hist(hist, node_order=None, *, r=10, dt_quarters=1.0, center=True):
+    """Notebook-compatible facade over the shared warning-free DMD module."""
+
+    return dmd_from_history(
+        hist,
+        node_order,
+        rank=r,
+        dt_quarters=dt_quarters,
+        center=center,
+    )
 
 def rolling_z(series, window=10):
     """Calculate rolling Z-scores."""
@@ -296,24 +124,32 @@ def classify_behavior(hist_dict, damp_tol=1e-3, range_rel_tol=0.01,
     return classifications
 
 
+def compute_uniform_sweep_transition_matrix(graph, decay_factor, passnodes=None):
+    """Build the notebook's legacy uniform parameter-sweep matrix."""
+
+    return uniform_sweep_transition_matrix(
+        graph, decay_factor, passnodes=set(passnodes or ())
+    )
+
+
+def compute_legacy_loop_transition_matrix(graph, decay_factor, passnodes=None):
+    """Build the notebook loop-through diagnostic matrix."""
+
+    return legacy_loop_transition_matrix(
+        graph, decay_factor, passnodes=set(passnodes or ())
+    )
+
+
+def compute_adjacency_matrix(graph, decay_factor, passnodes=None):
+    """Compatibility alias for :func:`compute_legacy_loop_transition_matrix`."""
+
+    return compute_legacy_loop_transition_matrix(graph, decay_factor, passnodes)
+
+
 def compute_adjacency_matrix_stability(graph, decay_factor, passnodes=None):
-    """Build adjacency matrix for stability analysis."""
-    if passnodes is None:
-        passnodes = set()
-    
-    nodes = list(graph.nodes)
-    idx = {n: i for i, n in enumerate(nodes)}
-    A = np.zeros((len(nodes), len(nodes)))
-    
-    retention = 1.0 - decay_factor
-    for n in nodes:
-        A[idx[n], idx[n]] = 0.0 if n in passnodes else retention
-    
-    for u, v, d in graph.edges(data=True):
-        corr = d.get("correlation", 1.0)
-        A[idx[v], idx[u]] += decay_factor * corr
-    
-    return A, nodes
+    """Compatibility alias for :func:`compute_uniform_sweep_transition_matrix`."""
+
+    return compute_uniform_sweep_transition_matrix(graph, decay_factor, passnodes)
 
 
 def analyze_eigenvalues_stability(A):
@@ -371,7 +207,7 @@ def simulate_with_stability(G, decay_vals, delays, *, ret_val=None,
     # Pass 1 — calibrate penalty for unstable points
     stable_distances = []
     for decay in decay_vals:
-        A, _ = compute_adjacency_matrix_stability(G, float(decay))
+        A, _ = compute_uniform_sweep_transition_matrix(G, float(decay))
         _, dist_metric, _ = analyze_eigenvalues_stability(A)
         if dist_metric < DIST_TOL:
             stable_distances.append(dist_metric)
@@ -380,7 +216,7 @@ def simulate_with_stability(G, decay_vals, delays, *, ret_val=None,
     # Pass 2 — eigenvalue dist + signal simulation
     for i, delay in enumerate(delays):
         for j, decay in enumerate(decay_vals):
-            A, _ = compute_adjacency_matrix_stability(G, float(decay))
+            A, _ = compute_uniform_sweep_transition_matrix(G, float(decay))
             _, dist_metric, _ = analyze_eigenvalues_stability(A)
             dist_grid[i, j] = dist_metric if dist_metric < DIST_TOL else penalty_metric
 
@@ -519,7 +355,7 @@ class GraphValidationError(ValueError):
     """A user-correctable graph payload error."""
 
 
-_EDGE_FORMS = {"linear", "tanh", "quadratic", "cubic", "relu", "step"}
+_EDGE_FORMS = set(SUPPORTED_EDGE_FORMS)
 _DEFAULT_GRAPH_VALUES = {
     "start_amount": 0.1,
     "retention": 1.0,
@@ -593,6 +429,11 @@ def build_graph_from_payload(graph_data, *, defaults=None):
     """Build the canonical NetworkX model used by all notebook-derived APIs."""
     if not isinstance(graph_data, dict):
         raise GraphValidationError("Request body must be a JSON object")
+    schema_version = graph_data.get("schema_version")
+    if schema_version not in (None, "", MODEL_SCHEMA_VERSION):
+        raise GraphValidationError(
+            f"Unsupported model schema version: {schema_version}"
+        )
     graph_defaults = dict(_DEFAULT_GRAPH_VALUES)
     if defaults:
         graph_defaults.update(defaults)
@@ -601,7 +442,7 @@ def build_graph_from_payload(graph_data, *, defaults=None):
     if not isinstance(nodes_data, list) or not isinstance(edges_data, list):
         raise GraphValidationError("nodes and edges must be arrays")
 
-    graph = nx.DiGraph()
+    graph = nx.DiGraph(schema_version=MODEL_SCHEMA_VERSION)
     names = set()
     for index, node_data in enumerate(nodes_data, start=1):
         if not isinstance(node_data, dict):
@@ -891,105 +732,17 @@ def _node_fan_sigma(G, *, fan_sigma=0.25, driver_conf=0.90):
 
 
 def simulate_two_phase_noisy(G, init_vals, steps, *, sigma_map=None, rng=None):
-    """
-    Faithful copy of simulate_two_phase with one addition: after each node's value
-    is committed it is multiplied by (1 + N(0, sigma_map[n])), so the shock enters
-    the next step's raw[]/nxt[] context and propagates through the formulas. This is
-    what gives formula-driven (converter) nodes real spread in the fan chart, since
-    converters ignore edge perturbations. Delay handling, functional forms, dynamic
-    bounds and multiplicative sink/source are unchanged from simulate_two_phase.
-    """
+    """Compatibility wrapper over the canonical engine with injected noise."""
     if rng is None:
         rng = np.random.default_rng()
     if sigma_map is None:
         sigma_map = {n: 0.0 for n in G}
-
-    def _shock(n):
-        s = sigma_map.get(n, 0.0)
-        return (1.0 + float(rng.normal(0.0, s))) if s > 0.0 else 1.0
-
-    hist = {n: [init_vals.get(n, 0.0)] for n in G}
-    converters = [n for n in G if G.nodes[n].get("retention", 1.0) == 0.0]
-    formulas = {n: _decode_expr(G.nodes[n].get("formula")) for n in converters}
-    sink_nodes = {n: _decode_expr(G.nodes[n]["sink_formula"])
-                  for n in G if G.nodes[n].get("sink_formula") is not None}
-    source_nodes = {n: _decode_expr(G.nodes[n]["source_formula"])
-                    for n in G if G.nodes[n].get("source_formula") is not None}
-
-    for t in range(steps):
-        nxt = {n: 0.0 for n in G}
-        for n in G:
-            ret = G.nodes[n].get("retention", 1.0)
-            nxt[n] += ret * hist[n][t]
-        for u, v, e in G.edges(data=True):
-            delay_e = e.get("delay", 0)
-            src_t = t - delay_e
-            src_v = hist[u][src_t] if src_t >= 0 else 0.0
-            nxt[v] += _edge_contribution(e, src_v)
-
-        ctx_common = {"t": t, "history": hist, "raw": {k: hist[k][t] for k in G},
-                      "nxt": nxt, "math": math, "np": np}
-
-        # Phase B — stocks get noise then clip
-        for n in G:
-            ret = G.nodes[n].get("retention", 1.0)
-            if ret > 0:
-                floor_b = _eval_bound(G.nodes[n].get("floor", -math.inf), ctx_common, -math.inf)
-                ceil_b = _eval_bound(G.nodes[n].get("ceiling", math.inf), ctx_common, math.inf)
-                val = float(nxt[n]) * _shock(n)
-                hist[n].append(float(np.clip(val, floor_b, ceil_b)))
-            else:
-                hist[n].append(None)
-
-        # Phase C — converters: eval formula, apply noise, then clip
-        for n in converters:
-            inputs = {}
-            for pred in G.predecessors(n):
-                e = G[pred][n]
-                delay_e = e.get("delay", 0)
-                src_t = t + 1 - delay_e
-                src_v = hist[pred][src_t] if src_t >= 0 else 0.0
-                if src_v is None:
-                    src_v = 0.0
-                inputs[pred] = _edge_contribution(e, src_v)
-
-            if formulas[n]:
-                ctx = {"t": t, "inputs": inputs, "history": hist,
-                       "raw": {k: hist[k][t] for k in G},
-                       "nxt": {k: hist[k][-1] for k in G},
-                       "math": math, "np": np}
-                try:
-                    val = evaluate_formula(formulas[n], ctx)
-                except FormulaEvaluationError as err:
-                    print(f"⚠️ formula error @ '{n}': {err}")
-                    val = hist[n][-2] if len(hist[n]) >= 2 else 0.0
-            else:
-                val = float(sum(inputs.values()))
-
-            val *= _shock(n)
-            ctx_conv = {"t": t, "history": hist, "raw": {k: hist[k][t] for k in G},
-                        "nxt": {k: hist[k][-1] for k in G}, "math": math, "np": np}
-            floor_b = _eval_bound(G.nodes[n].get("floor", -math.inf), ctx_conv, -math.inf)
-            ceil_b = _eval_bound(G.nodes[n].get("ceiling", math.inf), ctx_conv, math.inf)
-            hist[n][-1] = float(np.clip(val, floor_b, ceil_b))
-
-        # Phase D — multiplicative sink/source (matches simulate_two_phase)
-        for n, expr in sink_nodes.items():
-            try:
-                factor = evaluate_formula(expr, {"t": t, "x": hist[n][-1], "val": hist[n][-1],
-                                                  "math": math, "np": np, "e": math.e})
-            except FormulaEvaluationError:
-                factor = 1.0
-            hist[n][-1] *= factor
-        for n, expr in source_nodes.items():
-            try:
-                factor = evaluate_formula(expr, {"t": t, "x": hist[n][-1], "val": hist[n][-1],
-                                                  "math": math, "np": np, "e": math.e})
-            except FormulaEvaluationError:
-                factor = 1.0
-            hist[n][-1] *= factor
-
-    return hist
+    return simulate_two_phase(
+        G,
+        init_vals,
+        steps,
+        noise=MultiplicativeGaussianNoise(sigma_map=sigma_map, rng=rng),
+    )
 
 
 def _perturb_graph_by_confidence(G_in, *, sigma_base=0.25, noise_floor=0.0, rng=None):
@@ -1125,59 +878,473 @@ def run_fan_chart(graph_data, iterations=200, n_sims=200, sigma_base=0.25, noise
 # PARAMETER OPTIMIZATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def apply_config_to_graph(G_base, cfg):
-    """Apply a uniform config {retention, decay, delay} to a copy of the graph."""
-    G = G_base.copy()
-    for n in G.nodes:
-        # Formula nodes are notebook converters. Retention must stay zero so
-        # Phase C evaluates their formula instead of turning them into stocks.
-        if G.nodes[n].get('formula'):
-            G.nodes[n]['retention'] = 0.0
-        else:
-            G.nodes[n]['retention'] = float(cfg.get('retention', G.nodes[n].get('retention', 1.0)))
-    for u, v in G.edges:
-        G[u][v]['decay'] = float(cfg.get('decay', G[u][v].get('decay', 0.6)))
-        G[u][v]['delay'] = int(cfg.get('delay', G[u][v].get('delay', 0)))
-    return G
+# These presets and bounds mirror the flagship notebook. Agent and optimizer
+# code should depend on this canonical contract instead of maintaining another
+# approximation of system health.
+OPT_SCORE_PRESETS = {
+    "balanced": {
+        "w_dist": 0.20, "w_z": 0.15, "w_shape": 0.10, "w_beh": 0.20,
+        "w_unstable": 1.00, "w_dead": 30.0, "w_drift": 8.0,
+        "w_late_up": 10.0, "w_dominance": 6.0, "w_overflow": 10.0,
+        "w_flatline": 12.0, "w_decay_barrier": 8.0, "w_transmission": 12.0,
+        "w_terminal_weak": 18.0, "w_tail_weak": 18.0,
+        "w_retention_barrier": 4.0, "w_edge_near_one": 4.0,
+        "w_lam_boundary": 2.0, "w_time": 0.0,
+        "P_unstable": 60.0, "P_lam": 60.0,
+        "P_unconstrained": 12.0, "P_overdamped": 2.0,
+    },
+    "stability_first": {
+        "w_dist": 0.10, "w_z": 0.10, "w_shape": 0.05, "w_beh": 0.25,
+        "w_unstable": 1.50, "w_dead": 45.0, "w_drift": 12.0,
+        "w_late_up": 14.0, "w_dominance": 8.0, "w_overflow": 16.0,
+        "w_flatline": 15.0, "w_decay_barrier": 10.0, "w_transmission": 15.0,
+        "w_terminal_weak": 24.0, "w_tail_weak": 24.0,
+        "w_retention_barrier": 6.0, "w_edge_near_one": 6.0,
+        "w_lam_boundary": 3.0, "w_time": 0.0,
+        "P_unstable": 90.0, "P_lam": 90.0,
+        "P_unconstrained": 20.0, "P_overdamped": 4.0,
+    },
+    "responsive": {
+        "w_dist": 0.15, "w_z": 0.30, "w_shape": 0.20, "w_beh": 0.20,
+        "w_unstable": 1.00, "w_dead": 20.0, "w_drift": 6.0,
+        "w_late_up": 8.0, "w_dominance": 4.0, "w_overflow": 8.0,
+        "w_flatline": 10.0, "w_decay_barrier": 8.0, "w_transmission": 10.0,
+        "w_terminal_weak": 14.0, "w_tail_weak": 14.0,
+        "w_retention_barrier": 3.0, "w_edge_near_one": 3.0,
+        "w_lam_boundary": 1.5, "w_time": 0.0,
+        "P_unstable": 50.0, "P_lam": 50.0,
+        "P_unconstrained": 10.0, "P_overdamped": 1.0,
+    },
+}
+
+OPT_DEFAULT_BOUNDS = {
+    "node_retention": (0.0, 1.0),
+    "edge_decay": (0.0, 1.0),
+    "edge_delay": (0, 20),
+    "edge_confidence": (0.0, 1.0),
+    "edge_correlation": (-1.0, 1.0),
+}
 
 
-def evaluate_config(G_base, cfg, *, steps=200, z_window=10):
-    """
-    Score a parameter configuration. Lower score = better.
+def _clamp(value, lower, upper):
+    return min(upper, max(lower, value))
 
-    Components:
-      overdamped_ratio  — fraction of nodes that converge to zero (penalty: mild)
-      unconstrained_pen — fraction of nodes that diverge (penalty: severe)
-      z_stability       — mean rolling-Z magnitude (reward for staying near 0)
-    """
-    G = apply_config_to_graph(G_base, cfg)
-    init_vals = {n: G.nodes[n].get('start_amount', 0.0) for n in G.nodes}
-    hist = simulate_two_phase(G, init_vals, steps)
-    classifications = classify_behavior(hist)
 
-    n_total = max(len(classifications), 1)
-    n_over = sum(1 for c in classifications.values() if c == 'Over-damped')
-    n_unc  = sum(1 for c in classifications.values() if c == 'Unconstrained')
+def _edge_key(source, target):
+    return str(source), str(target)
 
-    z_scores = []
-    for node, series in hist.items():
-        clean = [v for v in series if v is not None]
-        if len(clean) > z_window:
-            z_scores.append(float(np.mean(np.abs(rolling_z(clean, z_window)))))
 
-    z_pen = np.mean(z_scores) if z_scores else 1.0
-
-    score = (n_over * 0.3 + n_unc * 1.0) / n_total + min(z_pen * 0.1, 0.3)
+def graph_state_config(graph):
+    """Return the notebook's unique-config shape for an existing graph state."""
 
     return {
-        'score': round(score, 4),
-        'config': cfg,
-        'classifications': classifications,
-        'components': {
-            'overdamped_ratio':   round(n_over / n_total, 3),
-            'unconstrained_ratio': round(n_unc  / n_total, 3),
-            'z_stability':        round(z_pen, 3),
+        "mode": "unique",
+        "node_retention_map": {
+            str(node): float(graph.nodes[node].get("retention", 0.0))
+            for node in graph.nodes
+        },
+        "node_start_amount_map": {
+            str(node): float(graph.nodes[node].get("start_amount", 0.0))
+            for node in graph.nodes
+        },
+        "edge_decay_map": {
+            _edge_key(source, target): float(data.get("decay", 0.0))
+            for source, target, data in graph.edges(data=True)
+        },
+        "edge_delay_map": {
+            _edge_key(source, target): int(data.get("delay", 0))
+            for source, target, data in graph.edges(data=True)
+        },
+        "edge_confidence_map": {
+            _edge_key(source, target): float(data.get("confidence", 1.0))
+            for source, target, data in graph.edges(data=True)
+        },
+        "edge_correlation_map": {
+            _edge_key(source, target): float(data.get("correlation", 1.0))
+            for source, target, data in graph.edges(data=True)
+        },
+    }
+
+
+def compute_runtime_linear_transition_matrix(
+    graph, *, node_retention_map=None, edge_decay_map=None, passnodes=None
+):
+    """Build the delay-free linear spectral model of runtime propagation."""
+
+    return runtime_linear_transition_matrix(
+        graph,
+        node_retention_map=node_retention_map,
+        edge_decay_map=edge_decay_map,
+        passnodes=set(passnodes or ()),
+    )
+
+
+def compute_adjacency_matrix_stability_unique(
+    graph, *, node_retention_map=None, edge_decay_map=None, passnodes=None
+):
+    """Compatibility alias for :func:`compute_runtime_linear_transition_matrix`."""
+
+    return compute_runtime_linear_transition_matrix(
+        graph,
+        node_retention_map=node_retention_map,
+        edge_decay_map=edge_decay_map,
+        passnodes=passnodes,
+    )
+
+
+def _compute_hist_stability_metrics(hist, init_vals):
+    """Notebook stabilization metrics, kept independent of optimizer policy."""
+
+    starts = np.asarray([abs(float(value)) for value in init_vals.values()], dtype=float)
+    start_scale = max(1e-6, float(np.median(starts)) if starts.size else 1.0)
+    dead = 0
+    late_drifts = []
+    total_variation = []
+    standard_deviation = []
+    terminal_weak = []
+    tail_weak = []
+    active_terminal = []
+    active_tail = []
+    late_up = []
+    terminal_values = []
+    max_abs = 0.0
+
+    for node, series in hist.items():
+        values = np.asarray([np.nan if value is None else float(value) for value in series])
+        values = values[np.isfinite(values)]
+        if not values.size:
+            dead += 1
+            terminal_weak.append(1.0)
+            tail_weak.append(1.0)
+            active_terminal.append(0.0)
+            active_tail.append(0.0)
+            late_up.append(0.0)
+            terminal_values.append(0.0)
+            continue
+
+        final = float(values[-1])
+        final_abs = abs(final)
+        terminal_values.append(final_abs)
+        dead += int(final_abs <= 1e-8)
+        max_abs = max(max_abs, float(np.max(np.abs(values))))
+        window = max(4, int(len(values) * 0.25))
+        tail = values[-window:]
+        if tail.size >= 2:
+            late_drifts.append(float(np.mean(np.abs(np.diff(tail)))))
+        total_variation.append(
+            float(np.sum(np.abs(np.diff(values))) / start_scale) if values.size >= 2 else 0.0
+        )
+        standard_deviation.append(float(np.std(values) / start_scale))
+
+        node_scale = max(1e-6, abs(float(init_vals.get(node, start_scale))))
+        final_ratio = final_abs / node_scale
+        tail_ratio = float(np.mean(np.abs(tail))) / node_scale
+        terminal_weak.append(min(1.0, max(0.0, (0.15 - final_ratio) / 0.15)))
+        tail_weak.append(min(1.0, max(0.0, (0.18 - tail_ratio) / 0.18)))
+        active_terminal.append(float(final_ratio >= 0.15))
+        active_tail.append(float(tail_ratio >= 0.18))
+
+        if tail.size >= 4:
+            half = max(2, tail.size // 2)
+            rise = max(0.0, float(np.mean(tail[-half:]) - np.mean(tail[:half]))) / node_scale
+            try:
+                slope = float(np.polyfit(np.arange(tail.size), tail, 1)[0])
+            except Exception:
+                slope = 0.0
+            slope = max(0.0, slope * max(1.0, tail.size - 1.0)) / node_scale
+            late_up.append(max(rise, slope))
+        else:
+            late_up.append(0.0)
+
+    count = max(1, len(hist))
+    motion = 0.5 * (
+        (float(np.mean(total_variation)) if total_variation else 0.0)
+        + (float(np.mean(standard_deviation)) if standard_deviation else 0.0)
+    )
+    late_up_values = np.asarray(late_up, dtype=float)
+    late_up_mean = float(np.mean(late_up_values)) if late_up_values.size else 0.0
+    top_count = min(3, late_up_values.size)
+    late_up_top = (
+        float(np.mean(np.sort(late_up_values)[-top_count:])) if top_count else 0.0
+    )
+    late_up_penalty = (
+        0.5 * max(0.0, (late_up_mean - 0.02) / 0.02)
+        + 0.5 * max(0.0, (late_up_top - 0.05) / 0.05)
+    )
+    terminal_array = np.asarray(terminal_values, dtype=float)
+    shares = terminal_array / max(1e-12, float(np.sum(terminal_array)))
+    max_share = float(np.max(shares)) if shares.size else 0.0
+    top_three_share = float(np.sum(np.sort(shares)[-min(3, shares.size):])) if shares.size else 0.0
+    dominance_penalty = (
+        0.5 * max(0.0, (max_share - 0.25) / 0.75)
+        + 0.5 * max(0.0, (top_three_share - 0.60) / 0.40)
+    )
+    overflow_threshold = 100.0 * start_scale
+    return {
+        "alive_ratio": float((count - dead) / count),
+        "dead_ratio": float(dead / count),
+        "late_drift": float(np.mean(late_drifts) / start_scale) if late_drifts else 0.0,
+        "late_up_mean": late_up_mean,
+        "late_up_topk": late_up_top,
+        "late_up_pen": late_up_penalty,
+        "max_abs": max_abs,
+        "overflow_pen": (
+            float(math.log1p(max_abs / overflow_threshold))
+            if max_abs > overflow_threshold else 0.0
+        ),
+        "flatline_pen": min(1.0, max(0.0, (0.05 - motion) / 0.05)),
+        "motion_metric": motion,
+        "terminal_weak_pen": float(np.mean(terminal_weak)) if terminal_weak else 0.0,
+        "tail_weak_pen": float(np.mean(tail_weak)) if tail_weak else 0.0,
+        "active_terminal_ratio": float(np.mean(active_terminal)) if active_terminal else 0.0,
+        "active_tail_ratio": float(np.mean(active_tail)) if active_tail else 0.0,
+        "max_terminal_share": max_share,
+        "top3_terminal_share": top_three_share,
+        "dominance_pen": dominance_penalty,
+    }
+
+
+def _compute_graph_activation_metrics(graph):
+    correlations = []
+    transmissions = []
+    decays = []
+    for _, _, data in graph.edges(data=True):
+        correlation = abs(float(data.get("correlation", 1.0)))
+        decay = float(data.get("decay", 0.0))
+        correlations.append(correlation)
+        transmissions.append(correlation * (1.0 - decay))
+        decays.append(decay)
+    if not correlations:
+        return {
+            "mean_decay": 0.0, "transmission_ratio": 1.0,
+            "decay_barrier_pen": 0.0, "transmission_pen": 0.0,
+            "near_one_decay_excess_mean": 0.0, "near_one_decay_frac": 0.0,
+            "edge_near_one_pen": 0.0,
         }
+    decay_values = np.asarray(decays, dtype=float)
+    mean_decay = float(np.mean(decay_values))
+    transmission_ratio = float(np.mean(transmissions)) / max(1e-12, float(np.mean(correlations)))
+    transmission_ratio = float(np.clip(transmission_ratio, 0.0, 1.0))
+    near_one_excess = np.clip((decay_values - 0.95) / 0.05, 0.0, None)
+    near_one_mean = float(np.mean(near_one_excess))
+    near_one_fraction = float(np.mean(decay_values >= 0.99))
+    return {
+        "mean_decay": mean_decay,
+        "transmission_ratio": transmission_ratio,
+        "decay_barrier_pen": float(np.clip((mean_decay - 0.90) / 0.10, 0.0, 1.0)),
+        "transmission_pen": float(np.clip((0.12 - transmission_ratio) / 0.12, 0.0, 1.0)),
+        "near_one_decay_excess_mean": near_one_mean,
+        "near_one_decay_frac": near_one_fraction,
+        "edge_near_one_pen": 0.5 * near_one_mean + 0.5 * near_one_fraction,
+    }
+
+
+def _compute_parameter_barrier_metrics(graph, lam_max):
+    retentions = np.asarray([
+        float(graph.nodes[node].get("retention", 0.0)) for node in graph.nodes
+    ], dtype=float)
+    if retentions.size:
+        excess = np.clip((retentions - 0.95) / 0.05, 0.0, None)
+        excess_mean = float(np.mean(excess))
+        near_one_fraction = float(np.mean(retentions >= 0.99))
+    else:
+        excess_mean = 0.0
+        near_one_fraction = 0.0
+    return {
+        "ret_excess_mean": excess_mean,
+        "ret_near_one_frac": near_one_fraction,
+        "retention_barrier_pen": 0.5 * excess_mean + 0.5 * near_one_fraction,
+        "lam_boundary_pen": max(0.0, (float(lam_max) - 0.992) / 0.008),
+    }
+
+
+def score_components_to_total(components, weights):
+    """Canonical notebook weighted score. Lower is healthier."""
+
+    pairs = (
+        ("w_dist", "dist"), ("w_z", "z_max"), ("w_shape", "shape_mean"),
+        ("w_beh", "behavior_pen"), ("w_unstable", "unstable_pen"),
+        ("w_dead", "dead_ratio"), ("w_drift", "late_drift"),
+        ("w_late_up", "late_up_pen"), ("w_dominance", "dominance_pen"),
+        ("w_overflow", "overflow_pen"), ("w_flatline", "flatline_pen"),
+        ("w_decay_barrier", "decay_barrier_pen"),
+        ("w_transmission", "transmission_pen"),
+        ("w_terminal_weak", "terminal_weak_pen"),
+        ("w_tail_weak", "tail_weak_pen"),
+        ("w_retention_barrier", "retention_barrier_pen"),
+        ("w_edge_near_one", "edge_near_one_pen"),
+        ("w_lam_boundary", "lam_boundary_pen"), ("w_time", "runtime_s"),
+    )
+    return float(sum(
+        float(weights.get(weight_name, 0.0)) * float(components.get(component_name, 0.0))
+        for weight_name, component_name in pairs
+    ))
+
+def apply_config_to_graph(G_base, cfg, *, bounds=None, node_group_of=None, edge_group_of=None):
+    """Apply notebook uniform/unique configs while accepting the legacy shape."""
+
+    del node_group_of, edge_group_of  # Grouped optimization remains a notebook concern.
+    bounds = bounds or OPT_DEFAULT_BOUNDS
+    graph = copy.deepcopy(G_base)
+    mode = cfg.get("mode")
+    if mode is None:
+        mode = "legacy_uniform"
+
+    if mode in {"uniform", "legacy_uniform"}:
+        retention = cfg.get("ret", cfg.get("retention"))
+        decay = cfg.get("decay")
+        delay = cfg.get("delay")
+        for node in graph.nodes:
+            if graph.nodes[node].get("formula"):
+                graph.nodes[node]["retention"] = 0.0
+            elif retention is not None and (
+                mode == "legacy_uniform"
+                or float(graph.nodes[node].get("retention", 1.0)) < 1.0 - 1e-9
+            ):
+                graph.nodes[node]["retention"] = _clamp(
+                    float(retention), *bounds["node_retention"]
+                )
+        for source, target in graph.edges:
+            if decay is not None:
+                graph[source][target]["decay"] = _clamp(
+                    float(decay), *bounds["edge_decay"]
+                )
+            if delay is not None:
+                graph[source][target]["delay"] = int(_clamp(
+                    int(delay), *bounds["edge_delay"]
+                ))
+        return graph
+
+    if mode != "unique":
+        raise ValueError(f"Unsupported optimizer config mode: {mode}")
+
+    maps = {
+        "retention": cfg.get("node_retention_map", {}),
+        "start_amount": cfg.get("node_start_amount_map", {}),
+        "decay": cfg.get("edge_decay_map", {}),
+        "delay": cfg.get("edge_delay_map", {}),
+        "confidence": cfg.get("edge_confidence_map", {}),
+        "correlation": cfg.get("edge_correlation_map", {}),
+    }
+    for node in graph.nodes:
+        key = str(node)
+        if graph.nodes[node].get("formula"):
+            graph.nodes[node]["retention"] = 0.0
+        elif key in maps["retention"]:
+            graph.nodes[node]["retention"] = _clamp(
+                float(maps["retention"][key]), *bounds["node_retention"]
+            )
+        if key in maps["start_amount"]:
+            graph.nodes[node]["start_amount"] = float(maps["start_amount"][key])
+    for source, target in graph.edges:
+        key = _edge_key(source, target)
+        if key in maps["decay"]:
+            graph[source][target]["decay"] = _clamp(
+                float(maps["decay"][key]), *bounds["edge_decay"]
+            )
+        if key in maps["delay"]:
+            graph[source][target]["delay"] = int(_clamp(
+                int(maps["delay"][key]), *bounds["edge_delay"]
+            ))
+        if key in maps["confidence"]:
+            graph[source][target]["confidence"] = _clamp(
+                float(maps["confidence"][key]), *bounds["edge_confidence"]
+            )
+        if key in maps["correlation"]:
+            graph[source][target]["correlation"] = _clamp(
+                float(maps["correlation"][key]), *bounds["edge_correlation"]
+            )
+    return graph
+
+
+def evaluate_config(
+    G_base,
+    cfg,
+    *,
+    steps=200,
+    z_window=10,
+    weights=None,
+    bounds=None,
+    node_group_of=None,
+    edge_group_of=None,
+    quiet=True,
+    fast_fail_unstable=False,
+):
+    """Evaluate a graph with the flagship notebook's multi-component score."""
+
+    del quiet  # Formula errors retain the simulator's established diagnostics.
+    weights = weights or OPT_SCORE_PRESETS["balanced"]
+    started = time.time()
+    graph = apply_config_to_graph(
+        G_base, cfg, bounds=bounds, node_group_of=node_group_of,
+        edge_group_of=edge_group_of,
+    )
+    matrix, _ = compute_runtime_linear_transition_matrix(graph)
+    _, dist_metric, lam_max = analyze_eigenvalues_stability(matrix)
+    unstable = bool(lam_max > 1.0)
+    unstable_penalty = (
+        float(weights["P_unstable"] + weights["P_lam"] * max(0.0, lam_max - 1.0))
+        if unstable else 0.0
+    )
+    activation = _compute_graph_activation_metrics(graph)
+    barriers = _compute_parameter_barrier_metrics(graph, lam_max)
+
+    if fast_fail_unstable and unstable:
+        components = {
+            "dist": float(dist_metric), "lam_max": float(lam_max),
+            "z_max": 1e6, "shape_mean": 1e6,
+            "behavior_pen": float(weights["P_unconstrained"]),
+            "unstable_pen": unstable_penalty, "dead_ratio": 1.0,
+            "late_drift": 1e3, "late_up_pen": 1e3,
+            "dominance_pen": 1.0, "overflow_pen": 1e3,
+            "flatline_pen": 0.0, "terminal_weak_pen": 1.0,
+            "tail_weak_pen": 1.0, "runtime_s": time.time() - started,
+            **activation, **barriers,
+        }
+        classifications = {}
+    else:
+        initial_values = {
+            node: float(graph.nodes[node].get("start_amount", 0.0))
+            for node in graph.nodes
+        }
+        history = simulate_two_phase(graph, initial_values, int(steps))
+        classifications = classify_behavior(history)
+        z_max = 0.0
+        shape_values = []
+        for series in history.values():
+            clean = np.asarray([value for value in series if value is not None], dtype=float)
+            if not clean.size:
+                continue
+            z_values = np.asarray(rolling_z(clean, window=int(z_window)), dtype=float)
+            z_max = max(z_max, float(np.max(np.abs(z_values))))
+            shape_values.append(float(compute_shape_penalty(z_values)))
+        behavior_penalty = 0.0
+        if "Unconstrained" in classifications.values():
+            behavior_penalty += float(weights["P_unconstrained"])
+        if "Over-damped" in classifications.values():
+            behavior_penalty += float(weights["P_overdamped"])
+        stability = _compute_hist_stability_metrics(history, initial_values)
+        components = {
+            "dist": float(dist_metric), "lam_max": float(lam_max),
+            "z_max": z_max,
+            "shape_mean": float(np.mean(shape_values)) if shape_values else 0.0,
+            "behavior_pen": behavior_penalty,
+            "unstable_pen": unstable_penalty,
+            "runtime_s": time.time() - started,
+            "unstable": unstable,
+            "any_unconstrained": "Unconstrained" in classifications.values(),
+            "any_overdamped": "Over-damped" in classifications.values(),
+            **stability, **activation, **barriers,
+        }
+
+    total = score_components_to_total(components, weights)
+    return {
+        "total_score": float(total),
+        "score": float(total),
+        "config": copy.deepcopy(cfg),
+        "config_snapshot": copy.deepcopy(cfg),
+        "classifications": classifications,
+        "components": components,
     }
 
 

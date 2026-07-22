@@ -223,31 +223,11 @@ function Node(model, config){
 
 
 	self.takeSignal = function(signal) {
-		// Skip edge-based updates for formula nodes
-		if (self.formula) {
-			return;
-		}
-
-		// Change value
-		// self.value += self.flow
-
-		// do not know if this is bad i commented it out
-		// self.value += signal.delta;
-
-		// Apply retention first, then clamp — matches backend simulate_two_phase order
-		self.value *= self.retention;
-
-		if (isFinite(self.ceiling) && self.value > self.ceiling) {
-			self.value = self.ceiling;
-		}
-		if (isFinite(self.floor) && self.value < self.floor) {
-			self.value = self.floor;
-		}
-
+		// Signal arrivals are visual only. Model.update commits one synchronized
+		// notebook step for every node, independent of arrow arrival order.
 		if (signal.delta && isFinite(signal.delta)) {
 			_offsetVel -= 6 * (signal.delta / Math.abs(signal.delta));
 		}
-
 	}
 	
 

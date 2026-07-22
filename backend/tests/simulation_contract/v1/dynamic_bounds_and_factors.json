@@ -1,0 +1,25 @@
+{
+  "schema_version": "flowcld.model.v1",
+  "simulation_contract": "flowcld.simulation.v1",
+  "fixture": "dynamic_bounds_and_factors",
+  "steps": 3,
+  "nodes": [
+    { "name": "Driver", "start_amount": 10, "retention": 1 },
+    {
+      "name": "Bounded",
+      "start_amount": 2,
+      "retention": 0.5,
+      "floor": "raw['Bounded'] - 1",
+      "ceiling": "raw['Bounded'] + 1",
+      "sink_formula": "0.5",
+      "source_formula": "1.2 if t >= 0 else 1"
+    }
+  ],
+  "edges": [
+    { "source": "Driver", "target": "Bounded", "correlation": 1, "decay": 0, "confidence": 1, "delay": 0, "functional_form": "linear" }
+  ],
+  "expected_history": {
+    "Driver": [10, 10, 10, 10],
+    "Bounded": [2, 1.8, 1.68, 1.608]
+  }
+}

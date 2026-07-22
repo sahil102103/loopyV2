@@ -29,7 +29,14 @@ _MATH_FUNCTIONS = {
     )
 }
 _MATH_FUNCTIONS.update({"abs": abs, "min": min, "max": max, "round": round})
-_MATH_NAMESPACE = SimpleNamespace(**_MATH_FUNCTIONS, e=math.e, pi=math.pi, tau=math.tau)
+_MATH_NAMESPACE = SimpleNamespace(
+    **_MATH_FUNCTIONS,
+    e=math.e,
+    pi=math.pi,
+    tau=math.tau,
+    E=math.e,
+    PI=math.pi,
+)
 
 _NP_FUNCTIONS = {
     "abs": np.abs,
@@ -58,9 +65,11 @@ _DIRECT_FUNCTIONS = {
     "round": round,
     "sum": sum,
 }
-_CONTEXT_NAMES = {"t", "x", "val", "e", "history", "raw", "nxt", "inputs"}
-_ALLOWED_NAMES = _CONTEXT_NAMES | {"math", "np"} | set(_DIRECT_FUNCTIONS)
-_ALLOWED_MATH_ATTRS = set(_MATH_FUNCTIONS) | {"e", "pi", "tau"}
+_CONTEXT_NAMES = {"t", "x", "val", "Y0", "e", "history", "raw", "nxt", "inputs"}
+# ``math`` is canonical. ``Math`` remains a compatibility alias for formulas
+# authored by the older browser help text.
+_ALLOWED_NAMES = _CONTEXT_NAMES | {"math", "Math", "np"} | set(_DIRECT_FUNCTIONS)
+_ALLOWED_MATH_ATTRS = set(_MATH_FUNCTIONS) | {"e", "pi", "tau", "E", "PI"}
 _ALLOWED_NP_ATTRS = set(_NP_FUNCTIONS)
 
 
@@ -112,9 +121,9 @@ class _FormulaValidator(ast.NodeVisitor):
             raise FormulaEvaluationError(f"Unknown or disallowed symbol: {node.id}")
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
-        if not isinstance(node.value, ast.Name) or node.value.id not in {"math", "np"}:
+        if not isinstance(node.value, ast.Name) or node.value.id not in {"math", "Math", "np"}:
             raise FormulaEvaluationError("Only math.* and np.* attributes are allowed")
-        allowed = _ALLOWED_MATH_ATTRS if node.value.id == "math" else _ALLOWED_NP_ATTRS
+        allowed = _ALLOWED_NP_ATTRS if node.value.id == "np" else _ALLOWED_MATH_ATTRS
         if node.attr not in allowed:
             raise FormulaEvaluationError(f"Disallowed function: {node.value.id}.{node.attr}")
         self.visit(node.value)
@@ -153,18 +162,21 @@ def evaluate_formula(expression: str, context: Mapping[str, Any] | None = None) 
         "t": supplied.get("t", 0),
         "x": supplied.get("x", 0),
         "val": supplied.get("val", supplied.get("x", 0)),
+        "Y0": supplied.get("Y0", 0),
         "e": supplied.get("e", math.e),
         "history": supplied.get("history", {}),
         "raw": supplied.get("raw", {}),
         "nxt": supplied.get("nxt", {}),
         "inputs": supplied.get("inputs", {}),
         "math": _MATH_NAMESPACE,
+        "Math": _MATH_NAMESPACE,
         "np": _NP_NAMESPACE,
         **_DIRECT_FUNCTIONS,
     }
 
     try:
-        value = _evaluate_node(parsed, scope)
+        with np.errstate(divide="raise", over="raise", invalid="raise"):
+            value = _evaluate_node(parsed, scope)
     except (ArithmeticError, KeyError, TypeError, ValueError, ZeroDivisionError) as error:
         raise FormulaEvaluationError(str(error)) from error
 

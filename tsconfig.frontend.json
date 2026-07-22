@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2018",
+    "lib": ["ES2020", "DOM"],
+    "module": "none",
+    "rootDir": "v1.1/ts",
+    "outDir": "v1.1/js/Validation",
+    "strict": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noEmitOnError": true,
+    "removeComments": false
+  },
+  "files": [
+    "v1.1/ts/GraphModelGateway.ts",
+    "v1.1/ts/LoopyImportGateway.ts",
+    "v1.1/ts/TeamRequestGateway.ts"
+  ]
+}

@@ -178,45 +178,10 @@ function Edge(model, config){
 		var lastSignal = self.signals[self.signals.length-1];
 		// self.to.init;
 		while(lastSignal && lastSignal.position>=1){
-
-
-			lastSignal.delta *= (self.strength);
+			// Arrival only drives the arrow/bump animation. Model.update advances
+			// all values together through CLDEngine's notebook-compatible step.
+			lastSignal.delta *= self.strength;
 			self.to.takeSignal(lastSignal);
-
-			// Map to store accumulated signals for each node
-			let signalMap = new Map();
-
-			// Refactored for better readability - separated into a helper function
-			const accumulateSignals = () => {
-			  self.model.edges.forEach(edge => {
-				  // Calculate the incoming signal from the edge
-				  let incomingSignal = edge.from.value * (1-edge.damper) * stochasticValueSelection(edge.strength, -1, 1, edge.confidence);
-
-				  // Check if this is a pass node
-				  if (edge.to.pass) {
-					  // If it's a pass node, accumulate the incoming signal
-					  if (!signalMap.has(edge.to)) {
-						  signalMap.set(edge.to, 0);
-					  }
-					  signalMap.set(edge.to, signalMap.get(edge.to) + incomingSignal);
-				  } else {
-					  // For regular nodes, accumulate both the incoming signal and the current value of the node
-					  if (!signalMap.has(edge.to)) {
-						  signalMap.set(edge.to, edge.to.value);  // Start with the node's current value
-					  }
-					  signalMap.set(edge.to, signalMap.get(edge.to) + incomingSignal);
-				  }
-			  });
-			};
-
-			accumulateSignals(); // Calling the helper function to accumulate signals
-
-			// After processing all edges, assign the accumulated signal sum to each node
-			signalMap.forEach((signalSum, node) => {
-				var fl = isFinite(node.floor)   ? node.floor   : -Infinity;
-				var cl = isFinite(node.ceiling) ? node.ceiling :  Infinity;
-				node.value = Math.min(Math.max(fl, signalSum), cl);
-			});
 
 			// Pop it, move on down
 			self.removeSignal(lastSignal);

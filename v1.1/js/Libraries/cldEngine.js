@@ -76,19 +76,21 @@ class CLDEngine {
             const sinkFormulaValue = node.sinkFormula ?? node.sink_formula ?? node.f_sink ?? null;
             const sourceFormulaValue = node.sourceFormula ?? node.source_formula ?? node.f_source ?? null;
 
+            const retention = this.safeEvaluate(node.retention ?? node.ret, 1.0);
+            if (retention < 0) throw new Error(`Retention for "${nodeId}" cannot be negative`);
             normalized.nodes[nodeId] = {
+                ...node,
                 id: nodeId,
                 startAmount: this.safeEvaluate(
                     node.startAmount ?? node.start_amount ?? node.start ?? node.initial ?? node.init ?? node.value,
                     0.0
                 ),
-                retention: this.safeEvaluate(node.retention ?? node.ret, 1.0),
+                retention,
                 floor: floorValue,
                 ceiling: ceilingValue,
                 formula: (typeof formulaValue === 'string' && formulaValue.trim()) ? formulaValue.trim() : null,
                 sinkFormula: (typeof sinkFormulaValue === 'string' && sinkFormulaValue.trim()) ? sinkFormulaValue.trim() : null,
-                sourceFormula: (typeof sourceFormulaValue === 'string' && sourceFormulaValue.trim()) ? sourceFormulaValue.trim() : null,
-                ...node
+                sourceFormula: (typeof sourceFormulaValue === 'string' && sourceFormulaValue.trim()) ? sourceFormulaValue.trim() : null
             };
         }
 
@@ -113,15 +115,25 @@ class CLDEngine {
                 }
             }
 
+            const decay = this.safeEvaluate(edge.decay ?? edge.damper, 0.0);
+            const confidence = this.safeEvaluate(edge.confidence ?? edge.certainty, 1.0);
+            const delay = this.safeEvaluate(edge.delay ?? edge.lag, 0);
+            const functionalForm = String(edge.functionalForm ?? edge.functional_form ?? 'linear').trim().toLowerCase();
+            if (decay < 0 || decay > 1) throw new Error('Edge decay must be between 0 and 1');
+            if (confidence < 0 || confidence > 1) throw new Error('Edge confidence must be between 0 and 1');
+            if (delay < 0 || !Number.isInteger(delay)) throw new Error('Edge delay must be a non-negative integer');
+            if (!['linear', 'tanh', 'quadratic', 'cubic', 'relu', 'step'].includes(functionalForm)) {
+                throw new Error(`Unsupported edge functional form: ${functionalForm}`);
+            }
             normalized.edges.push({
-                from,
-                to,
-                correlation: this.safeEvaluate(correlation, 1.0),
-                decay: this.safeEvaluate(edge.decay, 0.0),
-                confidence: this.safeEvaluate(edge.confidence ?? edge.certainty, 1.0),
-                delay: this.safeEvaluate(edge.delay, 0),
                 ...edge,
-                functionalForm: edge.functionalForm ?? edge.functional_form ?? 'linear'
+                from: String(from),
+                to: String(to),
+                correlation: this.safeEvaluate(correlation, 1.0),
+                decay,
+                confidence,
+                delay,
+                functionalForm
             });
         }
 
@@ -135,7 +147,7 @@ class CLDEngine {
      * @returns {number} Evaluated numeric value
      */
     safeEvaluate(value, defaultValue = 0, ctx = {}) {
-        if (typeof value === 'number' && !isNaN(value)) {
+        if (typeof value === 'number' && Number.isFinite(value)) {
             return value;
         }
         
@@ -148,11 +160,16 @@ class CLDEngine {
                 const raw = ctx.raw || {};
                 const nxt = ctx.nxt || {};
                 const inputs = ctx.inputs || {};
-                if (typeof FormulaEvaluator === 'undefined') {
+                const evaluator = typeof FormulaEvaluator !== 'undefined'
+                    ? FormulaEvaluator
+                    : (typeof require === 'function' ? require('./FormulaEvaluator.js') : null);
+                if (!evaluator) {
                     throw new Error('Formula evaluator is unavailable');
                 }
-                const result = FormulaEvaluator.evaluate(value, { t, x, val, history, raw, nxt, inputs });
-                return typeof result === 'number' && !isNaN(result) ? result : defaultValue;
+                const result = evaluator.evaluate(value, {
+                    t, x, val, Y0: ctx.Y0, history, raw, nxt, inputs
+                });
+                return typeof result === 'number' && Number.isFinite(result) ? result : defaultValue;
             } catch (e) {
                 if (typeof showToast === 'function') showToast(`Expression error: "${value}" — ${e.message}`, 'error');
                 console.error(`Failed to evaluate expression: ${value}`, e);
@@ -181,18 +198,34 @@ class CLDEngine {
     }
 
     applyEdgeForm(form, value) {
-        switch (form || 'linear') {
-            case 'tanh': return Math.tanh(value);
-            case 'quadratic': return value * Math.abs(value);
-            case 'cubic': return value * value * value;
-            case 'relu': return value > 0 ? value : 0;
-            case 'step': return value > 0 ? 1 : (value < 0 ? -1 : 0);
-            default: return value;
+        if (!Number.isFinite(value)) throw new Error('Edge source value must be finite');
+        const selected = String(form || 'linear').trim().toLowerCase();
+        let result;
+        switch (selected) {
+            case 'tanh': result = Math.tanh(value); break;
+            case 'quadratic': result = value * Math.abs(value); break;
+            case 'cubic': result = value * value * value; break;
+            case 'relu': result = value > 0 ? value : 0; break;
+            case 'step': result = value > 0 ? 1 : (value < 0 ? -1 : 0); break;
+            case 'linear': result = value; break;
+            default: throw new Error(`Unsupported edge functional form: ${selected}`);
         }
+        if (!Number.isFinite(result)) throw new Error(`Edge functional form "${selected}" overflowed`);
+        return result;
     }
 
     edgeContribution(edge, value) {
-        return edge.correlation * (1.0 - edge.decay) * this.applyEdgeForm(edge.functionalForm, value);
+        const result = edge.correlation * (1.0 - edge.decay) * this.applyEdgeForm(edge.functionalForm, value);
+        if (!Number.isFinite(result)) throw new Error('Edge contribution must be finite');
+        return result;
+    }
+
+    applyProcessNoise(noise, nodeId, phase, value, t) {
+        if (!Number.isFinite(value)) throw new Error(`Computed value for "${nodeId}" must be finite`);
+        if (typeof noise !== 'function') return value;
+        const result = noise({ nodeId, phase, value, t });
+        if (!Number.isFinite(result)) throw new Error(`Noisy value for "${nodeId}" must be finite`);
+        return result;
     }
 
     evaluateBound(bound, defaultValue, ctx = {}) {
@@ -200,6 +233,13 @@ class CLDEngine {
             return bound;
         }
         if (typeof bound === 'string' && bound.trim()) {
+            const normalized = bound.trim().toLowerCase();
+            if (['infinity', '+infinity', 'inf', '+inf'].includes(normalized)) {
+                return Infinity;
+            }
+            if (['-infinity', '-inf'].includes(normalized)) {
+                return -Infinity;
+            }
             const result = this.safeEvaluate(bound, defaultValue, ctx);
             return Number.isFinite(result) ? result : defaultValue;
         }
@@ -215,149 +255,193 @@ class CLDEngine {
      * @param {Object} options - Simulation options
      * @returns {Object} Simulation results
      */
+    createSimulationState(initialValues = {}) {
+        if (!this.graph) {
+            throw new Error('Graph not initialized. Call initializeGraph() first.');
+        }
+        return {
+            history: this.initializeHistory(initialValues),
+            step: 0
+        };
+    }
+
+    /**
+     * Advance an existing simulation by one synchronized notebook step.
+     * The state object is intentionally reusable so Canvas Play can preserve
+     * delay history while still accepting direct changes to current node values.
+     */
+    stepTwoPhase(state, options = {}) {
+        if (!this.graph) {
+            throw new Error('Graph not initialized. Call initializeGraph() first.');
+        }
+        if (!state || !state.history || !Number.isInteger(state.step) || state.step < 0) {
+            throw new Error('A valid simulation state is required');
+        }
+
+        const config = {
+            applyBounds: options.applyBounds !== false,
+            applyFormulas: options.applyFormulas !== false,
+            processNoise: options.processNoise
+        };
+        const history = state.history;
+        const t = state.step;
+        const nodeEntries = Object.entries(this.graph.nodes);
+
+        for (const [nodeId] of nodeEntries) {
+            if (!Array.isArray(history[nodeId]) || history[nodeId].length <= t) {
+                throw new Error(`Simulation history is missing step ${t} for node "${nodeId}"`);
+            }
+        }
+
+        const raw = Object.fromEntries(
+            Object.entries(history).map(([nodeId, series]) => [nodeId, series[t]])
+        );
+        for (const [nodeId, value] of Object.entries(raw)) {
+            if (!Number.isFinite(value)) throw new Error(`Value for "${nodeId}" at step ${t} must be finite`);
+        }
+        const converters = nodeEntries
+            .filter(([, node]) => node.retention === 0)
+            .map(([nodeId]) => nodeId);
+
+        // Phase A: retention + delayed inflows
+        const nxt = {};
+        for (const [nodeId, node] of nodeEntries) {
+            nxt[nodeId] = node.retention * history[nodeId][t];
+        }
+        for (const edge of this.graph.edges) {
+            if (!this.graph.nodes[edge.from] || !this.graph.nodes[edge.to]) continue;
+            const delayE = Math.max(0, Math.floor(edge.delay));
+            const srcT = t - delayE;
+            const srcV = (srcT >= 0 && history[edge.from][srcT] !== undefined)
+                ? (history[edge.from][srcT] === null ? 0 : history[edge.from][srcT])
+                : 0;
+            nxt[edge.to] = (nxt[edge.to] || 0) + this.edgeContribution(edge, srcV);
+            if (!Number.isFinite(nxt[edge.to])) throw new Error(`Unbounded next value for "${edge.to}" must be finite`);
+        }
+
+        // Phase B: commit stocks; converters receive a placeholder.
+        for (const [nodeId, node] of nodeEntries) {
+            if (node.retention > 0) {
+                let value = this.applyProcessNoise(
+                    config.processNoise, nodeId, 'stock', nxt[nodeId], t
+                );
+                if (config.applyBounds) {
+                    value = this.evaluateBounds(value, node.floor, node.ceiling, {
+                        t, history, raw, nxt
+                    });
+                }
+                history[nodeId].push(value);
+            } else {
+                history[nodeId].push(null);
+            }
+        }
+
+        // Phase C: evaluate converters from the just-committed stock values.
+        for (const nodeId of converters) {
+            const node = this.graph.nodes[nodeId];
+            const inputs = {};
+            for (const edge of this.graph.edges) {
+                if (edge.to !== nodeId) continue;
+                const delayE = Math.max(0, Math.floor(edge.delay));
+                const srcT = t + 1 - delayE;
+                let srcV = (srcT >= 0 && history[edge.from][srcT] !== undefined)
+                    ? history[edge.from][srcT] : 0;
+                if (srcV === null) srcV = 0;
+                inputs[edge.from] = this.edgeContribution(edge, srcV);
+            }
+
+            const committed = Object.fromEntries(
+                Object.entries(history).map(([id, series]) => [id, series[series.length - 1]])
+            );
+            let value;
+            if (config.applyFormulas && node.formula) {
+                const previousValue = history[nodeId].length >= 2
+                    ? (history[nodeId][history[nodeId].length - 2] ?? 0)
+                    : 0;
+                value = this.evaluateFormula(
+                    node.formula,
+                    previousValue,
+                    t,
+                    nodeId,
+                    history,
+                    { inputs, raw, nxt: committed, Y0: history[nodeId][0] }
+                );
+            } else {
+                value = Object.values(inputs).reduce((sum, input) => sum + input, 0);
+            }
+            value = this.applyProcessNoise(
+                config.processNoise, nodeId, 'converter', value, t
+            );
+            if (config.applyBounds) {
+                value = this.evaluateBounds(value, node.floor, node.ceiling, {
+                    t, history, raw, nxt: committed
+                });
+            }
+            history[nodeId][history[nodeId].length - 1] = value;
+        }
+
+        // Phase D: apply notebook-compatible sink/source multipliers.
+        for (const [nodeId, node] of nodeEntries) {
+            if (node.sinkFormula) {
+                const currentValue = history[nodeId][history[nodeId].length - 1];
+                const committed = Object.fromEntries(
+                    Object.entries(history).map(([id, series]) => [id, series[series.length - 1]])
+                );
+                const factor = this.safeEvaluate(node.sinkFormula, 1.0, {
+                    t, x: currentValue, val: currentValue, Y0: history[nodeId][0],
+                    history, raw, nxt: committed
+                });
+                const result = currentValue * factor;
+                if (!Number.isFinite(result)) throw new Error(`Sink result for "${nodeId}" must be finite`);
+                history[nodeId][history[nodeId].length - 1] = result;
+            }
+            if (node.sourceFormula) {
+                const currentValue = history[nodeId][history[nodeId].length - 1];
+                const committed = Object.fromEntries(
+                    Object.entries(history).map(([id, series]) => [id, series[series.length - 1]])
+                );
+                const factor = this.safeEvaluate(node.sourceFormula, 1.0, {
+                    t, x: currentValue, val: currentValue, Y0: history[nodeId][0],
+                    history, raw, nxt: committed
+                });
+                const result = currentValue * factor;
+                if (!Number.isFinite(result)) throw new Error(`Source result for "${nodeId}" must be finite`);
+                history[nodeId][history[nodeId].length - 1] = result;
+            }
+        }
+
+        state.step = t + 1;
+        return {
+            history,
+            step: state.step,
+            values: Object.fromEntries(
+                Object.entries(history).map(([nodeId, series]) => [nodeId, series[series.length - 1]])
+            )
+        };
+    }
+
     simulateTwoPhase(options = {}) {
         if (!this.graph) {
             throw new Error('Graph not initialized. Call initializeGraph() first.');
         }
 
+        const requestedSteps = options.steps === undefined
+            ? this.config.defaultSteps
+            : Number(options.steps);
         const config = {
-            steps: options.steps || this.config.defaultSteps,
+            ...options,
+            steps: Math.max(0, Math.floor(Number.isFinite(requestedSteps) ? requestedSteps : 0)),
             initialValues: options.initialValues || {},
             applyBounds: options.applyBounds !== false,
-            applyFormulas: options.applyFormulas !== false,
-            ...options
+            applyFormulas: options.applyFormulas !== false
         };
-
-        const history = this.initializeHistory(config.initialValues);
-
-        const converters = [];
-        for (const [nodeId, node] of Object.entries(this.graph.nodes)) {
-            if (node.retention === 0) converters.push(nodeId);
-        }
-
-        for (let t = 0; t < config.steps; t++) {
-            // Phase A: retention + delayed inflows
-            const nxt = {};
-            for (const [nodeId, node] of Object.entries(this.graph.nodes)) {
-                nxt[nodeId] = node.retention * history[nodeId][t];
-            }
-            for (const edge of this.graph.edges) {
-                if (!this.graph.nodes[edge.from] || !this.graph.nodes[edge.to]) continue;
-                const delayE = Math.max(0, Math.floor(edge.delay));
-                const srcT = t - delayE;
-                const srcV = (srcT >= 0 && history[edge.from][srcT] !== undefined)
-                    ? (history[edge.from][srcT] === null ? 0 : history[edge.from][srcT])
-                    : 0;
-                nxt[edge.to] = (nxt[edge.to] || 0) + this.edgeContribution(edge, srcV);
-            }
-
-            // Phase B: commit stocks (retention > 0), converters get null placeholder
-            for (const [nodeId, node] of Object.entries(this.graph.nodes)) {
-                if (node.retention > 0) {
-                    let val = nxt[nodeId] || 0;
-                    if (config.applyBounds) {
-                        val = this.evaluateBounds(val, node.floor, node.ceiling, {
-                            t,
-                            history,
-                            raw: Object.fromEntries(
-                                Object.entries(history).map(([nid, series]) => [nid, series[t]])
-                            ),
-                            nxt
-                        });
-                    }
-                    history[nodeId].push(val);
-                } else {
-                    history[nodeId].push(null);
-                }
-            }
-
-            // Phase C: evaluate converters (retention === 0)
-            for (const nodeId of converters) {
-                const node = this.graph.nodes[nodeId];
-                const inputs = {};
-                for (const edge of this.graph.edges) {
-                    if (edge.to !== nodeId) continue;
-                    const delayE = Math.max(0, Math.floor(edge.delay));
-                    const srcT = t + 1 - delayE;
-                    let srcV = (srcT >= 0 && history[edge.from][srcT] !== undefined)
-                        ? history[edge.from][srcT] : 0;
-                    if (srcV === null) srcV = 0;
-                    inputs[edge.from] = this.edgeContribution(edge, srcV);
-                }
-
-                let val;
-                if (config.applyFormulas && node.formula) {
-                    const previousValue = history[nodeId].length >= 2
-                        ? (history[nodeId][history[nodeId].length - 2] ?? 0)
-                        : 0;
-                    val = this.evaluateFormula(node.formula, previousValue, t, nodeId, history, {
-                        inputs,
-                        raw: Object.fromEntries(
-                            Object.entries(history).map(([nid, series]) => [nid, series[t]])
-                        ),
-                        nxt: Object.fromEntries(
-                            Object.entries(history).map(([nid, series]) => [nid, series[series.length - 1]])
-                        )
-                    });
-                } else {
-                    val = Object.values(inputs).reduce((s, v) => s + v, 0);
-                }
-                if (config.applyBounds) {
-                    val = this.evaluateBounds(val, node.floor, node.ceiling, {
-                        t,
-                        history,
-                        raw: Object.fromEntries(
-                            Object.entries(history).map(([nid, series]) => [nid, series[t]])
-                        ),
-                        nxt: Object.fromEntries(
-                            Object.entries(history).map(([nid, series]) => [nid, series[series.length - 1]])
-                        )
-                    });
-                }
-                history[nodeId][history[nodeId].length - 1] = val;
-            }
-
-            // Phase D: apply sink/source multipliers
-            for (const [nodeId, node] of Object.entries(this.graph.nodes)) {
-                if (node.sinkFormula) {
-                    const currentValue = history[nodeId][history[nodeId].length - 1];
-                    const ctx = {
-                        t,
-                        x: currentValue,
-                        val: currentValue,
-                        history,
-                        raw: Object.fromEntries(
-                            Object.entries(history).map(([nid, series]) => [nid, series[t]])
-                        ),
-                        nxt: Object.fromEntries(
-                            Object.entries(history).map(([nid, series]) => [nid, series[series.length - 1]])
-                        )
-                    };
-                    const factor = this.safeEvaluate(node.sinkFormula, 1.0, ctx);
-                    history[nodeId][history[nodeId].length - 1] *= factor;
-                }
-                if (node.sourceFormula) {
-                    const currentValue = history[nodeId][history[nodeId].length - 1];
-                    const ctx = {
-                        t,
-                        x: currentValue,
-                        val: currentValue,
-                        history,
-                        raw: Object.fromEntries(
-                            Object.entries(history).map(([nid, series]) => [nid, series[t]])
-                        ),
-                        nxt: Object.fromEntries(
-                            Object.entries(history).map(([nid, series]) => [nid, series[series.length - 1]])
-                        )
-                    };
-                    const factor = this.safeEvaluate(node.sourceFormula, 1.0, ctx);
-                    history[nodeId][history[nodeId].length - 1] *= factor;
-                }
-            }
+        const state = this.createSimulationState(config.initialValues);
+        for (let step = 0; step < config.steps; step++) {
+            this.stepTwoPhase(state, config);
         }
 
         return {
-            history,
+            history: state.history,
             steps: config.steps,
             config,
             metadata: {
@@ -405,6 +489,7 @@ class CLDEngine {
                 t,
                 x: currentValue,
                 val: currentValue,
+                Y0: extraContext.Y0 === undefined ? history[nodeId][0] : extraContext.Y0,
                 raw,
                 nxt,
                 inputs,
@@ -425,8 +510,10 @@ class CLDEngine {
      * @returns {number} Bounded value
      */
     evaluateBounds(value, floor, ceiling, ctx = {}) {
+        if (!Number.isFinite(value)) throw new Error('Computed node value must be finite');
         const floorValue = this.evaluateBound(floor, -Infinity, ctx);
         const ceilingValue = this.evaluateBound(ceiling, Infinity, ctx);
+        if (floorValue > ceilingValue) throw new Error('Node floor cannot exceed its ceiling');
         if (floorValue !== -Infinity && value < floorValue) {
             return floorValue;
         }
@@ -631,6 +718,19 @@ class CLDEngine {
         return variance;
     }
 
+    nodeFanSigma(fanSigma = 0.25, driverConfidence = 0.90) {
+        const sigma = {};
+        for (const nodeId of Object.keys(this.graph.nodes)) {
+            const inbound = this.graph.edges.filter(edge => edge.to === nodeId);
+            const confidence = inbound.length
+                ? inbound.reduce((sum, edge) => sum + Number(edge.confidence ?? 1), 0) / inbound.length
+                : Number(driverConfidence);
+            const bounded = Math.max(0, Math.min(1, confidence));
+            sigma[nodeId] = Math.max(0, Number(fanSigma) * (1 - bounded));
+        }
+        return sigma;
+    }
+
     /**
      * Monte Carlo simulation with fan paths
      * @param {Object} options - Simulation options
@@ -651,17 +751,26 @@ class CLDEngine {
 
         const fanPaths = [];
         const originalGraph = this.graph;
-        
-        for (let run = 0; run < config.runs; run++) {
-            const perturbedGraph = this.perturbGraphByConfidence(config.sigmaBase);
-            this.graph = perturbedGraph;
-            const result = this.simulateTwoPhase({
-                ...options,
-                steps: config.steps
-            });
-            fanPaths.push(result.history);
+        const sigmaMap = this.nodeFanSigma(config.sigmaBase, options.driverConfidence ?? 0.90);
+        const processNoise = options.processNoise || (({ nodeId, value }) => {
+            const sigma = sigmaMap[nodeId] || 0;
+            return sigma > 0 ? value * (1 + this.gaussianRandom() * sigma) : value;
+        });
+
+        try {
+            for (let run = 0; run < config.runs; run++) {
+                const perturbedGraph = this.perturbGraphByConfidence(config.sigmaBase);
+                this.graph = perturbedGraph;
+                const result = this.simulateTwoPhase({
+                    ...options,
+                    steps: config.steps,
+                    processNoise
+                });
+                fanPaths.push(result.history);
+            }
+        } finally {
+            this.graph = originalGraph;
         }
-        this.graph = originalGraph;
 
         return {
             fanPaths,
@@ -790,11 +899,10 @@ class CLDEngine {
     }
 
     /**
-     * Compute adjacency matrix for stability analysis
-     * @param {number} decayFactor - Edge decay factor
-     * @returns {Object} {matrix, nodes} - Adjacency matrix and node list
+     * Legacy notebook parameter-sweep matrix. This is intentionally distinct
+     * from the runtime linear transition matrix below.
      */
-    computeAdjacencyMatrixStability(decayFactor) {
+    computeUniformSweepTransitionMatrix(decayFactor) {
         const nodes = Object.keys(this.graph.nodes);
         const nodeIndex = {};
         nodes.forEach((node, i) => {
@@ -814,11 +922,33 @@ class CLDEngine {
             const fromIdx = nodeIndex[edge.from];
             const toIdx = nodeIndex[edge.to];
             if (fromIdx !== undefined && toIdx !== undefined) {
-                const correlation = edge.correlation || 1.0;
+                const correlation = edge.correlation ?? 1.0;
                 matrix[toIdx][fromIdx] += decayFactor * correlation;
             }
         }
         
+        return { matrix, nodes };
+    }
+
+    computeAdjacencyMatrixStability(decayFactor) {
+        return this.computeUniformSweepTransitionMatrix(decayFactor);
+    }
+
+    /**
+     * Delay-free linear spectral model of runtime propagation. It uses actual
+     * retention and correlation*(1-decay), while intentionally excluding
+     * delays, bounds, confidence, source/sink formulas, and nonlinear forms.
+     */
+    computeRuntimeLinearTransitionMatrix() {
+        const nodes = Object.keys(this.graph.nodes);
+        const index = Object.fromEntries(nodes.map((node, position) => [node, position]));
+        const matrix = Array.from({ length: nodes.length }, () => Array(nodes.length).fill(0));
+        for (const node of nodes) {
+            matrix[index[node]][index[node]] = this.graph.nodes[node].retention;
+        }
+        for (const edge of this.graph.edges) {
+            matrix[index[edge.to]][index[edge.from]] += edge.correlation * (1 - edge.decay);
+        }
         return { matrix, nodes };
     }
 
@@ -1057,7 +1187,7 @@ class CLDEngine {
                     });
                     
                     // Compute stability metrics
-                    const { matrix } = tempEngine.computeAdjacencyMatrixStability(decay);
+                    const { matrix } = tempEngine.computeUniformSweepTransitionMatrix(decay);
                     const { distanceMetric, maxMagnitude } = tempEngine.analyzeEigenvaluesStability(matrix);
                     
                     // Compute Z-score metrics
@@ -1284,7 +1414,7 @@ class CLDEngine {
      * Generate adjacency matrix
      * @returns {Object} Adjacency matrix and metadata
      */
-    generateAdjacencyMatrix() {
+    generateTopologyAdjacencyMatrix() {
         if (!this.graph) {
             throw new Error('Graph not initialized. Call initializeGraph() first.');
         }
@@ -1311,6 +1441,10 @@ class CLDEngine {
                 density: this.graph.edges.length / (nodeIds.length * (nodeIds.length - 1))
             }
         };
+    }
+
+    generateAdjacencyMatrix() {
+        return this.generateTopologyAdjacencyMatrix();
     }
 
     /**

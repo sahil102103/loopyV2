@@ -1,0 +1,19 @@
+{
+  "schema_version": "flowcld.model.v1",
+  "simulation_contract": "flowcld.simulation.v1",
+  "fixture": "converter_dependencies",
+  "steps": 2,
+  "nodes": [
+    { "name": "Driver", "start_amount": 2, "retention": 1 },
+    { "name": "Double", "start_amount": 0, "retention": 0, "formula": "2 ** 1 * nxt['Driver'] + 0 * Math.E if t >= 0 else Y0" },
+    { "name": "Total", "start_amount": 0, "retention": 0, "formula": "nxt['Double'] + inputs['Driver']" }
+  ],
+  "edges": [
+    { "source": "Driver", "target": "Total", "correlation": 0.5, "decay": 0, "confidence": 1, "delay": 0, "functional_form": "linear" }
+  ],
+  "expected_history": {
+    "Driver": [2, 2, 2],
+    "Double": [0, 4, 4],
+    "Total": [0, 5, 5]
+  }
+}

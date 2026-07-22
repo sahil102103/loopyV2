@@ -1,0 +1,32 @@
+{
+  "schema_version": "flowcld.model.v1",
+  "simulation_contract": "flowcld.simulation.v1",
+  "fixture": "edge_functional_forms",
+  "steps": 2,
+  "nodes": [
+    { "name": "Driver", "start_amount": 2, "retention": 1 },
+    { "name": "Linear", "start_amount": 0, "retention": 0 },
+    { "name": "Tanh", "start_amount": 0, "retention": 0 },
+    { "name": "Quadratic", "start_amount": 0, "retention": 0 },
+    { "name": "Cubic", "start_amount": 0, "retention": 0 },
+    { "name": "Relu", "start_amount": 0, "retention": 0 },
+    { "name": "Step", "start_amount": 0, "retention": 0 }
+  ],
+  "edges": [
+    { "source": "Driver", "target": "Linear", "correlation": 1, "decay": 0, "confidence": 1, "delay": 0, "functional_form": "linear" },
+    { "source": "Driver", "target": "Tanh", "correlation": 1, "decay": 0, "confidence": 1, "delay": 0, "functional_form": "tanh" },
+    { "source": "Driver", "target": "Quadratic", "correlation": 1, "decay": 0, "confidence": 1, "delay": 0, "functional_form": "quadratic" },
+    { "source": "Driver", "target": "Cubic", "correlation": 1, "decay": 0, "confidence": 1, "delay": 0, "functional_form": "cubic" },
+    { "source": "Driver", "target": "Relu", "correlation": 1, "decay": 0, "confidence": 1, "delay": 0, "functional_form": "relu" },
+    { "source": "Driver", "target": "Step", "correlation": 1, "decay": 0, "confidence": 1, "delay": 0, "functional_form": "step" }
+  ],
+  "expected_history": {
+    "Driver": [2, 2, 2],
+    "Linear": [0, 2, 2],
+    "Tanh": [0, 0.9640275800758169, 0.9640275800758169],
+    "Quadratic": [0, 4, 4],
+    "Cubic": [0, 8, 8],
+    "Relu": [0, 2, 2],
+    "Step": [0, 1, 1]
+  }
+}

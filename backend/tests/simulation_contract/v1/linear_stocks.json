@@ -1,0 +1,18 @@
+{
+  "schema_version": "flowcld.model.v1",
+  "simulation_contract": "flowcld.simulation.v1",
+  "fixture": "linear_stocks",
+  "steps": 3,
+  "nodes": [
+    { "name": "A", "start_amount": 1, "retention": 0.5 },
+    { "name": "B", "start_amount": 2, "retention": 0.25 }
+  ],
+  "edges": [
+    { "source": "A", "target": "B", "correlation": 0.8, "decay": 0.5, "confidence": 1, "delay": 0, "functional_form": "linear" },
+    { "source": "B", "target": "A", "correlation": -0.2, "decay": 0, "confidence": 1, "delay": 0, "functional_form": "linear" }
+  ],
+  "expected_history": {
+    "A": [1, 0.1, -0.13, -0.118],
+    "B": [2, 0.9, 0.265, 0.01425]
+  }
+}
