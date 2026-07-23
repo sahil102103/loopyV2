@@ -884,7 +884,7 @@
 						</section>
 						<section>
 							<h4>4. Choose an approach</h4>
-							<p><strong>Greedy baseline</strong> picks the best immediate move. <strong>Learned actor-critic</strong> practices across repeated rounds and estimates longer-term value before the final session.</p>
+							<p><strong>Greedy baseline</strong> picks the best immediate move. <strong>Epsilon-greedy</strong> learns a transparent value for each action family while gradually reducing random exploration. <strong>Learned actor-critic</strong> estimates longer-term value from graph features.</p>
 						</section>
 						</div>
 						<div class="workspace-help-callout"><strong>Color roles:</strong> Green and Blue are cooperative stabilizers. Red and Black are bounded adversaries. A disruptor still targets a healthy state in the form because the reward engine reverses that score. Presets fill editable settings; they do not bypass permissions, costs, budgets, or anti-collapse checks. Autonomous turns search bounded parameter changes and permitted structural motifs, including mediated paths, balancing links, and safe edge removal. Controlled Edits remains available when you want to queue an exact transaction yourself.</div>
@@ -898,6 +898,7 @@
 								<tr><th>Learning window</th><td>How many future steps contribute to each learning update. Five is a practical default.</td></tr>
 								<tr><th>Frozen opponents</th><td>How non-learning teams behave during practice: hold, act randomly, or use a fixed greedy policy.</td></tr>
 									<tr><th>Planning depth</th><td>How far the learned agent looks ahead during the final session. Use 1 first; 2–3 take progressively longer.</td></tr>
+									<tr><th>Epsilon-greedy</th><td>Initial exploration is the chance of trying a random legal move during practice. Minimum exploration is its floor, and decay reduces exploration after each update. Evaluation always uses zero exploration.</td></tr>
 									<tr><th>Goal safeguard</th><td>Final learned moves are checked with the canonical simulator. If a stabilizer stalls before an explicit spectral target, the bounded planner supplies the next permitted retention or decay step; it cannot bypass team permissions.</td></tr>
 									<tr><th>Comparison seeds</th><td>Runs random, greedy, and learned policies on matching scenarios. Three seeds is useful for a first comparison.</td></tr>
 									<tr><th>Maximum spectral radius</th><td>Optional whole-model limit from the notebook transition matrix. Values below 1 are linearly stable; the reward still keeps activity, transmission, and move-cost safeguards.</td></tr>
@@ -1025,21 +1026,30 @@
 				<section class="tm-section" aria-labelledby="tmLearningTitle">
 					<div class="tm-section-heading"><h3 id="tmLearningTitle">Agent approach</h3></div>
 					<div class="tm-builder-grid tm-learning-grid">
-						<label class="se-field"><span>Approach</span><select id="tmAgentStrategy"><option value="greedy">Greedy baseline</option><option value="actor_critic">Learned actor-critic</option></select></label>
+						<label class="se-field"><span>Approach</span><select id="tmAgentStrategy"><option value="greedy">Greedy baseline</option><option value="epsilon_greedy">Epsilon-greedy</option><option value="actor_critic">Learned actor-critic</option></select></label>
 						<label class="se-field tm-learning-field" hidden><span>Learner team</span><select id="tmLearnerTeam"></select></label>
 						<label class="se-field tm-learning-field" hidden><span>Practice rounds</span><input id="tmTrainingEpisodes" type="number" value="20" min="1" max="200" step="1"></label>
 						<label class="se-field tm-learning-field" hidden><span>Moves per round</span><input id="tmTrainingSteps" type="number" value="8" min="1" max="50" step="1"></label>
-						<label class="se-field tm-learning-field" hidden><span>Learning window</span><input id="tmNStep" type="number" value="5" min="1" max="50" step="1"></label>
+						<label class="se-field tm-learning-field tm-actor-field" hidden><span>Learning window</span><input id="tmNStep" type="number" value="5" min="1" max="50" step="1"></label>
 						<label class="se-field tm-learning-field" hidden><span>Frozen opponents</span><select id="tmOpponentMode"><option value="hold">Hold position</option><option value="random">Random policy</option><option value="greedy">Greedy policy</option></select></label>
-						<label class="se-field tm-learning-field" hidden><span>Planning depth</span><input id="tmPlanningDepth" type="number" value="1" min="1" max="3" step="1"></label>
+						<label class="se-field tm-learning-field tm-actor-field" hidden><span>Planning depth</span><input id="tmPlanningDepth" type="number" value="1" min="1" max="3" step="1"></label>
 						<label class="se-field tm-learning-field" hidden><span>Comparison seeds</span><input id="tmEvaluationSeeds" type="number" value="0" min="0" max="5" step="1"></label>
 					</div>
-					<details id="tmLearningAdvanced" class="tm-permissions tm-learning-field" hidden>
+					<details id="tmLearningAdvanced" class="tm-permissions tm-learning-field tm-actor-field" hidden>
 						<summary>Learning settings</summary>
 						<div class="tm-builder-grid">
 							<label class="se-field"><span>Actor rate</span><input id="tmActorLearningRate" type="number" value="0.03" min="0.0001" step="any"></label>
 							<label class="se-field"><span>Critic rate</span><input id="tmCriticLearningRate" type="number" value="0.08" min="0" step="any"></label>
 							<label class="se-field"><span>Exploration</span><input id="tmTrainingTemperature" type="number" value="1" min="0.05" step="any"></label>
+						</div>
+					</details>
+					<details id="tmEpsilonAdvanced" class="tm-permissions tm-learning-field tm-epsilon-field" hidden>
+						<summary>Exploration settings</summary>
+						<div class="tm-builder-grid">
+							<label class="se-field"><span>Initial exploration</span><input id="tmEpsilon" type="number" value="0.25" min="0" max="1" step="any"></label>
+							<label class="se-field"><span>Minimum exploration</span><input id="tmEpsilonMin" type="number" value="0.02" min="0" max="1" step="any"></label>
+							<label class="se-field"><span>Exploration decay</span><input id="tmEpsilonDecay" type="number" value="0.98" min="0.0001" max="1" step="any"></label>
+							<label class="se-field"><span>Learning rate (optional)</span><input id="tmEpsilonLearningRate" type="number" value="" min="0.0001" max="1" step="any" placeholder="Sample average"></label>
 						</div>
 					</details>
 				</section>
@@ -1158,7 +1168,7 @@
 <script src="js/Libraries/minpubsub.js" defer></script>
 <script src="js/Validation/GraphModelGateway.js?v=1" defer></script>
 <script src="js/Validation/LoopyImportGateway.js?v=2" defer></script>
-<script src="js/Validation/TeamRequestGateway.js?v=1" defer></script>
+<script src="js/Validation/TeamRequestGateway.js?v=2" defer></script>
 <script src="js/Libraries/Mouse.js" defer></script>
 <script src="js/Libraries/Key.js" defer></script>
 <script src="js/Core/Loopy.js?v=5" defer></script>
@@ -1191,7 +1201,7 @@
 <script src="js/Tools/StructuralEditor.js?v=5" defer></script>
 <script src="js/Tools/GraphStateAdapter.js?v=3" defer></script>
 <script src="js/Tools/TeamRolePresets.js?v=2" defer></script>
-<script src="js/Tools/TeamWorkspace.js?v=11" defer></script>
+<script src="js/Tools/TeamWorkspace.js?v=12" defer></script>
 <script src="python/cldAnalysis.js" defer></script>
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <script src="js/paramSpace3D.js?v=2" defer></script>

@@ -457,9 +457,16 @@ restore boundary. There is no second persistent graph state.
     }
 
     function toggleLearningFields() {
-        var learned = element("tmAgentStrategy").value === "actor_critic";
+        var strategy = element("tmAgentStrategy").value;
+        var learned = strategy !== "greedy";
         Array.prototype.forEach.call(document.querySelectorAll(".tm-learning-field"), function (field) {
             field.hidden = !learned;
+        });
+        Array.prototype.forEach.call(document.querySelectorAll(".tm-actor-field"), function (field) {
+            field.hidden = strategy !== "actor_critic";
+        });
+        Array.prototype.forEach.call(document.querySelectorAll(".tm-epsilon-field"), function (field) {
+            field.hidden = strategy !== "epsilon_greedy";
         });
     }
 
@@ -526,28 +533,45 @@ restore boundary. There is no second persistent graph state.
                 throw new Error("Agent turns must be an integer from 0 to 100");
             }
             var learning = {};
-            if (strategy === "actor_critic") {
+            if (strategy !== "greedy") {
                 learning = {
                     learner_team_id: element("tmLearnerTeam").value,
                     training_episodes: Number(element("tmTrainingEpisodes").value),
                     training_steps: Number(element("tmTrainingSteps").value),
-                    n_step: Number(element("tmNStep").value),
                     opponent_mode: element("tmOpponentMode").value,
-                    planning_depth: Number(element("tmPlanningDepth").value),
                     evaluation_seeds: Number(element("tmEvaluationSeeds").value),
-                    actor_learning_rate: Number(element("tmActorLearningRate").value),
-                    critic_learning_rate: Number(element("tmCriticLearningRate").value),
-                    training_temperature: Number(element("tmTrainingTemperature").value),
                 };
                 if (!learning.learner_team_id) throw new Error("Select a learner team");
                 if (!Number.isInteger(learning.training_episodes) || learning.training_episodes < 1 || learning.training_episodes > 200) throw new Error("Practice rounds must be from 1 to 200");
                 if (!Number.isInteger(learning.training_steps) || learning.training_steps < 1 || learning.training_steps > 50) throw new Error("Moves per round must be from 1 to 50");
+                if (!Number.isInteger(learning.evaluation_seeds) || learning.evaluation_seeds < 0 || learning.evaluation_seeds > 5) throw new Error("Comparison seeds must be from 0 to 5");
+            }
+            if (strategy === "actor_critic") {
+                Object.assign(learning, {
+                    n_step: Number(element("tmNStep").value),
+                    planning_depth: Number(element("tmPlanningDepth").value),
+                    actor_learning_rate: Number(element("tmActorLearningRate").value),
+                    critic_learning_rate: Number(element("tmCriticLearningRate").value),
+                    training_temperature: Number(element("tmTrainingTemperature").value),
+                });
                 if (!Number.isInteger(learning.n_step) || learning.n_step < 1 || learning.n_step > 50) throw new Error("Learning window must be from 1 to 50");
                 if (!Number.isInteger(learning.planning_depth) || learning.planning_depth < 1 || learning.planning_depth > 3) throw new Error("Planning depth must be from 1 to 3");
-                if (!Number.isInteger(learning.evaluation_seeds) || learning.evaluation_seeds < 0 || learning.evaluation_seeds > 5) throw new Error("Comparison seeds must be from 0 to 5");
                 if (!isFinite(learning.actor_learning_rate) || learning.actor_learning_rate <= 0) throw new Error("Actor rate must be positive");
                 if (!isFinite(learning.critic_learning_rate) || learning.critic_learning_rate < 0) throw new Error("Critic rate cannot be negative");
                 if (!isFinite(learning.training_temperature) || learning.training_temperature <= 0) throw new Error("Exploration must be positive");
+            }
+            if (strategy === "epsilon_greedy") {
+                var epsilonLearningRate = element("tmEpsilonLearningRate").value.trim();
+                Object.assign(learning, {
+                    epsilon: Number(element("tmEpsilon").value),
+                    epsilon_min: Number(element("tmEpsilonMin").value),
+                    epsilon_decay: Number(element("tmEpsilonDecay").value),
+                    epsilon_learning_rate: epsilonLearningRate === "" ? undefined : Number(epsilonLearningRate),
+                });
+                if (!isFinite(learning.epsilon) || learning.epsilon < 0 || learning.epsilon > 1) throw new Error("Initial exploration must be from 0 to 1");
+                if (!isFinite(learning.epsilon_min) || learning.epsilon_min < 0 || learning.epsilon_min > learning.epsilon) throw new Error("Minimum exploration must be from 0 to initial exploration");
+                if (!isFinite(learning.epsilon_decay) || learning.epsilon_decay <= 0 || learning.epsilon_decay > 1) throw new Error("Exploration decay must be greater than 0 and at most 1");
+                if (learning.epsilon_learning_rate !== undefined && (!isFinite(learning.epsilon_learning_rate) || learning.epsilon_learning_rate <= 0 || learning.epsilon_learning_rate > 1)) throw new Error("Epsilon learning rate must be greater than 0 and at most 1");
             }
             button.disabled = true;
             button.textContent = "Running...";
@@ -591,6 +615,10 @@ restore boundary. There is no second persistent graph state.
                 actor_learning_rate: learning.actor_learning_rate,
                 critic_learning_rate: learning.critic_learning_rate,
                 training_temperature: learning.training_temperature,
+                epsilon: learning.epsilon,
+                epsilon_min: learning.epsilon_min,
+                epsilon_decay: learning.epsilon_decay,
+                epsilon_learning_rate: learning.epsilon_learning_rate,
                 agent_turns: agentTurns,
                 protected_nodes: safety.protected_nodes,
                 protected_edges: safety.protected_edges,
@@ -733,7 +761,12 @@ restore boundary. There is no second persistent graph state.
         container.hidden = false;
         var balance = result.model_balance || result.simple_balance;
         var changesGraph = resultChangesGraph();
-        var strategy = balance ? "direct stability planner" : (result.agent_strategy === "actor_critic" ? "learned" : "greedy");
+        var strategyLabels = {
+            greedy: "greedy",
+            epsilon_greedy: "epsilon-greedy",
+            actor_critic: "actor-critic",
+        };
+        var strategy = balance ? "direct stability planner" : (strategyLabels[result.agent_strategy] || result.agent_strategy);
         var summary = result.accepted_moves + " accepted / " + result.rejected_moves + " rejected / " + result.agent_turns + " agent turns / " + strategy + " / session " + result.session_id;
         if (balance) {
             summary += " / spectral radius " + Number(balance.initial_spectral_radius).toFixed(3) + " -> " + Number(balance.final_spectral_radius).toFixed(3);
@@ -812,7 +845,11 @@ restore boundary. There is no second persistent graph state.
         var leagueCopy = learning.league && learning.league.exploitability
             ? " / exploitability proxy " + formatScore(learning.league.exploitability.nash_conv_proxy)
             : "";
-        element("tmLearningSummary").textContent = learning.episodes + " practice rounds / best return " + formatScore(learning.best_return) + " / final return " + formatScore(learning.final_return) + " / planning depth " + learning.planning_depth + " / " + learning.opponent_mode.replace("frozen_", "") + " opponents" + leagueCopy + " / checkpoint " + learning.checkpoint_id;
+        var algorithmDetail = learning.algorithm === "epsilon_greedy_action_values"
+            ? " / final training exploration " + Number(learning.epsilon_final).toFixed(3) +
+                " / " + Object.keys(learning.learned_values || {}).length + " learned action families"
+            : " / planning depth " + learning.planning_depth;
+        element("tmLearningSummary").textContent = learning.episodes + " practice rounds / best return " + formatScore(learning.best_return) + " / final return " + formatScore(learning.final_return) + algorithmDetail + " / " + learning.opponent_mode.replace("frozen_", "") + " opponents" + leagueCopy + " / checkpoint " + learning.checkpoint_id;
         var benchmark = learning.benchmark && learning.benchmark.curves;
         element("tmBenchmarkBody").innerHTML = benchmark ? Object.keys(benchmark).map(function (name) {
             return '<tr><td>' + escapeHtml(name) + '</td><td>' + formatScore(benchmark[name].overall_mean) + '</td></tr>';

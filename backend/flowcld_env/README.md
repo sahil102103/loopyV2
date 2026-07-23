@@ -99,8 +99,9 @@ The Team Session backend accepts `agent_strategy: "epsilon_greedy"` with
 `learner_team_id`, `training_episodes`, `training_steps`, `epsilon`,
 `epsilon_min`, `epsilon_decay`, and optional `epsilon_learning_rate`. It does
 not use the actor-critic simulator guard, so its deployed choices expose the
-learned table directly. The browser does not yet expose this experimental
-strategy as a Team Workspace control.
+learned table directly. Team Workspace exposes the strategy under **Agent
+approach**, including its practice-round, frozen-opponent, exploration-decay,
+and optional fixed-learning-rate controls.
 
 ## Parameter-search baseline
 

@@ -141,6 +141,49 @@ test("validates actor-critic limits and learner references", () => {
     assert.ok(result.issues.length >= 8);
 });
 
+test("validates and normalizes epsilon-greedy learning settings", () => {
+    const value = request();
+    Object.assign(value, {
+        agent_strategy: "epsilon_greedy",
+        learner_team_id: "blue",
+        training_episodes: 30,
+        training_steps: 6,
+        opponent_mode: "greedy",
+        evaluation_seeds: 2,
+        epsilon: 0.4,
+        epsilon_min: 0.05,
+        epsilon_decay: 0.95,
+        epsilon_learning_rate: 0.2,
+    });
+    const result = Gateway.validateTeamSessionRequest(value);
+    assert.equal(result.ok, true, Gateway.formatIssues(result));
+    assert.equal(result.value.agent_strategy, "epsilon_greedy");
+    assert.equal(result.value.epsilon, 0.4);
+    assert.equal(result.value.epsilon_min, 0.05);
+    assert.equal(result.value.epsilon_decay, 0.95);
+    assert.equal(result.value.epsilon_learning_rate, 0.2);
+    assert.equal(result.value.n_step, undefined);
+    assert.equal(result.value.planning_depth, undefined);
+});
+
+test("rejects invalid epsilon-greedy exploration bounds", () => {
+    const value = request();
+    Object.assign(value, {
+        agent_strategy: "epsilon_greedy",
+        learner_team_id: "blue",
+        epsilon: 0.2,
+        epsilon_min: 0.3,
+        epsilon_decay: 0,
+        epsilon_learning_rate: 2,
+    });
+    const result = Gateway.validateTeamSessionRequest(value);
+    assert.equal(result.ok, false);
+    const codes = new Set(result.issues.map((issue) => issue.code));
+    assert.ok(codes.has("epsilon_min_range"));
+    assert.ok(codes.has("epsilon_decay_range"));
+    assert.ok(codes.has("epsilon_learning_rate_range"));
+});
+
 test("rejects malformed structural edit values before transport", () => {
     const value = request();
     value.moves = [{

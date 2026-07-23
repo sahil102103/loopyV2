@@ -10,7 +10,7 @@ namespace TeamRequestGateway {
     export const EDGE_PARAMETERS = ["decay", "delay", "confidence", "correlation"] as const;
     export const STRUCTURAL_ACTIONS = ["add_node", "remove_node", "add_edge", "remove_edge"] as const;
     export const MUTATION_MODES = ["set", "delta"] as const;
-    export const AGENT_STRATEGIES = ["greedy", "actor_critic"] as const;
+    export const AGENT_STRATEGIES = ["greedy", "epsilon_greedy", "actor_critic"] as const;
     export const OPPONENT_MODES = ["hold", "random", "greedy"] as const;
 
     export type Orientation = typeof ORIENTATIONS[number];
@@ -145,6 +145,10 @@ namespace TeamRequestGateway {
         actor_learning_rate?: number;
         critic_learning_rate?: number;
         training_temperature?: number;
+        epsilon?: number;
+        epsilon_min?: number;
+        epsilon_decay?: number;
+        epsilon_learning_rate?: number;
     }
 
     const orientationSet: ReadonlySet<string> = new Set(ORIENTATIONS);
@@ -678,22 +682,36 @@ namespace TeamRequestGateway {
             iterations: integer(input.iterations, "iterations", issues, 1, 200, 50),
             seed: integer(input.seed, "seed", issues, Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, 42),
         };
-        if (strategy === "actor_critic") {
+        if (strategy !== "greedy") {
             const learner = requiredText(input.learner_team_id, "learner_team_id", issues);
             if (learner && !teamById.has(learner)) addIssue(issues, "learner_team_id", "missing_team", `Unknown learner team: ${learner}`);
             request.learner_team_id = learner;
             request.training_episodes = integer(input.training_episodes, "training_episodes", issues, 1, 200, 20);
             request.training_steps = integer(input.training_steps, "training_steps", issues, 1, 50, 8);
-            request.n_step = integer(input.n_step, "n_step", issues, 1, 50, 5);
             request.opponent_mode = enumText(input.opponent_mode ?? "hold", "opponent_mode", opponentModeSet, OPPONENT_MODES, issues, "hold");
-            request.planning_depth = integer(input.planning_depth, "planning_depth", issues, 1, 3, 1);
             request.evaluation_seeds = integer(input.evaluation_seeds, "evaluation_seeds", issues, 0, 5, 0);
+        }
+        if (strategy === "actor_critic") {
+            request.n_step = integer(input.n_step, "n_step", issues, 1, 50, 5);
+            request.planning_depth = integer(input.planning_depth, "planning_depth", issues, 1, 3, 1);
             request.actor_learning_rate = finiteNumber(input.actor_learning_rate, "actor_learning_rate", issues, 0.03);
             request.critic_learning_rate = finiteNumber(input.critic_learning_rate, "critic_learning_rate", issues, 0.08);
             request.training_temperature = finiteNumber(input.training_temperature, "training_temperature", issues, 1);
             if (request.actor_learning_rate <= 0) addIssue(issues, "actor_learning_rate", "positive", "Actor rate must be positive");
             if (request.critic_learning_rate < 0) addIssue(issues, "critic_learning_rate", "nonnegative", "Critic rate cannot be negative");
             if (request.training_temperature <= 0) addIssue(issues, "training_temperature", "positive", "Exploration temperature must be positive");
+        }
+        if (strategy === "epsilon_greedy") {
+            request.epsilon = finiteNumber(input.epsilon, "epsilon", issues, 0.25);
+            request.epsilon_min = finiteNumber(input.epsilon_min, "epsilon_min", issues, 0.02);
+            request.epsilon_decay = finiteNumber(input.epsilon_decay, "epsilon_decay", issues, 0.98);
+            if (request.epsilon < 0 || request.epsilon > 1) addIssue(issues, "epsilon", "epsilon_range", "Initial exploration must be between 0 and 1");
+            if (request.epsilon_min < 0 || request.epsilon_min > request.epsilon) addIssue(issues, "epsilon_min", "epsilon_min_range", "Minimum exploration must be between 0 and initial exploration");
+            if (request.epsilon_decay <= 0 || request.epsilon_decay > 1) addIssue(issues, "epsilon_decay", "epsilon_decay_range", "Exploration decay must be greater than 0 and at most 1");
+            if (input.epsilon_learning_rate !== undefined && input.epsilon_learning_rate !== null && input.epsilon_learning_rate !== "") {
+                request.epsilon_learning_rate = finiteNumber(input.epsilon_learning_rate, "epsilon_learning_rate", issues);
+                if (request.epsilon_learning_rate <= 0 || request.epsilon_learning_rate > 1) addIssue(issues, "epsilon_learning_rate", "epsilon_learning_rate_range", "Learning rate must be greater than 0 and at most 1");
+            }
         }
         return { ok: issues.length === 0, value: issues.length === 0 ? request : null, issues };
     }
